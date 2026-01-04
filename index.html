@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0b4aa2">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="theme-color" content="#0b4aa2" />
 <title>Ford Property Services – Completion Report</title>
 
 <style>
@@ -29,7 +29,7 @@ header{
 }
 header .t{font-weight:900;font-size:16px;line-height:1.1}
 header .s{opacity:.9;font-size:12px;margin-top:4px}
-main{max-width:880px;margin:0 auto;padding:14px}
+main{max-width:920px;margin:0 auto;padding:14px}
 .card{
   background:var(--card);
   border:1px solid var(--border);
@@ -49,7 +49,6 @@ input, textarea{
   background:#fff;
 }
 textarea{min-height:100px;resize:vertical}
-
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:640px){.row{grid-template-columns:1fr}}
 
@@ -59,12 +58,10 @@ textarea{min-height:100px;resize:vertical}
   gap:10px;
   margin-top:10px;
   font-size:14px;
-  font-weight:700;
+  font-weight:750;
   color:#1b2433;
 }
-.tickrow input{
-  width:20px;height:20px;margin:0;
-}
+.tickrow input{width:20px;height:20px;margin:0}
 
 .photoGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:640px){.photoGrid{grid-template-columns:1fr}}
@@ -98,6 +95,18 @@ button.ghost{
 }
 
 .small{font-size:12px;color:var(--muted)}
+.sigWrap{
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:#fff;
+}
+#sig{
+  width:100%;
+  height:180px;
+  display:block;
+  touch-action:none;
+}
 </style>
 </head>
 
@@ -108,92 +117,25 @@ button.ghost{
 </header>
 
 <main>
-
-<div class="card">
-  <div class="small">Tip: In Chrome tap <b>⋮</b> → <b>Add to Home screen</b> to install.</div>
-</div>
-
-<div class="card">
-  <h3>Job Details</h3>
-
-  <label>Letting Agent</label>
-  <input id="agent" placeholder="e.g. ABC Lettings">
-
-  <label>Property Address</label>
-  <input id="address" placeholder="e.g. 12 High St, London">
-
-  <div class="row">
-    <div>
-      <label>Job Reference</label>
-      <input id="ref" placeholder="e.g. FPS-00123">
-    </div>
-    <div>
-      <label>Date Completed</label>
-      <input id="date" type="date">
-    </div>
+  <div class="card">
+    <div class="small">Tip: In Chrome tap <b>⋮</b> → <b>Add to Home screen</b> to install.</div>
   </div>
 
-  <label>Works Carried Out</label>
-  <textarea id="works" placeholder="Describe works carried out, parts fitted, tests done, etc."></textarea>
+  <div class="card">
+    <h3>Job Details</h3>
 
-  <div class="tickrow">
-    <input type="checkbox" id="beforeTick">
-    <label for="beforeTick" style="margin:0">Before photos taken</label>
-  </div>
+    <label>Letting Agent</label>
+    <input id="agent" placeholder="e.g. ABC Lettings">
 
-  <div class="tickrow">
-    <input type="checkbox" id="afterTick">
-    <label for="afterTick" style="margin:0">After photos taken</label>
-  </div>
+    <label>Property Address</label>
+    <input id="address" placeholder="e.g. 12 High St, London">
 
-  <label>Extra Photo / Video Attachments (file names)</label>
-  <textarea id="attachments" placeholder="IMG_1021.jpg – Before; VID_0004.mp4 – Leak test"></textarea>
-</div>
-
-<div class="card">
-  <h3>Photos</h3>
-
-  <div class="photoGrid">
-    <div>
-      <label>Before Photos</label>
-      <div class="btns">
-        <button class="ghost" type="button" id="beforeGallery">Choose photos</button>
-        <button class="ghost" type="button" id="beforeCamera">Take photo</button>
+    <div class="row">
+      <div>
+        <label>Job Reference</label>
+        <input id="ref" placeholder="e.g. FPS-00123">
       </div>
-      <input id="beforePick" type="file" accept="image/*" multiple hidden>
-      <input id="beforeCam" type="file" accept="image/*" capture="environment" multiple hidden>
-      <div id="beforeThumbs" class="thumbs"></div>
-    </div>
-
-    <div>
-      <label>After Photos</label>
-      <div class="btns">
-        <button class="ghost" type="button" id="afterGallery">Choose photos</button>
-        <button class="ghost" type="button" id="afterCamera">Take photo</button>
+      <div>
+        <label>Date Completed</label>
+        <input id="date" type="date">
       </div>
-      <input id="afterPick" type="file" accept="image/*" multiple hidden>
-      <input id="afterCam" type="file" accept="image/*" capture="environment" multiple hidden>
-      <div id="afterThumbs" class="thumbs"></div>
-    </div>
-  </div>
-
-  <div class="small" style="margin-top:10px">
-    Photos stay on your phone until you generate the PDF. (PDF includes up to 6 Before + 6 After.)
-  </div>
-</div>
-
-<div class="card">
-  <h3>Export</h3>
-  <div class="row">
-    <button class="ghost" type="button" id="clearBtn">Clear</button>
-    <button class="primary" type="button" id="pdfBtn">Generate PDF</button>
-  </div>
-  <div class="small" style="margin-top:10px">
-    Android will open Print → choose <b>Save as PDF</b> → then share the saved file.
-  </div>
-</div>
-
-<script src="app.js"></script>
-</main>
-</body>
-</html>
