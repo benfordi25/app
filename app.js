@@ -66,21 +66,20 @@ function resizeCanvas() {
   canvas.width = Math.round(rect.width * dpr);
   canvas.height = Math.round(rect.height * dpr);
 
-  // reset transform then scale
   ctx.setTransform(1,0,0,1,0,0);
   ctx.scale(dpr, dpr);
 
   redrawSig();
 }
 window.addEventListener("resize", resizeCanvas);
-setTimeout(resizeCanvas, 50);
+setTimeout(resizeCanvas, 60);
 
 function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   const t = e.touches ? e.touches[0] : null;
-  const x = (t ? t.clientX : e.clientX) - rect.left;
-  const y = (t ? t.clientY : e.clientY) - rect.top;
-  return { x, y };
+  const clientX = t ? t.clientX : e.clientX;
+  const clientY = t ? t.clientY : e.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
 }
 
 function startDraw(e) {
@@ -142,6 +141,27 @@ function photoGridHTML(dataUrls) {
   return dataUrls.map(src => `<div class="ph"><img src="${src}"></div>`).join("");
 }
 
+// ---------------- Report ID: UK Date + Random (never resets) ----------------
+function ukDateParts(d=new Date()){
+  const dd = String(d.getDate()).padStart(2,"0");
+  const mm = String(d.getMonth()+1).padStart(2,"0");
+  const yyyy = d.getFullYear();
+  return { dd, mm, yyyy };
+}
+function randomCode(len=5){
+  // avoids confusing characters
+  const chars = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+  let out = "";
+  const arr = new Uint32Array(len);
+  (crypto?.getRandomValues ? crypto.getRandomValues(arr) : arr.fill(Math.floor(Math.random()*0xffffffff)));
+  for (let i=0;i<len;i++) out += chars[arr[i] % chars.length];
+  return out;
+}
+function makeReportId(){
+  const {dd, mm, yyyy} = ukDateParts(new Date());
+  return `FPS-${dd}-${mm}-${yyyy}-${randomCode(5)}`;
+}
+
 // ---------------- Clear ----------------
 clearBtn.onclick = () => {
   ["agent","address","ref","date","works","attachments"].forEach(id => $(id).value = "");
@@ -162,17 +182,13 @@ clearBtn.onclick = () => {
 };
 
 // ---------------- Professional PDF Export ----------------
-function makeReportId() {
-  return "FPS-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-}
-
 pdfBtn.onclick = async () => {
   const beforeImgs = await filesToDataURLs(state.before, 6);
   const afterImgs  = await filesToDataURLs(state.after, 6);
   const sig = signatureDataUrl();
 
   const reportId = makeReportId();
-  const finalised = new Date().toLocaleString();
+  const finalised = new Date().toLocaleString("en-GB"); // UK style date/time
 
   const w = window.open("", "_blank");
   if (!w) {
@@ -186,7 +202,7 @@ pdfBtn.onclick = async () => {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Completion Report</title>
+<title>Condition Report</title>
 <style>
   :root { --brand:#0b4aa2; --border:#cfd7e6; --muted:#5b667a; }
   body{font-family:Arial,Helvetica,sans-serif;margin:22px;color:#111}
@@ -218,7 +234,7 @@ pdfBtn.onclick = async () => {
 <div class="hdr">
   <div>
     <p class="name">FORD PROPERTY SERVICES</p>
-    <p class="sub">Property Maintenance – Completion Report</p>
+    <p class="sub">Condition Report</p>
   </div>
   <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end">
     <div class="stamp">FINAL / COMPLETED</div>
@@ -268,7 +284,7 @@ pdfBtn.onclick = async () => {
 </div>
 
 <div class="section">
-  <p class="stitle">Works Carried Out</p>
+  <p class="stitle">Works / Condition Notes</p>
   <table>
     <tr><td><div class="val" style="font-weight:600">${nl2br(works.value) || "&nbsp;"}</div></td></tr>
   </table>
