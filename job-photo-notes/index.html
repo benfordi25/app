@@ -1,1 +1,646 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Ford Property Services • Job Photo Notes</title>
 
+  <!-- PWA -->
+  <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --text:#e7eefc;
+      --muted:#a9b7d3;
+      --line:rgba(255,255,255,.14);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+      --radius2: 14px;
+      --ok: rgba(34,197,94,.9);
+      --warn: rgba(245,158,11,.9);
+      --bad: rgba(239,68,68,.9);
+      --blue: rgba(74,163,255,.95);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(74,163,255,.20), transparent 60%),
+        radial-gradient(1000px 600px at 100% 0%, rgba(34,197,94,.12), transparent 55%),
+        var(--bg);
+      color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:10;
+      background: rgba(11,18,32,.84);
+      backdrop-filter: blur(10px);
+      border-bottom:1px solid var(--line);
+    }
+    .wrap{max-width:980px;margin:0 auto;padding:14px 16px}
+    .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
+    .brand{display:flex; align-items:center; gap:12px;}
+
+    .logo{
+      width:56px;height:56px;border-radius:14px;
+      background: rgba(255,255,255,.92);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow: var(--shadow);
+      display:grid; place-items:center;
+      overflow:hidden;
+      cursor:pointer;
+      padding:7px;
+    }
+    .logo img{width:100%;height:100%;object-fit:contain;display:none}
+
+    .brand h1{margin:0;font-size:16px;line-height:1.1}
+    .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+
+    main{max-width:980px;margin:0 auto;padding:16px}
+    .card{
+      background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .stack{display:grid;gap:14px}
+
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .pill{
+      display:inline-flex;gap:8px;align-items:center;
+      padding:8px 10px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      font-size:12px;color:var(--muted);
+    }
+    .pill strong{color:var(--text)}
+    button{
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:900;
+    }
+    button.primary{
+      background: linear-gradient(135deg, var(--blue), rgba(74,163,255,.35));
+      border-color: rgba(74,163,255,.5);
+    }
+    button.danger{
+      background: linear-gradient(135deg, var(--bad), rgba(239,68,68,.25));
+      border-color: rgba(239,68,68,.45);
+    }
+    button.ok{
+      background: linear-gradient(135deg, var(--ok), rgba(34,197,94,.25));
+      border-color: rgba(34,197,94,.45);
+    }
+    button.warn{
+      background: linear-gradient(135deg, var(--warn), rgba(245,158,11,.25));
+      border-color: rgba(245,158,11,.45);
+    }
+
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px}
+    input, textarea{
+      width:100%;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      outline:none;
+    }
+    textarea{min-height:90px;resize:vertical}
+    .hint{color:var(--muted);font-size:12px;margin:8px 0 0}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+
+    .grid2{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:720px){ .grid2{grid-template-columns:1fr 1fr} }
+
+    .sectionTitle{
+      font-weight:950; letter-spacing:.4px; font-size:12px;
+      color: var(--text); opacity:.95;
+      margin:2px 0 10px; text-transform:uppercase;
+    }
+
+    .photoControls{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      border-radius: var(--radius2);
+      padding:10px;
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+    }
+
+    .photos{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+
+    .photoCard{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      border-radius: var(--radius2);
+      padding:10px;
+      overflow:hidden;
+    }
+    .photoTop{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .idx{font-weight:950}
+    .mini{
+      font-size:12px;color:var(--muted)
+    }
+    .photoGrid{
+      display:grid;
+      grid-template-columns: 120px 1fr;
+      gap:10px;
+      align-items:start;
+    }
+    @media(min-width:720px){
+      .photoGrid{ grid-template-columns: 180px 1fr; }
+    }
+    .thumb{
+      width:120px;height:120px;border-radius:14px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.2);
+    }
+    @media(min-width:720px){
+      .thumb{ width:180px;height:180px; }
+    }
+    .thumb img{width:100%;height:100%;object-fit:cover}
+
+    .noteActions{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px;
+    }
+    .micStatus{
+      font-size:12px;
+      color: var(--muted);
+      padding:8px 10px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      border-radius:999px;
+    }
+
+    .toast{
+      display:none;
+      margin-top:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size:12px;
+    }
+    footer{color:var(--muted);text-align:center;padding:18px 10px 30px;font-size:12px}
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo" id="logoBox" title="Tap to upload logo">
+          <span id="logoFallback" style="font-weight:950;letter-spacing:.4px;color:#0b1220;">FPS</span>
+          <img id="logoImg" alt="Company logo" />
+        </div>
+        <div>
+          <h1>Ford Property Services</h1>
+          <p>Job Photo Notes</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="pill"><strong>Job ID:</strong> <span id="jobIdText"></span></span>
+        <span class="pill"><strong>Photos:</strong> <span id="photoCount">0</span></span>
+        <button id="newJobBtn" class="danger" type="button">New Job</button>
+        <button id="saveBtn" class="ok" type="button">Save Draft</button>
+        <button id="loadBtn" type="button">Load Draft</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<input id="logoInput" type="file" accept="image/*" style="display:none" />
+
+<main>
+  <div class="card stack">
+
+    <div>
+      <div class="sectionTitle">Job Details</div>
+      <div class="grid2">
+        <div>
+          <label>Letting Agent</label>
+          <input id="lettingAgent" placeholder="e.g., Romans" />
+        </div>
+        <div>
+          <label>Job Reference</label>
+          <input id="jobRef" placeholder="Optional" />
+        </div>
+        <div style="grid-column:1/-1">
+          <label>Property Address</label>
+          <input id="propertyAddress" placeholder="Full address" />
+        </div>
+      </div>
+      <div class="hint">Tip: This app is just for collecting photos + notes. Your report apps stay separate.</div>
+    </div>
+
+    <div>
+      <div class="sectionTitle">Add Photos</div>
+      <div class="photoControls">
+        <div class="row">
+          <button id="galleryBtn" type="button">Add from Gallery</button>
+          <button id="cameraBtn" type="button">Take Photo</button>
+          <input id="galleryInput" type="file" accept="image/*" multiple style="display:none" />
+          <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none" />
+        </div>
+
+        <div class="row">
+          <span class="micStatus" id="globalMicStatus">Voice: Idle</span>
+          <button id="globalDictateBtn" class="warn" type="button">Dictate (Append to General Notes)</button>
+        </div>
+      </div>
+
+      <label style="margin-top:10px">General Job Notes</label>
+      <textarea id="generalNotes" placeholder="General notes for the job..."></textarea>
+
+      <div class="toast" id="toast"></div>
+    </div>
+
+    <div>
+      <div class="sectionTitle">Photos & Notes</div>
+      <div id="photos" class="photos"></div>
+      <div class="hint" id="emptyHint">No photos added yet.</div>
+    </div>
+
+  </div>
+</main>
+
+<footer>Ford Property Services • Job Photo Notes</footer>
+
+<script>
+  // PWA Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+  }
+
+  // Helpers
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function makeJobId(){
+    const d = new Date();
+    const dd = pad2(d.getDate());
+    const mm = pad2(d.getMonth()+1);
+    const yyyy = d.getFullYear();
+    const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    let tail = "";
+    for(let i=0;i<5;i++) tail += letters[Math.floor(Math.random()*letters.length)];
+    return `JOB-${dd}-${mm}-${yyyy}-${tail}`;
+  }
+
+  function showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(showToast._tm);
+    showToast._tm = setTimeout(()=> t.style.display='none', 2600);
+  }
+
+  async function fileToDataURL(file, maxDim=1600, quality=0.82){
+    const img = await new Promise((res, rej)=>{
+      const i = new Image();
+      i.onload=()=>res(i);
+      i.onerror=rej;
+      i.src = URL.createObjectURL(file);
+    });
+    const canvas = document.createElement('canvas');
+    let {width:w, height:h} = img;
+    const scale = Math.min(1, maxDim / Math.max(w,h));
+    w = Math.round(w*scale); h = Math.round(h*scale);
+    canvas.width=w; canvas.height=h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img,0,0,w,h);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    URL.revokeObjectURL(img.src);
+    return dataUrl;
+  }
+
+  // Elements
+  const jobIdText = document.getElementById('jobIdText');
+  const photoCount = document.getElementById('photoCount');
+  const photosEl = document.getElementById('photos');
+  const emptyHint = document.getElementById('emptyHint');
+
+  const lettingAgent = document.getElementById('lettingAgent');
+  const jobRef = document.getElementById('jobRef');
+  const propertyAddress = document.getElementById('propertyAddress');
+  const generalNotes = document.getElementById('generalNotes');
+
+  const galleryBtn = document.getElementById('galleryBtn');
+  const cameraBtn = document.getElementById('cameraBtn');
+  const galleryInput = document.getElementById('galleryInput');
+  const cameraInput = document.getElementById('cameraInput');
+
+  const newJobBtn = document.getElementById('newJobBtn');
+  const saveBtn = document.getElementById('saveBtn');
+  const loadBtn = document.getElementById('loadBtn');
+
+  const logoBox = document.getElementById('logoBox');
+  const logoInput = document.getElementById('logoInput');
+  const logoImg = document.getElementById('logoImg');
+  const logoFallback = document.getElementById('logoFallback');
+
+  const globalDictateBtn = document.getElementById('globalDictateBtn');
+  const globalMicStatus = document.getElementById('globalMicStatus');
+
+  // State
+  const state = {
+    jobId: makeJobId(),
+    photos: [], // { dataUrl, note }
+  };
+
+  // Shared logo storage used by your other apps too
+  const savedLogo = localStorage.getItem('fps_logo_v1');
+  if(savedLogo){
+    logoImg.src = savedLogo;
+    logoImg.style.display = 'block';
+    logoFallback.style.display = 'none';
+  }
+
+  function updateHeader(){
+    jobIdText.textContent = state.jobId;
+    photoCount.textContent = String(state.photos.length);
+  }
+  updateHeader();
+
+  // Logo upload
+  logoBox.addEventListener('click', ()=> logoInput.click());
+  logoInput.addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const dataUrl = await fileToDataURL(file, 900, 0.90);
+    logoImg.src = dataUrl;
+    logoImg.style.display = 'block';
+    logoFallback.style.display = 'none';
+    localStorage.setItem('fps_logo_v1', dataUrl);
+    showToast('Logo saved on this device.');
+  });
+
+  // Speech recognition (Voice dictation)
+  // Works best in Chrome on Android. Not supported on all browsers.
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function canDictate(){ return !!SpeechRecognition; }
+
+  function startDictation({ onText, onStatus, lang = 'en-GB' }){
+    if(!canDictate()){
+      alert("Voice dictation isn't supported on this browser. Use Chrome on Android.");
+      return null;
+    }
+    const rec = new SpeechRecognition();
+    rec.lang = lang;
+    rec.interimResults = true;
+    rec.continuous = true;
+
+    let finalText = "";
+
+    rec.onstart = ()=> onStatus && onStatus("Listening…");
+    rec.onerror = (e)=> onStatus && onStatus("Error: " + (e.error || "unknown"));
+    rec.onend = ()=> onStatus && onStatus("Idle");
+
+    rec.onresult = (event)=>{
+      let interim = "";
+      for(let i=event.resultIndex; i<event.results.length; i++){
+        const res = event.results[i];
+        const txt = res[0].transcript;
+        if(res.isFinal) finalText += txt + " ";
+        else interim += txt;
+      }
+      const combined = (finalText + interim).trim();
+      onText && onText(combined, { finalText, interim });
+    };
+
+    rec.start();
+    return rec;
+  }
+
+  // Render photos list
+  function render(){
+    updateHeader();
+    photosEl.innerHTML = "";
+    emptyHint.style.display = state.photos.length ? "none" : "block";
+
+    state.photos.forEach((p, idx)=>{
+      const card = document.createElement('div');
+      card.className = 'photoCard';
+
+      const top = document.createElement('div');
+      top.className = 'photoTop';
+      top.innerHTML = `
+        <div>
+          <div class="idx">Photo ${idx+1}</div>
+          <div class="mini">Tap mic to dictate notes for this photo</div>
+        </div>
+        <div class="row">
+          <button type="button" class="danger">Remove</button>
+        </div>
+      `;
+      const removeBtn = top.querySelector('button');
+      removeBtn.addEventListener('click', ()=>{
+        state.photos.splice(idx,1);
+        render();
+      });
+
+      const grid = document.createElement('div');
+      grid.className = 'photoGrid';
+
+      const thumb = document.createElement('div');
+      thumb.className = 'thumb';
+      const img = document.createElement('img');
+      img.src = p.dataUrl;
+      thumb.appendChild(img);
+
+      const right = document.createElement('div');
+
+      const label = document.createElement('label');
+      label.textContent = "Notes for this photo";
+      const ta = document.createElement('textarea');
+      ta.value = p.note || "";
+      ta.placeholder = "Type notes for this photo...";
+      ta.addEventListener('input', ()=>{ p.note = ta.value; });
+
+      const actions = document.createElement('div');
+      actions.className = 'noteActions';
+
+      const micStatus = document.createElement('span');
+      micStatus.className = 'micStatus';
+      micStatus.textContent = canDictate() ? "Voice: Idle" : "Voice: Not supported";
+
+      const micBtn = document.createElement('button');
+      micBtn.type = "button";
+      micBtn.className = "warn";
+      micBtn.textContent = "Dictate to this photo";
+
+      const stopBtn = document.createElement('button');
+      stopBtn.type = "button";
+      stopBtn.textContent = "Stop";
+      stopBtn.disabled = true;
+
+      let rec = null;
+
+      micBtn.addEventListener('click', ()=>{
+        if(!canDictate()) return;
+        micBtn.disabled = true;
+        stopBtn.disabled = false;
+
+        const original = (ta.value || "").trim();
+        rec = startDictation({
+          onStatus: (s)=> micStatus.textContent = "Voice: " + s,
+          onText: (txt)=>{
+            // Append live text after existing content
+            const base = original ? (original + " ") : "";
+            const combined = (base + txt).trim();
+            ta.value = combined;
+            p.note = combined;
+          }
+        });
+      });
+
+      stopBtn.addEventListener('click', ()=>{
+        try{ rec && rec.stop(); }catch(e){}
+        rec = null;
+        micBtn.disabled = false;
+        stopBtn.disabled = true;
+      });
+
+      actions.appendChild(micStatus);
+      actions.appendChild(micBtn);
+      actions.appendChild(stopBtn);
+
+      right.appendChild(label);
+      right.appendChild(ta);
+      right.appendChild(actions);
+
+      grid.appendChild(thumb);
+      grid.appendChild(right);
+
+      card.appendChild(top);
+      card.appendChild(grid);
+      photosEl.appendChild(card);
+    });
+  }
+
+  render();
+
+  // Add photos
+  async function addPhotos(files){
+    const arr = Array.from(files || []);
+    for(const f of arr){
+      const dataUrl = await fileToDataURL(f, 1600, 0.82);
+      state.photos.push({ dataUrl, note: "" });
+    }
+    render();
+  }
+
+  galleryBtn.addEventListener('click', ()=> galleryInput.click());
+  cameraBtn.addEventListener('click', ()=> cameraInput.click());
+
+  galleryInput.addEventListener('change', async (e)=>{
+    await addPhotos(e.target.files);
+    galleryInput.value = "";
+  });
+  cameraInput.addEventListener('change', async (e)=>{
+    await addPhotos(e.target.files);
+    cameraInput.value = "";
+  });
+
+  // Global dictation to General Notes
+  let globalRec = null;
+  globalDictateBtn.addEventListener('click', ()=>{
+    if(!canDictate()) {
+      alert("Voice dictation isn't supported on this browser. Use Chrome on Android.");
+      return;
+    }
+    if(globalRec){
+      try{ globalRec.stop(); }catch(e){}
+      globalRec = null;
+      globalMicStatus.textContent = "Voice: Idle";
+      globalDictateBtn.textContent = "Dictate (Append to General Notes)";
+      return;
+    }
+
+    const original = (generalNotes.value || "").trim();
+    globalDictateBtn.textContent = "Stop Dictation";
+    globalRec = startDictation({
+      onStatus: (s)=> globalMicStatus.textContent = "Voice: " + s,
+      onText: (txt)=>{
+        const base = original ? (original + " ") : "";
+        generalNotes.value = (base + txt).trim();
+      }
+    });
+  });
+
+  // Save/Load draft
+  const STORAGE_KEY = "fps_job_photo_notes_v1";
+
+  function collectDraft(){
+    return {
+      jobId: state.jobId,
+      fields: {
+        lettingAgent: lettingAgent.value || "",
+        jobRef: jobRef.value || "",
+        propertyAddress: propertyAddress.value || "",
+        generalNotes: generalNotes.value || ""
+      },
+      photos: state.photos
+    };
+  }
+
+  function applyDraft(d){
+    if(!d) return;
+    state.jobId = d.jobId || makeJobId();
+    lettingAgent.value = d.fields?.lettingAgent ?? "";
+    jobRef.value = d.fields?.jobRef ?? "";
+    propertyAddress.value = d.fields?.propertyAddress ?? "";
+    generalNotes.value = d.fields?.generalNotes ?? "";
+    state.photos = d.photos || [];
+    render();
+    showToast("Draft loaded.");
+  }
+
+  saveBtn.addEventListener('click', ()=>{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectDraft()));
+    showToast("Draft saved on this device.");
+  });
+
+  loadBtn.addEventListener('click', ()=>{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw){ alert("No saved draft found."); return; }
+    applyDraft(JSON.parse(raw));
+  });
+
+  // New job
+  newJobBtn.addEventListener('click', ()=>{
+    if(!confirm("Start a new job? This clears photos + notes (logo stays).")) return;
+    state.jobId = makeJobId();
+    state.photos = [];
+    lettingAgent.value = "";
+    jobRef.value = "";
+    propertyAddress.value = "";
+    generalNotes.value = "";
+    render();
+    showToast("New job started.");
+  });
+
+  // Warn if dictation is not supported
+  if(!canDictate()){
+    showToast("Voice dictation not supported here. Use Chrome on Android for dictation.");
+  }
+</script>
+</body>
+</html>
