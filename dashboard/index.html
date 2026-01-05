@@ -7,8 +7,6 @@
 
   <meta name="theme-color" content="#0b1220" />
   <link rel="manifest" href="manifest.webmanifest">
-
-  <!-- If you already have icons in jobs-board/icons, this works without uploading anything new -->
   <link rel="apple-touch-icon" href="../jobs-board/icons/icon-192.png">
 
   <style>
@@ -19,11 +17,6 @@
       --line:rgba(255,255,255,.14);
       --shadow: 0 10px 30px rgba(0,0,0,.35);
       --radius: 18px;
-      --blue: rgba(74,163,255,.95);
-      --ok: rgba(34,197,94,.9);
-      --warn: rgba(245,158,11,.9);
-      --purple: rgba(168,85,247,.9);
-      --red: rgba(239,68,68,.9);
     }
     *{box-sizing:border-box}
     body{
@@ -42,9 +35,7 @@
       border-bottom:1px solid var(--line);
     }
     .wrap{max-width:1100px;margin:0 auto;padding:14px 16px}
-    .top{
-      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-    }
+    .top{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
     .brand{display:flex; align-items:center; gap:12px;}
     .logo{
       width:56px;height:56px;border-radius:14px;
@@ -59,8 +50,7 @@
     }
     .logo img{width:100%;height:100%;object-fit:contain;display:none}
     .brand h1{margin:0;font-size:16px;line-height:1.1}
-    .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
-
+    .brand p{margin:2px 0 0;color:#a9b7d3;font-size:12px}
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     button{
       border:1px solid rgba(255,255,255,.16);
@@ -77,9 +67,10 @@
       padding:8px 10px;border-radius:999px;
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.06);
-      font-size:12px;color:var(--muted);
+      font-size:12px;color:#a9b7d3;
     }
     .pill strong{color:var(--text)}
+
     main{max-width:1100px;margin:0 auto;padding:16px}
     .card{
       background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
@@ -88,7 +79,6 @@
       box-shadow: var(--shadow);
       padding:14px;
     }
-
     .grid{
       display:grid;
       grid-template-columns:1fr;
@@ -121,14 +111,10 @@
       flex:0 0 auto;
     }
     .icon svg{width:26px;height:26px;opacity:.95}
-
     .ttext{min-width:0}
     .ttext h3{margin:0;font-size:14px;line-height:1.15}
-    .ttext p{margin:4px 0 0;color:var(--muted);font-size:12px}
-
-    .hint{margin-top:10px;color:var(--muted);font-size:12px}
-    .danger{color: rgba(255,255,255,.95)}
-    .danger small{color:var(--muted)}
+    .ttext p{margin:4px 0 0;color:#a9b7d3;font-size:12px}
+    .hint{margin-top:10px;color:#a9b7d3;font-size:12px}
   </style>
 </head>
 
@@ -159,14 +145,13 @@
 
 <main>
   <div class="card">
-    <div class="danger">
+    <div style="color:#e7eefc">
       <strong>Quick Access</strong><br />
-      <small>If any tile opens a 404, it just means the folder name is different — you can edit the link inside this dashboard.</small>
+      <span style="color:#a9b7d3;font-size:12px">Photo Notes uses a launcher at <code>/app/job-photo-notes/</code>.</span>
     </div>
 
     <div class="grid">
-      <!-- Jobs Board -->
-      <a class="tile" href="../jobs-board/">
+      <a class="tile" href="/app/jobs-board/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M7 7h10M7 12h10M7 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -175,12 +160,11 @@
         </div>
         <div class="ttext">
           <h3>Jobs Board</h3>
-          <p>Track jobs through estimate → works → invoice → paid.</p>
+          <p>Estimate → works → invoice → paid.</p>
         </div>
       </a>
 
-      <!-- Inspection Report (update href if your folder name differs) -->
-      <a class="tile" href="../inspection-report/">
+      <a class="tile" href="/app/inspection-report/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M8 3h8l3 3v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"/>
@@ -190,12 +174,11 @@
         </div>
         <div class="ttext">
           <h3>Inspection Report</h3>
-          <p>Create an inspection report with photos, notes, and PDF.</p>
+          <p>Create report + PDF.</p>
         </div>
       </a>
 
-      <!-- Works Completion Report (update href if your folder name differs) -->
-      <a class="tile" href="../works-completion-report/">
+      <a class="tile" href="/app/works-completion-report/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M9 11l2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -205,12 +188,12 @@
         </div>
         <div class="ttext">
           <h3>Works Completion Report</h3>
-          <p>After photos (up to 20) + PDF output.</p>
+          <p>After photos (up to 20) + PDF.</p>
         </div>
       </a>
 
-      <!-- Photo Notes App (update href if your folder name differs) -->
-      <a class="tile" href="../photo-notes/">
+      <!-- Photo Notes (absolute path) -->
+      <a class="tile" href="/app/job-photo-notes/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M4 7a2 2 0 0 1 2-2h3l1-1h4l1 1h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
@@ -220,12 +203,11 @@
         </div>
         <div class="ttext">
           <h3>Photo Notes</h3>
-          <p>Multiple photos + notes + voice dictation.</p>
+          <p>Photos + notes + dictation.</p>
         </div>
       </a>
 
-      <!-- Optional: root/home -->
-      <a class="tile" href="../">
+      <a class="tile" href="/app/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M3 10.5 12 3l9 7.5V21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10.5Z" stroke="currentColor" stroke-width="2"/>
@@ -234,38 +216,23 @@
         </div>
         <div class="ttext">
           <h3>App Root</h3>
-          <p>Open your app root folder.</p>
-        </div>
-      </a>
-
-      <!-- Placeholder tile (safe) -->
-      <a class="tile" href="../">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>Add another tool</h3>
-          <p>Duplicate a tile and change the link.</p>
+          <p>Open app root folder.</p>
         </div>
       </a>
     </div>
 
     <div class="hint">
-      <strong>Install:</strong> Android Chrome → menu (⋮) → <em>Add to Home screen</em>.  
-      Logo: tap the logo square to upload — it saves on your phone and appears on all your apps that use the same logo key.
+      <strong>Install:</strong> Android Chrome → ⋮ → <em>Add to Home screen</em>.<br />
+      <strong>Logo:</strong> tap the logo square to upload — it saves on your phone.
     </div>
   </div>
 </main>
 
 <script>
-  // PWA service worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 
-  // Shared logo (same as your other apps)
   const logoBox = document.getElementById('logoBox');
   const logoInput = document.getElementById('logoInput');
   const logoImg = document.getElementById('logoImg');
@@ -308,7 +275,7 @@
   });
 
   document.getElementById('installHelp').addEventListener('click', ()=>{
-    alert("Install on Android:\n\n1) Open this dashboard in Chrome\n2) Tap ⋮ (top right)\n3) Tap 'Add to Home screen'\n\nTip: Once installed, it opens full-screen like an app.");
+    alert("Install on Android:\n\n1) Open this dashboard in Chrome\n2) Tap ⋮\n3) Tap 'Add to Home screen'\n\nIt opens full-screen like an app.");
   });
 </script>
 </body>
