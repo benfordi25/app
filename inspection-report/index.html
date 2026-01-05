@@ -43,16 +43,20 @@
     .wrap{max-width:980px;margin:0 auto;padding:14px 16px}
     .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
     .brand{display:flex; align-items:center; gap:12px;}
+
+    /* LOGO: crisp + not squashed */
     .logo{
-      width:46px;height:46px;border-radius:12px;
-      background: linear-gradient(135deg, rgba(74,163,255,.9), rgba(74,163,255,.2));
+      width:56px;height:56px;border-radius:14px;
+      background: rgba(255,255,255,.92);
       border:1px solid rgba(255,255,255,.16);
       box-shadow: var(--shadow);
       display:grid; place-items:center;
       overflow:hidden;
       cursor:pointer;
+      padding:7px;
     }
-    .logo img{width:100%;height:100%;object-fit:cover;display:none}
+    .logo img{width:100%;height:100%;object-fit:contain;display:none}
+
     .brand h1{margin:0;font-size:16px;line-height:1.1}
     .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
 
@@ -251,7 +255,7 @@
     <div class="top">
       <div class="brand">
         <div class="logo" id="logoBox" title="Tap to upload logo">
-          <span id="logoFallback" style="font-weight:950;letter-spacing:.4px;">FPS</span>
+          <span id="logoFallback" style="font-weight:950;letter-spacing:.4px;color:#0b1220;">FPS</span>
           <img id="logoImg" alt="Company logo" />
         </div>
         <div>
@@ -317,7 +321,7 @@
           </div>
         </div>
       </div>
-      <div class="hint">Tip: You can type the numbers even if the ticks are off. The PDF will still include what you type.</div>
+      <div class="hint">Tip: You can type the numbers even if ticks are off. PDF includes what you type.</div>
     </div>
 
     <div>
@@ -547,7 +551,7 @@
   // Defaults
   dateCompletedISO.value = todayISO();
 
-  // Auto-load saved logo (persistent)
+  // Auto-load saved logo (persistent on this device)
   const savedLogo = localStorage.getItem('fps_logo_v1');
   if(savedLogo){
     state.logoDataUrl = savedLogo;
@@ -593,7 +597,7 @@
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
     if(!file) return;
-    state.logoDataUrl = await fileToDataURL(file, 900, 0.85);
+    state.logoDataUrl = await fileToDataURL(file, 900, 0.90);
     logoImg.src = state.logoDataUrl;
     logoImg.style.display = 'block';
     logoFallback.style.display = 'none';
@@ -627,7 +631,7 @@
     const arr = Array.from(files || []);
     for(const f of arr){
       if(targetList.length >= 6) break;
-      const dataUrl = await fileToDataURL(f, 1400, 0.80);
+      const dataUrl = await fileToDataURL(f, 1400, 0.82);
       targetList.push({dataUrl});
     }
     renderThumbs(targetList, targetThumbs, (i)=>{
@@ -772,11 +776,11 @@
   }
 
   saveLocalBtn.addEventListener('click', ()=>{
-    localStorage.setItem('fps_inspection_report_pwa_v4', JSON.stringify(collectDraft()));
+    localStorage.setItem('fps_inspection_report_pwa_v5', JSON.stringify(collectDraft()));
     alert('Draft saved on this device.');
   });
   loadLocalBtn.addEventListener('click', ()=>{
-    const raw = localStorage.getItem('fps_inspection_report_pwa_v4');
+    const raw = localStorage.getItem('fps_inspection_report_pwa_v5');
     if(!raw){ alert('No saved draft found.'); return; }
     applyDraft(JSON.parse(raw));
     alert('Draft loaded.');
