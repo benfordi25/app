@@ -38,9 +38,9 @@
       position:sticky; top:0; z-index:10;
       background: rgba(11,18,32,.84);
       backdrop-filter: blur(10px);
-      border-bottom:1px solid var(--line);
+      border-bottom:1px solid rgba(255,255,255,.14);
     }
-    .wrap{max-width:1500px;margin:0 auto;padding:14px 16px}
+    .wrap{max-width:1700px;margin:0 auto;padding:14px 16px}
     .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
     .brand{display:flex; align-items:center; gap:12px;}
     .logo{
@@ -66,6 +66,7 @@
       font-size:12px;color:var(--muted);
     }
     .pill strong{color:var(--text)}
+
     button{
       border:1px solid rgba(255,255,255,.16);
       background: rgba(255,255,255,.06);
@@ -97,19 +98,19 @@
       border-color: rgba(168,85,247,.45);
     }
 
-    main{max-width:1500px;margin:0 auto;padding:16px}
+    main{max-width:1700px;margin:0 auto;padding:16px}
     .card{
       background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
       border: 1px solid rgba(255,255,255,.12);
-      border-radius: var(--radius);
+      border-radius: 18px;
       box-shadow: var(--shadow);
       padding: 14px;
     }
-
     .toolbar{
       display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
       margin-bottom:12px;
     }
+
     input, textarea, select{
       width:100%;
       border:1px solid rgba(255,255,255,.14);
@@ -121,13 +122,13 @@
     }
     textarea{min-height:90px;resize:vertical}
     label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px}
-    .hint{color:var(--muted);font-size:12px;margin:8px 0 0}
     .small{font-size:12px;color:var(--muted)}
+    .hint{color:var(--muted);font-size:12px;margin-top:10px}
 
     .bookings{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
+      border-radius: 14px;
       padding:10px;
       margin-bottom:12px;
     }
@@ -154,13 +155,13 @@
       .board{ grid-template-columns: repeat(4, 1fr); }
     }
     @media(min-width:1400px){
-      .board{ grid-template-columns: repeat(11, 1fr); }
+      .board{ grid-template-columns: repeat(13, 1fr); }
     }
 
     .col{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
+      border-radius: 14px;
       padding:10px;
       min-height:170px;
     }
@@ -178,15 +179,8 @@
       padding:10px;
       margin-bottom:10px;
     }
-    .jobTop{
-      display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
-    }
-    .jobTitle{
-      font-weight:950;
-      margin:0;
-      font-size:13px;
-      line-height:1.2;
-    }
+    .jobTop{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+    .jobTitle{font-weight:950;margin:0;font-size:13px;line-height:1.2;}
     .meta{color:var(--muted);font-size:12px;margin-top:4px}
     .jobBtns{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center}
     .chip{
@@ -207,7 +201,7 @@
       padding:16px; z-index:50;
     }
     .modal{
-      width:min(860px, 100%);
+      width:min(900px, 100%);
       background: linear-gradient(180deg, rgba(15,27,51,.98), rgba(12,23,48,.98));
       border:1px solid rgba(255,255,255,.14);
       border-radius: 18px;
@@ -256,20 +250,20 @@
         <span class="pill"><strong>Total Jobs:</strong> <span id="totalCount">0</span></span>
         <span class="pill"><strong>Saved:</strong> <span id="savedStatus">—</span></span>
       </div>
-      <div class="small">Use “Move Back” to undo a stage change. Estimate No. shows next to address.</div>
+      <div class="small">Estimate Complete now has Accepted / Not Accepted. Invoice Paid stage added.</div>
     </div>
 
     <div class="bookings">
       <div class="bookingsHead">
         <div style="font-weight:950; letter-spacing:.3px">Booked In List (Upcoming)</div>
-        <div class="small">Job bookings + estimate visit bookings + estimate work bookings</div>
+        <div class="small">Job booking + estimate visit + works booking</div>
       </div>
       <div id="bookingsList" class="bookingsList"></div>
       <div id="bookingsEmpty" class="small" style="display:none">No upcoming bookings yet.</div>
     </div>
 
     <div class="board" id="board"></div>
-    <div class="hint">Everything saves on your phone. Install to Home Screen for app mode.</div>
+    <div class="hint">Install to Home Screen for app mode.</div>
   </div>
 </main>
 
@@ -297,7 +291,7 @@
       </div>
 
       <div>
-        <label>Estimate Number (specific to this job)</label>
+        <label>Estimate Number</label>
         <input id="mEstNo" placeholder="e.g., EST-1021" />
       </div>
 
@@ -317,13 +311,8 @@
       </div>
 
       <div>
-        <label>Estimate Work Booked In (Date + Time)</label>
-        <input id="mEstWorkDT" type="datetime-local" />
-      </div>
-
-      <div>
-        <label>Quote Ref (optional)</label>
-        <input id="mQuoteRef" placeholder="Optional" />
+        <label>Works Booked In (Date + Time)</label>
+        <input id="mWorksDT" type="datetime-local" />
       </div>
 
       <div>
@@ -365,27 +354,29 @@
 </div>
 
 <script>
-  // PWA service worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 
-  // Columns (folders)
+  // ORDER includes Not Accepted (after Accepted)
   const STATUSES = [
     { key: "quote", label: "Quote Provided" },
     { key: "booked", label: "Booked In" },
     { key: "work_done", label: "Work Completed" },
+
     { key: "req_est", label: "Requires Estimate" },
     { key: "est_visit_booked", label: "Estimate Visit Booked In" },
-    { key: "est_done", label: "Estimates Complete" },
+    { key: "attended_est_required", label: "Attended – Estimate Required" },
+    { key: "est_complete", label: "Estimate Complete" },
+
     { key: "est_accepted", label: "Estimate Accepted" },
     { key: "est_not_accepted", label: "Estimate Not Accepted" },
-    { key: "est_work_booked", label: "Estimate Work Booked In" },
-    { key: "est_work_done", label: "Estimate Work Completed" },
-    { key: "invoice_sent", label: "Invoice Sent / Complete" }
-  ];
 
-  // Stage order for Move Back
+    { key: "works_booked", label: "Works Booked In" },
+    { key: "works_done_invoice_required", label: "Works Completed – Invoice Required" },
+    { key: "invoice_sent_complete", label: "Invoice Sent & Complete" },
+    { key: "invoice_paid", label: "Invoice Paid" }
+  ];
   const STAGE_ORDER = STATUSES.map(s => s.key);
 
   function pad2(n){ return String(n).padStart(2,'0'); }
@@ -393,9 +384,7 @@
     const d = new Date();
     return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   }
-  function uid(){
-    return "job_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
-  }
+  function uid(){ return "job_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16); }
   function escapeHtml(str){
     return String(str ?? "")
       .replaceAll("&","&amp;")
@@ -415,9 +404,6 @@
     const d = new Date(dtLocal);
     const t = d.getTime();
     return Number.isFinite(t) ? t : null;
-  }
-  function statusLabel(key){
-    return (STATUSES.find(s=>s.key===key)?.label) || key;
   }
 
   // Elements
@@ -446,8 +432,7 @@
   const mStatus = document.getElementById('mStatus');
   const mBookedDT = document.getElementById('mBookedDT');
   const mEstVisitDT = document.getElementById('mEstVisitDT');
-  const mEstWorkDT = document.getElementById('mEstWorkDT');
-  const mQuoteRef = document.getElementById('mQuoteRef');
+  const mWorksDT = document.getElementById('mWorksDT');
   const mInvRef = document.getElementById('mInvRef');
   const mNotes = document.getElementById('mNotes');
 
@@ -456,7 +441,6 @@
   const logoImg = document.getElementById('logoImg');
   const logoFallback = document.getElementById('logoFallback');
 
-  // Quick modal
   const quickBack = document.getElementById('quickBack');
   const quickClose = document.getElementById('quickClose');
   const quickTitle = document.getElementById('quickTitle');
@@ -472,7 +456,7 @@
     mStatus.appendChild(o);
   });
 
-  // Shared logo (same key across your apps)
+  // Shared logo
   const savedLogo = localStorage.getItem('fps_logo_v1');
   if(savedLogo){
     logoImg.src = savedLogo;
@@ -508,21 +492,16 @@
   });
 
   // Data
-  const STORAGE_KEY = "fps_jobs_board_workflow_v4";
+  const STORAGE_KEY = "fps_jobs_board_workflow_v6";
   let jobs = [];
   let editingId = null;
 
   function migrateJob(j){
     if(!j || typeof j !== "object") return j;
-    // Ensure estimate number
-    j.estNo = j.estNo || j.estimateNo || "";
-    // Old field names
-    if(j.estBookedDT && !j.estWorkDT) j.estWorkDT = j.estBookedDT;
-    // Ensure fields exist
+    j.estNo = j.estNo || "";
     j.bookedDT = j.bookedDT || "";
     j.estVisitDT = j.estVisitDT || "";
-    j.estWorkDT = j.estWorkDT || "";
-    j.quoteRef = j.quoteRef || "";
+    j.worksDT = j.worksDT || j.estWorkDT || "";
     j.invRef = j.invRef || "";
     j.notes = j.notes || "";
     j.agent = j.agent || "";
@@ -530,7 +509,6 @@
     j.address = j.address || "";
     j.createdAt = j.createdAt || new Date().toISOString();
     j.updatedAt = j.updatedAt || new Date().toISOString();
-    // Ensure status exists
     if(!j.status || !STAGE_ORDER.includes(j.status)) j.status = "quote";
     return j;
   }
@@ -546,8 +524,7 @@
       savedStatusEl.textContent = "Loaded";
       return;
     }
-
-    const fallbackKeys = ["fps_jobs_board_workflow_v3","fps_jobs_board_v2_workflow","fps_jobs_board_v1"];
+    const fallbackKeys = ["fps_jobs_board_workflow_v5","fps_jobs_board_workflow_v4","fps_jobs_board_workflow_v3","fps_jobs_board_v2_workflow","fps_jobs_board_v1"];
     for(const k of fallbackKeys){
       const r = localStorage.getItem(k);
       if(r){
@@ -557,7 +534,6 @@
         return;
       }
     }
-
     jobs = [];
     savedStatusEl.textContent = "—";
   }
@@ -567,19 +543,18 @@
     if(!q) return true;
     q = norm(q);
     return [
-      job.agent, job.ref, job.address, job.notes, job.quoteRef, job.invRef, job.estNo,
-      job.bookedDT, job.estVisitDT, job.estWorkDT
+      job.agent, job.ref, job.address, job.notes, job.estNo, job.invRef,
+      job.bookedDT, job.estVisitDT, job.worksDT
     ].some(x => norm(x).includes(q));
   }
 
-  // Modals
+  // Modal
   function openModal(){ modalBack.style.display = 'flex'; }
   function closeModalFn(){ modalBack.style.display = 'none'; }
   function clearModal(){
     editingId = null;
     modalTitle.textContent = "Add Job";
     deleteBtn.style.display = 'none';
-
     mAgent.value = "";
     mRef.value = "";
     mAddress.value = "";
@@ -587,22 +562,17 @@
     mStatus.value = "quote";
     mBookedDT.value = "";
     mEstVisitDT.value = "";
-    mEstWorkDT.value = "";
-    mQuoteRef.value = "";
+    mWorksDT.value = "";
     mInvRef.value = "";
     mNotes.value = "";
   }
-  function openAdd(){
-    clearModal();
-    openModal();
-  }
+  function openAdd(){ clearModal(); openModal(); }
   function openEdit(id){
     const job = jobs.find(j=>j.id===id);
     if(!job) return;
     editingId = id;
     modalTitle.textContent = "Edit Job";
     deleteBtn.style.display = 'inline-block';
-
     mAgent.value = job.agent || "";
     mRef.value = job.ref || "";
     mAddress.value = job.address || "";
@@ -610,11 +580,9 @@
     mStatus.value = job.status || "quote";
     mBookedDT.value = job.bookedDT || "";
     mEstVisitDT.value = job.estVisitDT || "";
-    mEstWorkDT.value = job.estWorkDT || "";
-    mQuoteRef.value = job.quoteRef || "";
+    mWorksDT.value = job.worksDT || "";
     mInvRef.value = job.invRef || "";
     mNotes.value = job.notes || "";
-
     openModal();
   }
   function upsertJob(){
@@ -627,17 +595,14 @@
       status: mStatus.value,
       bookedDT: mBookedDT.value || "",
       estVisitDT: mEstVisitDT.value || "",
-      estWorkDT: mEstWorkDT.value || "",
-      quoteRef: mQuoteRef.value.trim(),
+      worksDT: mWorksDT.value || "",
       invRef: mInvRef.value.trim(),
       notes: mNotes.value.trim(),
       updatedAt: new Date().toISOString()
     };
-
     if(!payload.address){
       if(!confirm("No address entered. Save anyway?")) return;
     }
-
     if(editingId){
       const i = jobs.findIndex(j=>j.id===editingId);
       if(i>=0) jobs[i] = { ...jobs[i], ...payload };
@@ -645,10 +610,7 @@
       payload.createdAt = new Date().toISOString();
       jobs.unshift(payload);
     }
-
-    save();
-    renderAll();
-    closeModalFn();
+    save(); renderAll(); closeModalFn();
   }
   function deleteJob(){
     if(!editingId) return;
@@ -657,13 +619,12 @@
     save(); renderAll(); closeModalFn();
   }
 
-  // Quick date/time modal
+  // Quick booking
   let quickJobId = null;
-  let quickMode = null; // "bookedDT" | "estVisitDT" | "estWorkDT"
+  let quickMode = null; // "bookedDT" | "estVisitDT" | "worksDT"
   function openQuick(jobId, mode){
     const job = jobs.find(j=>j.id===jobId);
     if(!job) return;
-
     quickJobId = jobId;
     quickMode = mode;
 
@@ -671,16 +632,15 @@
       quickTitle.textContent = "Book In Job";
       quickLabel.textContent = "Choose job booking date + time";
       quickDT.value = job.bookedDT || "";
-    }else if(mode === "estVisitDT"){
-      quickTitle.textContent = "Book In Estimate Visit";
+    } else if(mode === "estVisitDT"){
+      quickTitle.textContent = "Book Estimate Visit";
       quickLabel.textContent = "Choose estimate visit date + time";
       quickDT.value = job.estVisitDT || "";
-    }else{
-      quickTitle.textContent = "Book In Estimate Works";
-      quickLabel.textContent = "Choose estimate works date + time";
-      quickDT.value = job.estWorkDT || "";
+    } else {
+      quickTitle.textContent = "Works Booked In";
+      quickLabel.textContent = "Choose works date + time";
+      quickDT.value = job.worksDT || "";
     }
-
     quickBack.style.display = "flex";
   }
   function closeQuick(){
@@ -707,68 +667,48 @@
       job.estVisitDT = quickDT.value;
       job.status = "est_visit_booked";
     } else {
-      job.estWorkDT = quickDT.value;
-      job.status = "est_work_booked";
+      job.worksDT = quickDT.value;
+      job.status = "works_booked";
     }
 
     job.updatedAt = new Date().toISOString();
-    save();
-    renderAll();
-    closeQuick();
+    save(); renderAll(); closeQuick();
   });
 
-  // Move back logic (go to previous stage)
+  // Move Back
   function moveBack(job){
     const idx = STAGE_ORDER.indexOf(job.status);
-    if(idx <= 0) return; // already at first stage
-    const prev = STAGE_ORDER[idx - 1];
-    job.status = prev;
+    if(idx <= 0) return;
+    job.status = STAGE_ORDER[idx - 1];
     job.updatedAt = new Date().toISOString();
-    save();
-    renderAll();
+    save(); renderAll();
   }
 
-  // Workflow actions
+  // Actions
   function doAction(job, act){
     if(act === "move_back") return moveBack(job);
 
     if(act === "book_in_job") return openQuick(job.id, "bookedDT");
+    if(act === "work_completed") job.status = "work_done";
 
-    if(act === "work_completed"){
-      job.status = "work_done";
-    }
-
-    if(act === "to_requires_est"){
-      job.status = "req_est";
-    }
+    if(act === "to_requires_est") job.status = "req_est";
 
     if(act === "book_est_visit") return openQuick(job.id, "estVisitDT");
+    if(act === "to_attended_est_required") job.status = "attended_est_required";
+    if(act === "to_est_complete") job.status = "est_complete";
 
-    if(act === "attended_to_est_done"){
-      job.status = "est_done";
-    }
+    // NEW: Accepted / Not Accepted from Estimate Complete
+    if(act === "to_est_accepted") job.status = "est_accepted";
+    if(act === "to_est_not_accepted") job.status = "est_not_accepted";
 
-    if(act === "estimate_accepted"){
-      job.status = "est_accepted";
-    }
+    if(act === "book_works") return openQuick(job.id, "worksDT");
 
-    if(act === "estimate_not_accepted"){
-      job.status = "est_not_accepted";
-    }
-
-    if(act === "book_est_works") return openQuick(job.id, "estWorkDT");
-
-    if(act === "est_work_completed"){
-      job.status = "est_work_done";
-    }
-
-    if(act === "invoice_sent_complete"){
-      job.status = "invoice_sent";
-    }
+    if(act === "to_works_done_invoice_required") job.status = "works_done_invoice_required";
+    if(act === "to_invoice_sent_complete") job.status = "invoice_sent_complete";
+    if(act === "to_invoice_paid") job.status = "invoice_paid";
 
     job.updatedAt = new Date().toISOString();
-    save();
-    renderAll();
+    save(); renderAll();
   }
 
   // Bookings list
@@ -783,8 +723,8 @@
       const t2 = toMillis(j.estVisitDT);
       if(t2 && t2 >= now) items.push({ when: t2, kind: "Estimate Visit", dt: j.estVisitDT, job: j });
 
-      const t3 = toMillis(j.estWorkDT);
-      if(t3 && t3 >= now) items.push({ when: t3, kind: "Estimate Works", dt: j.estWorkDT, job: j });
+      const t3 = toMillis(j.worksDT);
+      if(t3 && t3 >= now) items.push({ when: t3, kind: "Works Booking", dt: j.worksDT, job: j });
     }
 
     items.sort((a,b)=>a.when-b.when);
@@ -834,8 +774,8 @@
       col.appendChild(head);
 
       list.forEach(job=>{
-        const j = document.createElement('div');
-        j.className = 'job';
+        const el = document.createElement('div');
+        el.className = 'job';
 
         const title = job.address?.trim() ? job.address.trim() : "(No address)";
         const agent = job.agent?.trim() ? job.agent.trim() : "-";
@@ -845,9 +785,8 @@
         const chips = [];
         if(job.bookedDT) chips.push(`Booked: ${ukDT(job.bookedDT)}`);
         if(job.estVisitDT) chips.push(`Est visit: ${ukDT(job.estVisitDT)}`);
-        if(job.estWorkDT) chips.push(`Est works: ${ukDT(job.estWorkDT)}`);
+        if(job.worksDT) chips.push(`Works: ${ukDT(job.worksDT)}`);
         if(estNo) chips.push(`Estimate No: ${estNo}`);
-        if(job.quoteRef) chips.push(`Quote: ${job.quoteRef}`);
         if(job.invRef) chips.push(`Invoice: ${job.invRef}`);
 
         const btns = [];
@@ -857,41 +796,42 @@
         if(job.status === "quote"){
           btns.push(`<button type="button" class="primary" data-act="book_in_job">Book In</button>`);
         }
-
         if(job.status === "booked"){
           btns.push(`<button type="button" class="ok" data-act="work_completed">Work Completed</button>`);
         }
-
         if(job.status === "work_done"){
           btns.push(`<button type="button" class="purple" data-act="to_requires_est">Complete → Requires Estimate</button>`);
         }
 
         if(job.status === "req_est"){
-          btns.push(`<button type="button" class="primary" data-act="book_est_visit">Book In Estimate Visit</button>`);
+          btns.push(`<button type="button" class="primary" data-act="book_est_visit">Book Estimate Visit</button>`);
         }
-
         if(job.status === "est_visit_booked"){
-          btns.push(`<button type="button" class="purple" data-act="attended_to_est_done">Attended → Estimate Complete</button>`);
+          btns.push(`<button type="button" class="purple" data-act="to_attended_est_required">Attended – Estimate Required</button>`);
         }
-
-        if(job.status === "est_done"){
-          btns.push(`<button type="button" class="ok" data-act="estimate_accepted">Accepted</button>`);
-          btns.push(`<button type="button" class="danger" data-act="estimate_not_accepted">Not Accepted</button>`);
+        if(job.status === "attended_est_required"){
+          btns.push(`<button type="button" class="purple" data-act="to_est_complete">Estimate Complete</button>`);
+        }
+        if(job.status === "est_complete"){
+          btns.push(`<button type="button" class="ok" data-act="to_est_accepted">Accepted</button>`);
+          btns.push(`<button type="button" class="danger" data-act="to_est_not_accepted">Not Accepted</button>`);
         }
 
         if(job.status === "est_accepted"){
-          btns.push(`<button type="button" class="primary" data-act="book_est_works">Book In Works</button>`);
+          btns.push(`<button type="button" class="primary" data-act="book_works">Works Booked In</button>`);
         }
 
-        if(job.status === "est_work_booked"){
-          btns.push(`<button type="button" class="ok" data-act="est_work_completed">Work Completed</button>`);
+        if(job.status === "works_booked"){
+          btns.push(`<button type="button" class="ok" data-act="to_works_done_invoice_required">Works Completed – Invoice Required</button>`);
+        }
+        if(job.status === "works_done_invoice_required"){
+          btns.push(`<button type="button" class="ok" data-act="to_invoice_sent_complete">Invoice Sent & Complete</button>`);
+        }
+        if(job.status === "invoice_sent_complete"){
+          btns.push(`<button type="button" class="ok" data-act="to_invoice_paid">Invoice Paid</button>`);
         }
 
-        if(job.status === "est_work_done"){
-          btns.push(`<button type="button" class="ok" data-act="invoice_sent_complete">Invoice Sent & Complete</button>`);
-        }
-
-        j.innerHTML = `
+        el.innerHTML = `
           <div class="jobTop">
             <div>
               <div class="jobTitle">
@@ -905,14 +845,14 @@
           </div>
         `;
 
-        j.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEdit(job.id));
-        j.querySelectorAll('[data-act]').forEach(el=>{
-          const act = el.getAttribute('data-act');
+        el.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEdit(job.id));
+        el.querySelectorAll('[data-act]').forEach(b=>{
+          const act = b.getAttribute('data-act');
           if(act === "edit") return;
-          el.addEventListener('click', ()=> doAction(job, act));
+          b.addEventListener('click', ()=> doAction(job, act));
         });
 
-        col.appendChild(j);
+        col.appendChild(el);
       });
 
       boardEl.appendChild(col);
@@ -936,28 +876,16 @@
   function exportCsv(){
     const header = [
       "id","status","status_label","letting_agent","job_ref","address","estimate_no",
-      "job_booked_dt","estimate_visit_dt","estimate_work_dt",
-      "quote_ref","invoice_ref","notes","created_at","updated_at"
+      "job_booked_dt","estimate_visit_dt","works_booked_dt",
+      "invoice_ref","notes","created_at","updated_at"
     ];
-
     const rows = jobs.map(j=>[
-      j.id,
-      j.status,
-      statusLabel(j.status),
-      j.agent || "",
-      j.ref || "",
-      j.address || "",
-      j.estNo || "",
-      j.bookedDT || "",
-      j.estVisitDT || "",
-      j.estWorkDT || "",
-      j.quoteRef || "",
-      j.invRef || "",
-      (j.notes || "").replace(/\n/g," "),
-      j.createdAt || "",
-      j.updatedAt || ""
+      j.id, j.status, statusLabel(j.status),
+      j.agent || "", j.ref || "", j.address || "", j.estNo || "",
+      j.bookedDT || "", j.estVisitDT || "", j.worksDT || "",
+      j.invRef || "", (j.notes || "").replace(/\n/g," "),
+      j.createdAt || "", j.updatedAt || ""
     ]);
-
     const csv = [header, ...rows].map(r=>r.map(csvEscape).join(",")).join("\n");
     const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
     const url = URL.createObjectURL(blob);
@@ -970,21 +898,18 @@
     URL.revokeObjectURL(url);
   }
 
-  // Wire UI
+  // Wire
   addBtn.addEventListener('click', openAdd);
   closeModal.addEventListener('click', closeModalFn);
   modalBack.addEventListener('click', (e)=>{ if(e.target === modalBack) closeModalFn(); });
   saveJobBtn.addEventListener('click', upsertJob);
   deleteBtn.addEventListener('click', deleteJob);
-
   exportBtn.addEventListener('click', exportCsv);
-
   wipeBtn.addEventListener('click', ()=>{
     if(!confirm("Clear ALL jobs from this device?")) return;
     jobs = [];
     save(); renderAll();
   });
-
   searchEl.addEventListener('input', renderAll);
 
   // Init
