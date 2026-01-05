@@ -3,31 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ford Property Services • Dashboard</title>
-
+  <title>Ford Property Services • Photo Notes</title>
   <meta name="theme-color" content="#0b1220" />
-  <link rel="manifest" href="manifest.webmanifest">
-
-  <!-- Uses your existing icons from jobs-board if present -->
-  <link rel="apple-touch-icon" href="../jobs-board/icons/icon-192.png">
 
   <style>
     :root{
-      --bg:#0b1220;
-      --text:#e7eefc;
-      --muted:#a9b7d3;
-      --line:rgba(255,255,255,.14);
+      --bg:#0b1220; --line: rgba(255,255,255,.14);
+      --text:#e7eefc; --muted:#a9b7d3; --good:#22c55e; --bad:#ef4444;
       --shadow: 0 10px 30px rgba(0,0,0,.35);
-      --radius: 18px;
-      --blue: rgba(74,163,255,.95);
-      --ok: rgba(34,197,94,.9);
-      --warn: rgba(245,158,11,.9);
-      --purple: rgba(168,85,247,.9);
+      --r:18px;
     }
     *{box-sizing:border-box}
     body{
       margin:0;
-      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
       color:var(--text);
       background:
         radial-gradient(1200px 650px at 20% -10%, rgba(74,163,255,.22), transparent 60%),
@@ -36,32 +25,39 @@
     }
     header{
       position:sticky; top:0; z-index:10;
-      background: rgba(11,18,32,.82);
+      background: rgba(11,18,32,.86);
       backdrop-filter: blur(10px);
       border-bottom:1px solid var(--line);
     }
     .wrap{max-width:1100px;margin:0 auto;padding:14px 16px}
-    .top{
-      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-    }
-    .brand{display:flex; align-items:center; gap:12px;}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .brand{display:flex;gap:12px;align-items:center}
     .logo{
       width:56px;height:56px;border-radius:14px;
       background: rgba(255,255,255,.92);
       border:1px solid rgba(255,255,255,.16);
       box-shadow: var(--shadow);
-      display:grid; place-items:center;
+      display:grid;place-items:center;
       overflow:hidden;
-      cursor:pointer;
       padding:7px;
+      cursor:pointer;
       flex:0 0 auto;
     }
     .logo img{width:100%;height:100%;object-fit:contain;display:none}
-    .brand h1{margin:0;font-size:16px;line-height:1.1}
-    .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    h1{margin:0;font-size:16px;line-height:1.1}
+    .sub{margin:2px 0 0;color:var(--muted);font-size:12px}
 
-    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-    button{
+    main{max-width:1100px;margin:0 auto;padding:16px}
+    .card{
+      border:1px solid var(--line);
+      background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      padding:14px;
+    }
+
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button, .btn{
       border:1px solid rgba(255,255,255,.16);
       background: rgba(255,255,255,.06);
       color:var(--text);
@@ -69,8 +65,56 @@
       border-radius:14px;
       cursor:pointer;
       font-weight:900;
-      white-space:nowrap;
+      text-decoration:none;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
     }
+    button:active,.btn:active{transform:scale(.98)}
+    .btn-good{border-color: rgba(34,197,94,.35)}
+    .btn-bad{border-color: rgba(239,68,68,.35)}
+    .btn-ghost{background:transparent}
+
+    input[type="text"], textarea, input[type="date"]{
+      width:100%;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 10px 12px;
+      outline:none;
+    }
+    textarea{min-height:90px;resize:vertical}
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    @media(min-width:800px){ .grid{ grid-template-columns:1fr 1fr; } }
+
+    .item{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      border-radius: 18px;
+      padding:12px;
+    }
+    .thumb{
+      width:100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 16px;
+      border:1px solid rgba(255,255,255,.12);
+      overflow:hidden;
+      background: rgba(255,255,255,.04);
+      display:grid;
+      place-items:center;
+      margin-bottom:10px;
+    }
+    .thumb img{width:100%;height:100%;object-fit:contain}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .small{font-size:12px;color:var(--muted)}
     .pill{
       display:inline-flex;gap:8px;align-items:center;
       padding:8px 10px;border-radius:999px;
@@ -80,55 +124,29 @@
     }
     .pill strong{color:var(--text)}
 
-    main{max-width:1100px;margin:0 auto;padding:16px}
-    .card{
-      background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:18px;
-      box-shadow: var(--shadow);
-      padding:14px;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:12px;
-      margin-top:12px;
-    }
-    @media(min-width:700px){ .grid{ grid-template-columns: repeat(2, 1fr); } }
-    @media(min-width:980px){ .grid{ grid-template-columns: repeat(3, 1fr); } }
-
-    a.tile{
-      text-decoration:none;
-      color:inherit;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.18);
-      border-radius:18px;
-      padding:14px;
-      display:flex;
-      gap:12px;
-      align-items:center;
-      transition: transform .08s ease, border-color .08s ease;
-    }
-    a.tile:active{ transform: scale(.98); }
-    a.tile:hover{ border-color: rgba(255,255,255,.24); }
-
-    .icon{
-      width:54px;height:54px;border-radius:16px;
-      display:grid; place-items:center;
+    .toast{
+      position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+      background: rgba(0,0,0,.70);
       border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      flex:0 0 auto;
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      box-shadow: var(--shadow);
+      opacity:0; pointer-events:none;
+      transition: opacity .15s ease, transform .15s ease;
+      max-width:min(92vw,520px);
+      text-align:center;
+      font-weight:800;
     }
-    .icon svg{width:26px;height:26px;opacity:.95}
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px);}
 
-    .ttext{min-width:0}
-    .ttext h3{margin:0;font-size:14px;line-height:1.15}
-    .ttext p{margin:4px 0 0;color:var(--muted);font-size:12px}
-
-    .hint{margin-top:10px;color:var(--muted);font-size:12px}
-    .notice{color: rgba(255,255,255,.95)}
-    .notice small{color:var(--muted)}
+    @media print{
+      header, .no-print{display:none !important;}
+      body{background:#fff;color:#000}
+      .card, .item{box-shadow:none;background:#fff;border:1px solid #ddd}
+      .thumb{border:1px solid #ddd;background:#fff}
+      .small{color:#333}
+    }
   </style>
 </head>
 
@@ -137,178 +155,388 @@
   <div class="wrap">
     <div class="top">
       <div class="brand">
-        <div class="logo" id="logoBox" title="Tap to upload logo (saves on phone)">
+        <div class="logo" id="logoBox" title="Tap to upload logo (saved on phone)">
           <span id="logoFallback" style="font-weight:950;letter-spacing:.4px;color:#0b1220;">FPS</span>
-          <img id="logoImg" alt="Company logo" />
+          <img id="logoImg" alt="Company logo">
         </div>
         <div>
           <h1>Ford Property Services</h1>
-          <p>Dashboard</p>
+          <div class="sub">Photo Notes</div>
         </div>
       </div>
 
-      <div class="row">
-        <span class="pill"><strong>Tip:</strong> Add to Home Screen</span>
-        <button id="installHelp" type="button">Install Help</button>
+      <div class="row no-print">
+        <a class="btn btn-ghost" href="/app/dashboard/">← Dashboard</a>
+        <span class="pill"><strong>Tip:</strong> Print → Save as PDF</span>
       </div>
     </div>
   </div>
 </header>
 
 <input id="logoInput" type="file" accept="image/*" style="display:none" />
+<!-- NO capture attribute = shows Gallery/Photos + Camera chooser -->
+<input id="photoInput" type="file" accept="image/*" multiple style="display:none" />
 
 <main>
   <div class="card">
-    <div class="notice">
-      <strong>Quick Access</strong><br />
-      <small>If any tile opens a 404, it means the folder name differs. This version fixes Photo Notes → job-photo-notes.</small>
+    <div class="row no-print">
+      <button id="addPhotos" class="btn-good" type="button">🖼️ Add photos (gallery/camera)</button>
+      <button id="saveDraft" type="button">💾 Save draft</button>
+      <button id="printPdf" type="button">🧾 Save as PDF</button>
+      <button id="savePhone" type="button">📝 Save notes to phone</button>
+      <button id="shareBtn" type="button">📤 Share notes</button>
+      <button id="clearAll" class="btn-bad" type="button">🗑️ Clear photos</button>
     </div>
 
-    <div class="grid">
-      <!-- Jobs Board -->
-      <a class="tile" href="../jobs-board/">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M7 7h10M7 12h10M7 17h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>Jobs Board</h3>
-          <p>Track estimate → works → invoice → paid.</p>
-        </div>
-      </a>
-
-      <!-- Inspection Report (change link if your folder name differs) -->
-      <a class="tile" href="../inspection-report/">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M8 3h8l3 3v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M8 11h8M8 15h8M8 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M16 3v3h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>Inspection Report</h3>
-          <p>Create inspection report + PDF.</p>
-        </div>
-      </a>
-
-      <!-- Works Completion Report (change link if your folder name differs) -->
-      <a class="tile" href="../works-completion-report/">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M9 11l2 2 4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M7 3h10l3 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M17 3v3h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>Works Completion Report</h3>
-          <p>After photos (up to 20) + PDF.</p>
-        </div>
-      </a>
-
-      <!-- Photo Notes (FIXED) -->
-      <a class="tile" href="../job-photo-notes/">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M4 7a2 2 0 0 1 2-2h3l1-1h4l1 1h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M9 14l2-2 2 2 3-3 2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M9 9h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>Photo Notes</h3>
-          <p>Multiple photos + notes + dictation.</p>
-        </div>
-      </a>
-
-      <!-- Root -->
-      <a class="tile" href="../">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M3 10.5 12 3l9 7.5V21a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10.5Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M9 23V14h6v9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>App Root</h3>
-          <p>Open your app root folder.</p>
-        </div>
-      </a>
-
-      <!-- Placeholder -->
-      <a class="tile" href="../">
-        <div class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="ttext">
-          <h3>Add another tool</h3>
-          <p>Duplicate a tile and change the link.</p>
-        </div>
-      </a>
+    <div style="margin-top:12px" class="row">
+      <div style="flex:1 1 320px">
+        <label class="small">Job / Address</label>
+        <input id="jobTitle" type="text" placeholder="e.g. 12 High Street, SW..." />
+      </div>
+      <div style="flex:1 1 220px">
+        <label class="small">Date (UK)</label>
+        <input id="jobDate" type="date" />
+      </div>
     </div>
 
-    <div class="hint">
-      <strong>Install:</strong> Android Chrome → menu (⋮) → <em>Add to Home screen</em>.<br />
-      <strong>Logo:</strong> tap the logo square to upload — it saves on your phone and will appear on your other apps that use the same key.
+    <div style="margin-top:12px">
+      <label class="small">General notes</label>
+      <textarea id="generalNotes" placeholder="Overall notes for this job..."></textarea>
+      <div class="row no-print" style="margin-top:8px">
+        <button id="dictateGeneral" type="button">🎤 Dictate notes</button>
+        <button id="clearGeneral" class="btn-bad" type="button">⌫ Clear notes</button>
+        <span id="speechStatus" class="small"></span>
+      </div>
+    </div>
+
+    <div id="list" class="grid" style="margin-top:14px"></div>
+
+    <div class="small" style="margin-top:12px">
+      Photos are stored as a compressed copy for the report. For the clearest PDF: <strong>Print → Save as PDF</strong>.
     </div>
   </div>
 </main>
 
+<div id="toast" class="toast">Saved.</div>
+
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+  const $ = (id) => document.getElementById(id);
+
+  function showToast(msg){
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(showToast._tm);
+    showToast._tm = setTimeout(()=>t.classList.remove("show"), 1400);
   }
 
-  // Shared logo (same key used across your apps)
-  const logoBox = document.getElementById('logoBox');
-  const logoInput = document.getElementById('logoInput');
-  const logoImg = document.getElementById('logoImg');
-  const logoFallback = document.getElementById('logoFallback');
-
-  const savedLogo = localStorage.getItem('fps_logo_v1');
-  if (savedLogo) {
-    logoImg.src = savedLogo;
-    logoImg.style.display = 'block';
-    logoFallback.style.display = 'none';
+  function ukDateFromInput(value){
+    if(!value) return "";
+    const [y,m,d] = value.split("-").map(Number);
+    if(!y || !m || !d) return "";
+    return `${String(d).padStart(2,"0")}/${String(m).padStart(2,"0")}/${y}`;
   }
 
-  async function fileToDataURL(file, maxDim=900, quality=0.90){
+  async function fileToDataURL(file, maxDim=1800, quality=0.94){
     const img = await new Promise((res, rej)=>{
       const i = new Image();
-      i.onload=()=>res(i);
-      i.onerror=rej;
+      i.onload = () => res(i);
+      i.onerror = rej;
       i.src = URL.createObjectURL(file);
     });
-    const c = document.createElement('canvas');
-    let {width:w, height:h} = img;
+
+    const c = document.createElement("canvas");
+    let w = img.width, h = img.height;
     const scale = Math.min(1, maxDim / Math.max(w,h));
-    w = Math.round(w*scale); h = Math.round(h*scale);
-    c.width=w; c.height=h;
-    c.getContext('2d').drawImage(img,0,0,w,h);
-    const url = c.toDataURL('image/jpeg', quality);
+    w = Math.round(w * scale); h = Math.round(h * scale);
+    c.width = w; c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+
+    const url = c.toDataURL("image/jpeg", quality);
     URL.revokeObjectURL(img.src);
     return url;
   }
 
-  logoBox.addEventListener('click', ()=> logoInput.click());
-  logoInput.addEventListener('change', async (e)=>{
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+
+  function downloadJson(filename, obj){
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+
+  async function shareText(title, text){
+    if(!navigator.share) return false;
+    try{ await navigator.share({title, text}); return true; }catch(e){ return false; }
+  }
+
+  // Logo (shared across apps)
+  const logoBox = $("logoBox");
+  const logoInput = $("logoInput");
+  const logoImg = $("logoImg");
+  const logoFallback = $("logoFallback");
+
+  const savedLogo = localStorage.getItem("fps_logo_v1");
+  if(savedLogo){
+    logoImg.src = savedLogo;
+    logoImg.style.display = "block";
+    logoFallback.style.display = "none";
+  }
+
+  logoBox.addEventListener("click", ()=> logoInput.click());
+  logoInput.addEventListener("change", async (e)=>{
     const f = e.target.files && e.target.files[0];
     if(!f) return;
-    const url = await fileToDataURL(f, 900, 0.90);
-    localStorage.setItem('fps_logo_v1', url);
+    const url = await fileToDataURL(f, 900, 0.92);
+    localStorage.setItem("fps_logo_v1", url);
     logoImg.src = url;
-    logoImg.style.display = 'block';
-    logoFallback.style.display = 'none';
+    logoImg.style.display = "block";
+    logoFallback.style.display = "none";
+    showToast("Logo saved.");
   });
 
-  document.getElementById('installHelp').addEventListener('click', ()=>{
-    alert("Install on Android:\n\n1) Open this dashboard in Chrome\n2) Tap ⋮ (top right)\n3) Tap 'Add to Home screen'\n\nIt opens full-screen like an app.");
+  // State
+  const STORAGE_KEY = "fps_photo_notes_new";
+  let state = { jobTitle:"", jobDate:"", generalNotes:"", items:[] };
+
+  function save(){
+    state.jobTitle = $("jobTitle").value || "";
+    state.jobDate = $("jobDate").value || "";
+    state.generalNotes = $("generalNotes").value || "";
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) state = JSON.parse(raw);
+    }catch(e){}
+    $("jobTitle").value = state.jobTitle || "";
+    $("jobDate").value = state.jobDate || "";
+    $("generalNotes").value = state.generalNotes || "";
+    render();
+  }
+
+  $("jobTitle").addEventListener("input", save);
+  $("jobDate").addEventListener("change", save);
+  $("generalNotes").addEventListener("input", save);
+
+  // Photos (gallery/camera chooser)
+  $("addPhotos").addEventListener("click", ()=> $("photoInput").click());
+  $("photoInput").addEventListener("change", async (e)=>{
+    const files = Array.from(e.target.files || []);
+    if(!files.length) return;
+
+    for(const f of files){
+      const dataUrl = await fileToDataURL(f, 1800, 0.94);
+      state.items.push({
+        id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random())),
+        dataUrl,
+        note: ""
+      });
+    }
+    e.target.value = "";
+    save();
+    render();
+    showToast(`${files.length} photo(s) added.`);
   });
+
+  // Dictation (no duplication)
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+
+  function startDictation(targetTextarea){
+    if(!SpeechRecognition){
+      alert("Dictation not supported. Use Chrome on Android.");
+      return;
+    }
+    if(rec){ try{ rec.stop(); }catch(e){} }
+
+    rec = new SpeechRecognition();
+    rec.lang = "en-GB";
+    rec.interimResults = false;
+    rec.continuous = false;
+
+    $("speechStatus").textContent = "Listening…";
+    rec.onresult = (ev)=>{
+      const text = Array.from(ev.results).map(r => r[0]?.transcript || "").join(" ").trim();
+      if(text){
+        const cur = targetTextarea.value || "";
+        targetTextarea.value = (cur && !cur.endsWith(" ") ? cur + " " : cur) + text;
+        save();
+      }
+    };
+    rec.onerror = ()=> $("speechStatus").textContent = "";
+    rec.onend = ()=> $("speechStatus").textContent = "";
+    try{ rec.start(); }catch(e){ $("speechStatus").textContent = ""; }
+  }
+
+  $("dictateGeneral").addEventListener("click", ()=> startDictation($("generalNotes")));
+  $("clearGeneral").addEventListener("click", ()=>{
+    $("generalNotes").value = "";
+    save();
+    showToast("General notes cleared.");
+  });
+
+  function render(){
+    const list = $("list");
+    list.innerHTML = "";
+
+    state.items.forEach((it, idx)=>{
+      const box = document.createElement("div");
+      box.className = "item";
+
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      const img = document.createElement("img");
+      img.src = it.dataUrl;
+      img.alt = `Photo ${idx+1}`;
+      thumb.appendChild(img);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.innerHTML = `
+        <div class="small"><strong>Photo ${idx+1}</strong></div>
+        <div class="small">Job: ${escapeHtml(state.jobTitle||"—")} • Date: ${escapeHtml(ukDateFromInput(state.jobDate)||"—")}</div>
+      `;
+
+      const note = document.createElement("textarea");
+      note.placeholder = "Notes for this photo…";
+      note.value = it.note || "";
+      note.addEventListener("input", ()=>{
+        it.note = note.value;
+        save();
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "row no-print";
+      actions.style.marginTop = "8px";
+      actions.innerHTML = `
+        <button type="button">🎤 Dictate note</button>
+        <button type="button" class="btn-bad">⌫ Clear note</button>
+        <button type="button" class="btn-bad">🗑️ Delete photo</button>
+      `;
+      const [bDictate, bClear, bDel] = actions.querySelectorAll("button");
+
+      bDictate.addEventListener("click", ()=> startDictation(note));
+      bClear.addEventListener("click", ()=>{
+        note.value = "";
+        it.note = "";
+        save();
+        showToast("Note cleared.");
+      });
+      bDel.addEventListener("click", ()=>{
+        if(!confirm("Delete this photo?")) return;
+        state.items = state.items.filter(x => x.id !== it.id);
+        save();
+        render();
+        showToast("Photo deleted.");
+      });
+
+      box.appendChild(thumb);
+      box.appendChild(meta);
+      box.appendChild(note);
+      box.appendChild(actions);
+
+      list.appendChild(box);
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, (c)=>({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[c]));
+  }
+
+  // Buttons
+  $("printPdf").addEventListener("click", ()=> window.print());
+
+  $("saveDraft").addEventListener("click", ()=>{
+    save();
+    // also download a backup draft file (optional but useful)
+    const safe = (state.jobTitle || "draft").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,40) || "draft";
+    const draft = { ...state, savedAt: new Date().toISOString() };
+    downloadJson(`photo-notes-draft-${safe}.json`, draft);
+    showToast("Draft saved (backup downloaded).");
+  });
+
+  $("savePhone").addEventListener("click", ()=>{
+    save();
+    const lines = [];
+    lines.push("Ford Property Services - Photo Notes");
+    lines.push("-----------------------------------");
+    lines.push(`Job/Address: ${state.jobTitle || ""}`);
+    lines.push(`Date (UK): ${ukDateFromInput(state.jobDate) || ""}`);
+    lines.push("");
+    lines.push("General notes:");
+    lines.push(state.generalNotes || "");
+    lines.push("");
+    lines.push(`Photos: ${state.items.length}`);
+    state.items.forEach((it, i)=>{
+      lines.push("");
+      lines.push(`Photo ${i+1} notes:`);
+      lines.push(it.note || "");
+    });
+
+    const safeName = (state.jobTitle || "photo-notes").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,40);
+    downloadText(`photo-notes-${safeName || "job"}.txt`, lines.join("\n"));
+    showToast("Notes saved to phone.");
+  });
+
+  $("shareBtn").addEventListener("click", async ()=>{
+    save();
+    const text =
+`Ford Property Services - Photo Notes
+Job/Address: ${state.jobTitle || ""}
+Date (UK): ${ukDateFromInput(state.jobDate) || ""}
+Photos: ${state.items.length}
+
+General notes:
+${state.generalNotes || ""}
+
+Use Print → Save as PDF to share a PDF with photos.`;
+
+    const ok = await shareText("Photo Notes", text);
+    if(!ok){
+      alert("Share not available. Use 'Save notes to phone' or Print → Save as PDF then share from Files.");
+    }
+  });
+
+  $("clearAll").addEventListener("click", ()=>{
+    if(!confirm("Clear ALL photos from this job?")) return;
+    state.items = [];
+    save();
+    render();
+    showToast("All photos cleared.");
+  });
+
+  // Default date today
+  (function init(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw){
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth()+1).padStart(2,"0");
+      const d = String(now.getDate()).padStart(2,"0");
+      state.jobDate = `${y}-${m}-${d}`;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+    load();
+  })();
 </script>
 </body>
 </html>
