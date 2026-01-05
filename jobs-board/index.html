@@ -155,7 +155,7 @@
       .board{ grid-template-columns: repeat(4, 1fr); }
     }
     @media(min-width:1400px){
-      .board{ grid-template-columns: repeat(13, 1fr); }
+      .board{ grid-template-columns: repeat(10, 1fr); }
     }
 
     .col{
@@ -194,7 +194,6 @@
       margin-top:8px;
     }
 
-    /* Modals */
     .modalBack{
       position:fixed; inset:0; background: rgba(0,0,0,.55);
       display:none; align-items:center; justify-content:center;
@@ -235,7 +234,6 @@
         <input id="search" placeholder="Search jobs..." style="max-width:360px" />
         <button id="addBtn" class="primary" type="button">Add Job</button>
         <button id="exportBtn" type="button">Export CSV</button>
-        <button id="wipeBtn" class="danger" type="button">Clear All</button>
       </div>
     </div>
   </div>
@@ -250,13 +248,13 @@
         <span class="pill"><strong>Total Jobs:</strong> <span id="totalCount">0</span></span>
         <span class="pill"><strong>Saved:</strong> <span id="savedStatus">—</span></span>
       </div>
-      <div class="small">Estimate Complete now has Accepted / Not Accepted. Invoice Paid stage added.</div>
+      <div class="small">Workflow starts at Requires Estimate. Clear All removed.</div>
     </div>
 
     <div class="bookings">
       <div class="bookingsHead">
         <div style="font-weight:950; letter-spacing:.3px">Booked In List (Upcoming)</div>
-        <div class="small">Job booking + estimate visit + works booking</div>
+        <div class="small">Estimate visit bookings + works bookings</div>
       </div>
       <div id="bookingsList" class="bookingsList"></div>
       <div id="bookingsEmpty" class="small" style="display:none">No upcoming bookings yet.</div>
@@ -298,11 +296,6 @@
       <div>
         <label>Status Folder</label>
         <select id="mStatus"></select>
-      </div>
-
-      <div>
-        <label>Job Booked In (Date + Time)</label>
-        <input id="mBookedDT" type="datetime-local" />
       </div>
 
       <div>
@@ -358,20 +351,14 @@
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 
-  // ORDER includes Not Accepted (after Accepted)
+  // Workflow starts at Requires Estimate
   const STATUSES = [
-    { key: "quote", label: "Quote Provided" },
-    { key: "booked", label: "Booked In" },
-    { key: "work_done", label: "Work Completed" },
-
     { key: "req_est", label: "Requires Estimate" },
     { key: "est_visit_booked", label: "Estimate Visit Booked In" },
     { key: "attended_est_required", label: "Attended – Estimate Required" },
     { key: "est_complete", label: "Estimate Complete" },
-
     { key: "est_accepted", label: "Estimate Accepted" },
     { key: "est_not_accepted", label: "Estimate Not Accepted" },
-
     { key: "works_booked", label: "Works Booked In" },
     { key: "works_done_invoice_required", label: "Works Completed – Invoice Required" },
     { key: "invoice_sent_complete", label: "Invoice Sent & Complete" },
@@ -405,8 +392,10 @@
     const t = d.getTime();
     return Number.isFinite(t) ? t : null;
   }
+  function statusLabel(key){
+    return (STATUSES.find(s=>s.key===key)?.label) || key;
+  }
 
-  // Elements
   const boardEl = document.getElementById('board');
   const totalCountEl = document.getElementById('totalCount');
   const savedStatusEl = document.getElementById('savedStatus');
@@ -417,7 +406,6 @@
 
   const addBtn = document.getElementById('addBtn');
   const exportBtn = document.getElementById('exportBtn');
-  const wipeBtn = document.getElementById('wipeBtn');
 
   const modalBack = document.getElementById('modalBack');
   const closeModal = document.getElementById('closeModal');
@@ -430,7 +418,6 @@
   const mAddress = document.getElementById('mAddress');
   const mEstNo = document.getElementById('mEstNo');
   const mStatus = document.getElementById('mStatus');
-  const mBookedDT = document.getElementById('mBookedDT');
   const mEstVisitDT = document.getElementById('mEstVisitDT');
   const mWorksDT = document.getElementById('mWorksDT');
   const mInvRef = document.getElementById('mInvRef');
@@ -448,7 +435,7 @@
   const quickDT = document.getElementById('quickDT');
   const quickSave = document.getElementById('quickSave');
 
-  // Populate status dropdown
+  // Status dropdown
   STATUSES.forEach(s=>{
     const o = document.createElement('option');
     o.value = s.key;
@@ -492,14 +479,13 @@
   });
 
   // Data
-  const STORAGE_KEY = "fps_jobs_board_workflow_v6";
+  const STORAGE_KEY = "fps_jobs_board_workflow_v7";
   let jobs = [];
   let editingId = null;
 
   function migrateJob(j){
     if(!j || typeof j !== "object") return j;
     j.estNo = j.estNo || "";
-    j.bookedDT = j.bookedDT || "";
     j.estVisitDT = j.estVisitDT || "";
     j.worksDT = j.worksDT || j.estWorkDT || "";
     j.invRef = j.invRef || "";
@@ -509,7 +495,7 @@
     j.address = j.address || "";
     j.createdAt = j.createdAt || new Date().toISOString();
     j.updatedAt = j.updatedAt || new Date().toISOString();
-    if(!j.status || !STAGE_ORDER.includes(j.status)) j.status = "quote";
+    if(!j.status || !STAGE_ORDER.includes(j.status)) j.status = "req_est";
     return j;
   }
 
@@ -524,7 +510,7 @@
       savedStatusEl.textContent = "Loaded";
       return;
     }
-    const fallbackKeys = ["fps_jobs_board_workflow_v5","fps_jobs_board_workflow_v4","fps_jobs_board_workflow_v3","fps_jobs_board_v2_workflow","fps_jobs_board_v1"];
+    const fallbackKeys = ["fps_jobs_board_workflow_v6","fps_jobs_board_workflow_v5","fps_jobs_board_workflow_v4","fps_jobs_board_workflow_v3"];
     for(const k of fallbackKeys){
       const r = localStorage.getItem(k);
       if(r){
@@ -542,10 +528,8 @@
   function matches(job, q){
     if(!q) return true;
     q = norm(q);
-    return [
-      job.agent, job.ref, job.address, job.notes, job.estNo, job.invRef,
-      job.bookedDT, job.estVisitDT, job.worksDT
-    ].some(x => norm(x).includes(q));
+    return [job.agent, job.ref, job.address, job.notes, job.estNo, job.invRef, job.estVisitDT, job.worksDT]
+      .some(x => norm(x).includes(q));
   }
 
   // Modal
@@ -559,8 +543,7 @@
     mRef.value = "";
     mAddress.value = "";
     mEstNo.value = "";
-    mStatus.value = "quote";
-    mBookedDT.value = "";
+    mStatus.value = "req_est";
     mEstVisitDT.value = "";
     mWorksDT.value = "";
     mInvRef.value = "";
@@ -577,8 +560,7 @@
     mRef.value = job.ref || "";
     mAddress.value = job.address || "";
     mEstNo.value = job.estNo || "";
-    mStatus.value = job.status || "quote";
-    mBookedDT.value = job.bookedDT || "";
+    mStatus.value = job.status || "req_est";
     mEstVisitDT.value = job.estVisitDT || "";
     mWorksDT.value = job.worksDT || "";
     mInvRef.value = job.invRef || "";
@@ -593,7 +575,6 @@
       address: mAddress.value.trim(),
       estNo: mEstNo.value.trim(),
       status: mStatus.value,
-      bookedDT: mBookedDT.value || "",
       estVisitDT: mEstVisitDT.value || "",
       worksDT: mWorksDT.value || "",
       invRef: mInvRef.value.trim(),
@@ -619,20 +600,16 @@
     save(); renderAll(); closeModalFn();
   }
 
-  // Quick booking
+  // Quick booking modal (estimate visit OR works)
   let quickJobId = null;
-  let quickMode = null; // "bookedDT" | "estVisitDT" | "worksDT"
+  let quickMode = null; // "estVisitDT" | "worksDT"
   function openQuick(jobId, mode){
     const job = jobs.find(j=>j.id===jobId);
     if(!job) return;
     quickJobId = jobId;
     quickMode = mode;
 
-    if(mode === "bookedDT"){
-      quickTitle.textContent = "Book In Job";
-      quickLabel.textContent = "Choose job booking date + time";
-      quickDT.value = job.bookedDT || "";
-    } else if(mode === "estVisitDT"){
+    if(mode === "estVisitDT"){
       quickTitle.textContent = "Book Estimate Visit";
       quickLabel.textContent = "Choose estimate visit date + time";
       quickDT.value = job.estVisitDT || "";
@@ -660,10 +637,7 @@
       return;
     }
 
-    if(quickMode === "bookedDT"){
-      job.bookedDT = quickDT.value;
-      job.status = "booked";
-    } else if(quickMode === "estVisitDT"){
+    if(quickMode === "estVisitDT"){
       job.estVisitDT = quickDT.value;
       job.status = "est_visit_booked";
     } else {
@@ -688,21 +662,14 @@
   function doAction(job, act){
     if(act === "move_back") return moveBack(job);
 
-    if(act === "book_in_job") return openQuick(job.id, "bookedDT");
-    if(act === "work_completed") job.status = "work_done";
-
-    if(act === "to_requires_est") job.status = "req_est";
-
     if(act === "book_est_visit") return openQuick(job.id, "estVisitDT");
     if(act === "to_attended_est_required") job.status = "attended_est_required";
     if(act === "to_est_complete") job.status = "est_complete";
 
-    // NEW: Accepted / Not Accepted from Estimate Complete
     if(act === "to_est_accepted") job.status = "est_accepted";
     if(act === "to_est_not_accepted") job.status = "est_not_accepted";
 
     if(act === "book_works") return openQuick(job.id, "worksDT");
-
     if(act === "to_works_done_invoice_required") job.status = "works_done_invoice_required";
     if(act === "to_invoice_sent_complete") job.status = "invoice_sent_complete";
     if(act === "to_invoice_paid") job.status = "invoice_paid";
@@ -711,15 +678,12 @@
     save(); renderAll();
   }
 
-  // Bookings list
+  // Bookings list (estimate visit + works)
   function renderBookings(filteredJobs){
     const now = Date.now();
     const items = [];
 
     for(const j of filteredJobs){
-      const t1 = toMillis(j.bookedDT);
-      if(t1 && t1 >= now) items.push({ when: t1, kind: "Job Booking", dt: j.bookedDT, job: j });
-
       const t2 = toMillis(j.estVisitDT);
       if(t2 && t2 >= now) items.push({ when: t2, kind: "Estimate Visit", dt: j.estVisitDT, job: j });
 
@@ -783,7 +747,6 @@
         const estNo = job.estNo?.trim() ? job.estNo.trim() : "";
 
         const chips = [];
-        if(job.bookedDT) chips.push(`Booked: ${ukDT(job.bookedDT)}`);
         if(job.estVisitDT) chips.push(`Est visit: ${ukDT(job.estVisitDT)}`);
         if(job.worksDT) chips.push(`Works: ${ukDT(job.worksDT)}`);
         if(estNo) chips.push(`Estimate No: ${estNo}`);
@@ -792,16 +755,6 @@
         const btns = [];
         btns.push(`<button type="button" data-act="edit">Edit</button>`);
         btns.push(`<button type="button" class="warn" data-act="move_back">Move Back</button>`);
-
-        if(job.status === "quote"){
-          btns.push(`<button type="button" class="primary" data-act="book_in_job">Book In</button>`);
-        }
-        if(job.status === "booked"){
-          btns.push(`<button type="button" class="ok" data-act="work_completed">Work Completed</button>`);
-        }
-        if(job.status === "work_done"){
-          btns.push(`<button type="button" class="purple" data-act="to_requires_est">Complete → Requires Estimate</button>`);
-        }
 
         if(job.status === "req_est"){
           btns.push(`<button type="button" class="primary" data-act="book_est_visit">Book Estimate Visit</button>`);
@@ -816,11 +769,9 @@
           btns.push(`<button type="button" class="ok" data-act="to_est_accepted">Accepted</button>`);
           btns.push(`<button type="button" class="danger" data-act="to_est_not_accepted">Not Accepted</button>`);
         }
-
         if(job.status === "est_accepted"){
           btns.push(`<button type="button" class="primary" data-act="book_works">Works Booked In</button>`);
         }
-
         if(job.status === "works_booked"){
           btns.push(`<button type="button" class="ok" data-act="to_works_done_invoice_required">Works Completed – Invoice Required</button>`);
         }
@@ -876,13 +827,12 @@
   function exportCsv(){
     const header = [
       "id","status","status_label","letting_agent","job_ref","address","estimate_no",
-      "job_booked_dt","estimate_visit_dt","works_booked_dt",
-      "invoice_ref","notes","created_at","updated_at"
+      "estimate_visit_dt","works_booked_dt","invoice_ref","notes","created_at","updated_at"
     ];
     const rows = jobs.map(j=>[
       j.id, j.status, statusLabel(j.status),
       j.agent || "", j.ref || "", j.address || "", j.estNo || "",
-      j.bookedDT || "", j.estVisitDT || "", j.worksDT || "",
+      j.estVisitDT || "", j.worksDT || "",
       j.invRef || "", (j.notes || "").replace(/\n/g," "),
       j.createdAt || "", j.updatedAt || ""
     ]);
@@ -905,11 +855,6 @@
   saveJobBtn.addEventListener('click', upsertJob);
   deleteBtn.addEventListener('click', deleteJob);
   exportBtn.addEventListener('click', exportCsv);
-  wipeBtn.addEventListener('click', ()=>{
-    if(!confirm("Clear ALL jobs from this device?")) return;
-    jobs = [];
-    save(); renderAll();
-  });
   searchEl.addEventListener('input', renderAll);
 
   // Init
