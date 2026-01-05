@@ -14,34 +14,23 @@
   --line:rgba(255,255,255,.14); --good:#22c55e; --bad:#ef4444; --info:#7dd3fc;
 }
 *{box-sizing:border-box}
-body{
-  margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  color:var(--text);background:var(--bg)
-}
-header{
-  position:sticky;top:0;z-index:10;
-  background:#0b1220;border-bottom:1px solid var(--line)
-}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--text);background:var(--bg)}
+header{position:sticky;top:0;z-index:10;background:#0b1220;border-bottom:1px solid var(--line)}
 .wrap{max-width:1100px;margin:auto;padding:14px}
 main{max-width:1100px;margin:auto;padding:16px}
-.card{
-  background:#111a33;border:1px solid var(--line);
-  border-radius:18px;padding:14px
-}
+.card{background:#111a33;border:1px solid var(--line);border-radius:18px;padding:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button{
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  padding:10px 14px;border-radius:14px;font-weight:900
+  border:1px solid var(--line);background:rgba(255,255,255,.06);
+  color:var(--text);padding:10px 14px;border-radius:14px;font-weight:900
 }
 button.good{border-color:rgba(34,197,94,.6)}
 button.bad{border-color:rgba(239,68,68,.6)}
-button.rec{border-color:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.25) inset}
+button:disabled{opacity:.6}
 input,textarea{
   width:100%;background:rgba(0,0,0,.25);
-  border:1px solid var(--line);
-  color:var(--text);border-radius:14px;padding:10px
+  border:1px solid var(--line);color:var(--text);
+  border-radius:14px;padding:10px
 }
 textarea{min-height:90px;white-space:pre-wrap}
 .grid{display:grid;gap:12px;margin-top:12px}
@@ -60,7 +49,6 @@ textarea{min-height:90px;white-space:pre-wrap}
 <header>
   <div class="wrap row" style="justify-content:space-between">
     <strong>Ford Property Services • Photo Notes</strong>
-    <!-- ✅ FIXED DASHBOARD LINK -->
     <a class="back" href="../dashboard/">← Dashboard</a>
   </div>
 </header>
@@ -77,10 +65,10 @@ textarea{min-height:90px;white-space:pre-wrap}
   <button id="openCamera" class="good">📷 Camera</button>
   <button id="openGallery">🖼️ Gallery</button>
   <button id="createPdf" class="good">🧾 Create PDF</button>
+  <button id="sharePdf" disabled>📤 Share PDF</button>
 </div>
 
 <div id="speechStatus"></div>
-
 <div id="photos" class="grid"></div>
 
 </div>
@@ -90,14 +78,11 @@ textarea{min-height:90px;white-space:pre-wrap}
 
 <script>
 const $=id=>document.getElementById(id);
-const STORE="fps_photo_notes_final_v11_pdfspacing";
+const STORE="fps_photo_notes_v12_share";
 
 let state={address:"",date:"",photos:[]};
-
-// Dictation
-let rec=null;
-let finalBuffer="",interimBuffer="",silenceTimer=null;
-let activeItem=null,activeTa=null,activeBtn=null,activeLive=null;
+let lastPdfBlob=null;
+let lastPdfName="";
 
 function todayISO(){return new Date().toISOString().slice(0,10)}
 function save(){localStorage.setItem(STORE,JSON.stringify(state))}
@@ -117,252 +102,85 @@ function render(){
     const d=document.createElement("div");
     d.className="photo";
     d.innerHTML=`
-      <div class="thumb"><img src="${p.img}" alt="Photo ${i+1}"></div>
-      <textarea placeholder="Notes...">${p.note||""}</textarea>
-      <div class="live"></div>
+      <div class="thumb"><img src="${p.img}"></div>
+      <textarea>${p.note||""}</textarea>
       <div class="row" style="margin-top:6px">
-        <button class="good" type="button">🎤 Dictate</button>
-        <button type="button">↩ Undo</button>
-        <button class="bad" type="button">🗑️ Delete</button>
+        <button class="bad">🗑️ Delete</button>
       </div>`;
     const ta=d.querySelector("textarea");
-    const live=d.querySelector(".live");
-    const dictBtn=d.querySelector(".good");
-    const undoBtn=d.querySelectorAll("button")[1];
-    const delBtn=d.querySelector(".bad");
-
     ta.oninput=e=>{p.note=e.target.value;save()};
-
-    dictBtn.onclick=()=>toggleDictation(p,ta,dictBtn,live);
-
-    undoBtn.onclick=()=>{
-      const lines=(p.note||"").split("\n");
-      lines.pop();
-      p.note=lines.join("\n");
-      ta.value=p.note;
-      save();
+    d.querySelector("button").onclick=()=>{
+      state.photos.splice(i,1);save();render()
     };
-
-    delBtn.onclick=()=>{
-      state.photos.splice(i,1);
-      save();render();
-    };
-
-    box.appendChild(d);
-  });
+    box.appendChild(d)
+  })
 }
 
 $("openCamera").onclick=async()=>{
-  // quick camera capture (takes photo after 0.7s)
-  try{
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
-    const v=document.createElement("video");
-    v.srcObject=s; await v.play();
-
-    setTimeout(()=>{
-      const c=document.createElement("canvas");
-      c.width=v.videoWidth; c.height=v.videoHeight;
-      c.getContext("2d").drawImage(v,0,0);
-
-      s.getTracks().forEach(t=>t.stop());
-
-      state.photos.push({img:c.toDataURL("image/jpeg",0.95),note:""});
-      save();render();
-    },700);
-  }catch(e){
-    alert("Camera permission blocked or camera failed.");
-  }
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+  const v=document.createElement("video");v.srcObject=s;await v.play();
+  setTimeout(()=>{
+    const c=document.createElement("canvas");
+    c.width=v.videoWidth;c.height=v.videoHeight;
+    c.getContext("2d").drawImage(v,0,0);
+    s.getTracks().forEach(t=>t.stop());
+    state.photos.push({img:c.toDataURL("image/jpeg",0.95),note:""});
+    save();render()
+  },700)
 };
 
 $("openGallery").onclick=()=>$("galleryInput").click();
 $("galleryInput").onchange=async e=>{
   for(const f of e.target.files){
-    const img=new Image();
-    img.src=URL.createObjectURL(f);
-    await img.decode();
+    const img=new Image();img.src=URL.createObjectURL(f);await img.decode();
     const c=document.createElement("canvas");
-    c.width=img.width; c.height=img.height;
+    c.width=img.width;c.height=img.height;
     c.getContext("2d").drawImage(img,0,0);
-    URL.revokeObjectURL(img.src);
-    state.photos.push({img:c.toDataURL("image/jpeg",0.95),note:""});
+    state.photos.push({img:c.toDataURL("image/jpeg",0.95),note:""})
   }
-  e.target.value="";
-  save();render();
+  save();render()
 };
 
-// Dictation (buffered)
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-
-function setStatus(t){ $("speechStatus").textContent=t||""; }
-
-function toggleDictation(item,ta,btn,live){
-  if(!SR){ alert("Dictation not supported on this browser. Use Chrome on Android."); return; }
-
-  // Stop current recording
-  if(rec){
-    try{ rec.stop(); }catch(e){}
-    return;
-  }
-
-  activeItem=item; activeTa=ta; activeBtn=btn; activeLive=live;
-  finalBuffer=""; interimBuffer="";
-  btn.textContent="⏹ Stop"; btn.classList.add("rec");
-  setStatus("Recording… speak normally. Pause to finish.");
-
-  rec=new SR();
-  rec.lang="en-GB";
-  rec.interimResults=true;
-  rec.continuous=true;
-
-  rec.onresult=(ev)=>{
-    // reset silence timer anytime we hear anything
-    clearTimeout(silenceTimer);
-    silenceTimer=setTimeout(()=>{ try{ rec.stop(); }catch(e){} }, 2500);
-
-    for(let i=ev.resultIndex;i<ev.results.length;i++){
-      const r=ev.results[i];
-      const txt=(r[0]?.transcript||"").trim();
-      if(!txt) continue;
-
-      if(r.isFinal){
-        finalBuffer = (finalBuffer + " " + txt).trim();
-        interimBuffer="";
-        live.textContent="";
-      }else{
-        interimBuffer=txt;
-        live.textContent="… " + interimBuffer;
-      }
-    }
-  };
-
-  rec.onerror=(e)=>{
-    setStatus("Dictation error: " + (e?.error||"unknown"));
-  };
-
-  rec.onend=()=>{
-    clearTimeout(silenceTimer);
-    const t=(finalBuffer+" "+interimBuffer).replace(/\s+/g," ").trim();
-
-    if(t){
-      const line="• " + t;
-      ta.value = (ta.value.trim() ? (ta.value.replace(/\s+$/,"") + "\n" + line) : line);
-      item.note = ta.value;
-      save();
-    }
-
-    btn.textContent="🎤 Dictate"; btn.classList.remove("rec");
-    live.textContent="";
-    setStatus("");
-    rec=null;
-  };
-
-  try{
-    rec.start();
-  }catch(e){
-    btn.textContent="🎤 Dictate"; btn.classList.remove("rec");
-    setStatus("Mic blocked. Chrome: ⋮ → Site settings → Microphone → Allow.");
-    rec=null;
-  }
-}
-
-/* =======================
-   PDF (FIXED SPACING / NO OVERLAP)
-======================= */
-$("createPdf").onclick=async()=>{
-  if(!state.address || !state.address.trim()){
-    alert("Enter the Property address first.");
-    return;
-  }
-  if(!state.photos.length){
-    alert("Add at least 1 photo first.");
-    return;
-  }
+$("createPdf").onclick=()=>{
+  if(!state.address||!state.photos.length){alert("Add address and photos first");return}
 
   const {jsPDF}=window.jspdf;
-  const pdf=new jsPDF({unit:"mm",format:"a4"});
+  const pdf=new jsPDF();let y=15;
+  pdf.text("Ford Property Services",10,y);y+=8;
+  pdf.text("Address: "+state.address,10,y);y+=6;
+  pdf.text("Date: "+state.date.split("-").reverse().join("/"),10,y);y+=10;
 
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 10;
-  const maxTextW = pageW - margin*2;
+  state.photos.forEach((p,i)=>{
+    if(y>230){pdf.addPage();y=15}
+    pdf.text("Photo "+(i+1),10,y);y+=8;
+    pdf.addImage(p.img,"JPEG",10,y,90,60);y+=66;
+    const lines=pdf.splitTextToSize(p.note||"—",180);
+    pdf.text(lines,10,y);y+=lines.length*6+10
+  });
 
-  const titleLH = 7;
-  const textLH = 5.2;
+  lastPdfBlob = pdf.output("blob");
+  lastPdfName = `Photo Notes ${state.address} ${state.date}.pdf`
+    .replace(/[\/\\:*?"<>|]/g,"-");
 
-  function ensure(h){
-    if(y + h > pageH - margin){
-      pdf.addPage();
-      y = margin;
-    }
-  }
-
-  // Header
-  let y = margin;
-  pdf.setFont("helvetica","bold");
-  pdf.setFontSize(14);
-  pdf.text("Ford Property Services", margin, y); y += titleLH;
-
-  pdf.setFontSize(12);
-  pdf.text("Photo Notes", margin, y); y += titleLH;
-
-  pdf.setFont("helvetica","normal");
-  pdf.setFontSize(11);
-
-  const dateUK = (state.date||"").split("-").reverse().join("/");
-  const addrLines = pdf.splitTextToSize("Address: " + state.address, maxTextW);
-  ensure(addrLines.length*textLH + 6);
-  pdf.text(addrLines, margin, y); y += addrLines.length*textLH + 4;
-
-  ensure(textLH + 6);
-  pdf.text("Date: " + dateUK, margin, y); y += textLH + 8;
-
-  // Photos
-  for(let i=0;i<state.photos.length;i++){
-    const p = state.photos[i];
-
-    // Photo heading
-    pdf.setFont("helvetica","bold");
-    pdf.setFontSize(12);
-    ensure(10);
-    pdf.text(`Photo ${i+1}`, margin, y);
-    y += 8; // ✅ bigger gap so notes can never overlap this line
-
-    // Image
-    const imgW = 95;
-    const imgH = 63; // 4:3-ish
-    ensure(imgH + 6);
-    pdf.addImage(p.img, "JPEG", margin, y, imgW, imgH);
-    y += imgH + 6;
-
-    // Notes
-    pdf.setFont("helvetica","normal");
-    pdf.setFontSize(11);
-
-    const noteText = (p.note && p.note.trim()) ? p.note.trim() : "—";
-    const noteLines = pdf.splitTextToSize(noteText, maxTextW);
-
-    // ✅ Ensure space for ALL wrapped lines, otherwise add new page
-    ensure(noteLines.length*textLH + 10);
-    pdf.text(noteLines, margin, y);
-    y += noteLines.length*textLH + 10;
-
-    // if near bottom, push next photo to new page
-    if(i < state.photos.length-1 && y > pageH - margin - 40){
-      pdf.addPage();
-      y = margin;
-    }
-  }
-
-  const filename = `Photo Notes ${state.address} ${state.date}.pdf`
-    .replace(/[\/\\:*?"<>|]/g,"-")
-    .replace(/\s+/g," ")
-    .trim();
-
-  pdf.save(filename);
+  $("sharePdf").disabled=false;
+  alert("PDF created. Tap Share PDF.");
 };
 
-load();
-render();
+$("sharePdf").onclick=async()=>{
+  if(!lastPdfBlob){alert("Create PDF first");return}
+  const file=new File([lastPdfBlob],lastPdfName,{type:"application/pdf"});
+
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    await navigator.share({files:[file],title:lastPdfName});
+  }else{
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(lastPdfBlob);
+    a.download=lastPdfName;
+    a.click();
+  }
+};
+
+load();render();
 </script>
 </body>
 </html>
