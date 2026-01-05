@@ -29,6 +29,10 @@ button{
 }
 button.good{border-color:rgba(34,197,94,.55)}
 button.bad{border-color:rgba(239,68,68,.55)}
+button.rec{
+  border-color:rgba(239,68,68,.75);
+  box-shadow: 0 0 0 2px rgba(239,68,68,.15) inset;
+}
 input,textarea{
   width:100%;background:rgba(0,0,0,.2);color:var(--text);
   border:1px solid var(--line);border-radius:14px;padding:10px 12px
@@ -97,6 +101,7 @@ video{width:100%;height:100%;object-fit:cover}
       <button id="savePdf" type="button">🧾 Save PDF</button>
     </div>
 
+    <!-- Global speech status -->
     <div id="speechStatus" class="small no-print" style="margin-top:8px"></div>
 
     <div class="row no-print" style="margin-top:12px">
@@ -178,14 +183,30 @@ $("address").addEventListener("input", (e)=>{ state.address = e.target.value; sa
 $("date").addEventListener("change", (e)=>{ state.date = e.target.value; save(); });
 $("general").addEventListener("input", (e)=>{ state.general = e.target.value; save(); });
 
-/* Dictation per photo (reliable) */
+/* ===== Dictation with Recording/Stopped UI ===== */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
 let micWarmStream = null;
 
+// Track active button/target so we can flip UI on start/stop
+let activeDictBtn = null;
+let activeTarget = null;
+
 function setSpeechStatus(msg){
   const el = $("speechStatus");
   if(el) el.textContent = msg || "";
+}
+
+function setDictButtonState(btn, state){
+  // state: "idle" | "recording"
+  if(!btn) return;
+  if(state === "recording"){
+    btn.textContent = "⏹ Stop";
+    btn.classList.add("rec");
+  }else{
+    btn.textContent = "🎤 Dictate";
+    btn.classList.remove("rec");
+  }
 }
 
 async function warmUpMicPermission(){
@@ -200,7 +221,29 @@ async function warmUpMicPermission(){
   }
 }
 
-async function startDictation(targetTextarea){
+function stopDictation(){
+  if(rec){
+    try{ rec.stop(); }catch(e){}
+  }
+  // UI cleanup happens in onend too, but do it here immediately
+  setDictButtonState(activeDictBtn, "idle");
+  setSpeechStatus("Stopped.");
+  activeDictBtn = null;
+  activeTarget = null;
+}
+
+async function toggleDictation(targetTextarea, dictButton){
+  // If currently recording on THIS same textarea, stop
+  if(rec && activeTarget === targetTextarea){
+    stopDictation();
+    return;
+  }
+
+  // Otherwise, stop any existing recording and start new on requested target
+  if(rec){
+    stopDictation();
+  }
+
   if(!SR){
     alert("Dictation not supported on this browser. Use Chrome on Android.");
     return;
@@ -210,26 +253,29 @@ async function startDictation(targetTextarea){
   const ok = await warmUpMicPermission();
   if(!ok) return;
 
-  if(rec){
-    try{ rec.stop(); }catch(e){}
-    rec = null;
-  }
+  activeDictBtn = dictButton;
+  activeTarget = targetTextarea;
+  setDictButtonState(activeDictBtn, "recording");
 
   rec = new SR();
   rec.lang = "en-GB";
-  rec.interimResults = false;
+  rec.interimResults = false; // avoids duplication
   rec.continuous = false;
 
-  rec.onstart = () => setSpeechStatus("Listening… speak now.");
+  rec.onstart = () => {
+    setSpeechStatus("Recording… speak now.");
+    setDictButtonState(activeDictBtn, "recording");
+  };
+
   rec.onresult = (ev) => {
     const text = Array.from(ev.results).map(r => r[0]?.transcript || "").join(" ").trim();
     if(!text) return;
 
-    const cur = targetTextarea.value || "";
-    targetTextarea.value = (cur && !cur.endsWith(" ") ? cur + " " : cur) + text;
+    const cur = activeTarget.value || "";
+    activeTarget.value = (cur && !cur.endsWith(" ") ? cur + " " : cur) + text;
+    activeTarget.dispatchEvent(new Event("input", { bubbles:true }));
 
-    targetTextarea.dispatchEvent(new Event("input", { bubbles:true }));
-    setSpeechStatus("Dictation added ✅");
+    setSpeechStatus("Recorded ✅");
   };
 
   rec.onerror = (ev) => {
@@ -243,14 +289,26 @@ async function startDictation(targetTextarea){
     }
   };
 
-  rec.onend = () => setTimeout(()=> setSpeechStatus(""), 1500);
+  rec.onend = () => {
+    // End fires after stop or when speech ends
+    setDictButtonState(activeDictBtn, "idle");
+    setTimeout(()=> setSpeechStatus(""), 1500);
+    rec = null;
+    activeDictBtn = null;
+    activeTarget = null;
+  };
 
   try{
     rec.start();
   }catch(e){
+    setDictButtonState(activeDictBtn, "idle");
     setSpeechStatus("Could not start dictation. Try Chrome + allow microphone.");
+    rec = null;
+    activeDictBtn = null;
+    activeTarget = null;
   }
 }
+/* ===== End dictation ===== */
 
 /* Render */
 function render(){
@@ -281,15 +339,24 @@ function render(){
     const bClear = buttons[1];
     const bDel = buttons[2];
 
-    bDict.addEventListener("click", ()=> startDictation(ta));
+    // Toggle recording/stopped
+    bDict.addEventListener("click", ()=> toggleDictation(ta, bDict));
+
     bClear.addEventListener("click", ()=>{
       ta.value = "";
       it.note = "";
       save();
       showToast("Note cleared");
     });
+
     bDel.addEventListener("click", ()=>{
       if(!confirm("Delete this photo?")) return;
+
+      // If deleting the currently-recording item, stop first
+      if(activeTarget === ta){
+        stopDictation();
+      }
+
       state.items.splice(idx, 1);
       save();
       render();
@@ -386,6 +453,10 @@ $("savePdf").addEventListener("click", ()=> window.print());
 /* New form */
 $("newForm").addEventListener("click", ()=>{
   if(!confirm("Start a NEW form? This will clear address/date/notes/photos on this device.")) return;
+
+  // Stop dictation if running
+  if(rec) stopDictation();
+
   state = { address:"", date:"", general:"", items:[] };
   localStorage.removeItem(STORE);
 
