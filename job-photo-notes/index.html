@@ -227,10 +227,16 @@ function syncHeader(){
   $("pdfDate").textContent = ukDateFromInput(state.date) || "—";
 }
 
+function invalidateCurrentPdf(){
+  currentPdfBlob = null;
+  currentPdfFilename = "";
+  $("sharePdf").disabled = true;
+  $("downloadPdf").disabled = true;
+}
+
 function saveState(){
   localStorage.setItem(STORE, JSON.stringify(state));
   syncHeader();
-  // If the form changes, we invalidate the current PDF (so you don't share old one)
   invalidateCurrentPdf();
 }
 
@@ -246,19 +252,12 @@ function loadState(){
   render();
 }
 
-function invalidateCurrentPdf(){
-  currentPdfBlob = null;
-  currentPdfFilename = "";
-  $("sharePdf").disabled = true;
-  $("downloadPdf").disabled = true;
-}
-
 $("address").addEventListener("input", (e)=>{ state.address = e.target.value; saveState(); });
 $("date").addEventListener("change", (e)=>{ state.date = e.target.value; saveState(); });
 $("general").addEventListener("input", (e)=>{ state.general = e.target.value; saveState(); });
 
 /* =======================
-   DICTATION (BULLETS, NO MISSING PHRASES)
+   DICTATION (BULLETS — robust on Android, no missing text)
 ======================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
@@ -266,6 +265,10 @@ let micWarmStream = null;
 
 let activeDictBtn = null;
 let activeTarget = null;
+
+// track interim + whether we added any final text during this session
+let lastInterim = "";
+let addedFinalThisSession = false;
 
 function setSpeechStatus(msg){ $("speechStatus").textContent = msg || ""; }
 
@@ -296,7 +299,7 @@ function appendBullet(targetTextarea, text){
   const clean = (text || "").trim();
   if(!clean) return;
 
-  const bulletLine = "• " + clean;
+  const bulletLine = clean.startsWith("•") ? clean : ("• " + clean);
   const cur = targetTextarea.value || "";
 
   if(!cur.trim()){
@@ -312,10 +315,7 @@ function stopDictation(){
     try{ rec.stop(); }catch(e){}
   }
   setDictButtonState(activeDictBtn, "idle");
-  setSpeechStatus("Stopped.");
-  rec = null;
-  activeDictBtn = null;
-  activeTarget = null;
+  setSpeechStatus("Stopping…");
 }
 
 async function toggleDictation(targetTextarea, dictButton){
@@ -323,7 +323,10 @@ async function toggleDictation(targetTextarea, dictButton){
     stopDictation();
     return;
   }
-  if(rec) stopDictation();
+  if(rec){
+    stopDictation();
+    return;
+  }
 
   if(!SR){
     alert("Dictation not supported. Use Chrome on Android.");
@@ -336,27 +339,41 @@ async function toggleDictation(targetTextarea, dictButton){
 
   activeDictBtn = dictButton;
   activeTarget = targetTextarea;
+
+  lastInterim = "";
+  addedFinalThisSession = false;
+
   setDictButtonState(activeDictBtn, "recording");
+  setSpeechStatus("Recording… speak now.");
 
   rec = new SR();
   rec.lang = "en-GB";
   rec.interimResults = true;
   rec.continuous = true;
-
-  rec.onstart = ()=> setSpeechStatus("Recording… speak now.");
+  rec.maxAlternatives = 1;
 
   rec.onresult = (ev)=>{
-    let addedAny = false;
     for(let i = ev.resultIndex; i < ev.results.length; i++){
       const res = ev.results[i];
-      if(res && res.isFinal){
-        const phrase = res[0] && res[0].transcript ? res[0].transcript : "";
-        appendBullet(activeTarget, phrase);
-        addedAny = true;
+      if(!res) continue;
+
+      const transcript = (res[0] && res[0].transcript) ? res[0].transcript : "";
+      if(!transcript.trim()) continue;
+
+      if(res.isFinal){
+        appendBullet(activeTarget, transcript);
+        addedFinalThisSession = true;
+        lastInterim = "";
+      }else{
+        lastInterim = transcript;
       }
     }
-    if(addedAny) setSpeechStatus("Recorded ✅ (tap Stop or keep talking)");
-    else setSpeechStatus("Recording…");
+
+    if(addedFinalThisSession){
+      setSpeechStatus("Recorded ✅ (tap Stop or keep talking)");
+    }else{
+      setSpeechStatus(lastInterim ? "Recording… (hearing you)" : "Recording…");
+    }
   };
 
   rec.onerror = (ev)=>{
@@ -371,17 +388,33 @@ async function toggleDictation(targetTextarea, dictButton){
   };
 
   rec.onend = ()=>{
+    // KEY FIX: if Android gave only interim, add it as bullet now
+    if(!addedFinalThisSession && lastInterim.trim()){
+      appendBullet(activeTarget, lastInterim);
+    }
+
     setDictButtonState(activeDictBtn, "idle");
     setSpeechStatus("Stopped.");
-    rec = null; activeDictBtn = null; activeTarget = null;
-    setTimeout(()=> setSpeechStatus(""), 1500);
+
+    rec = null;
+    activeDictBtn = null;
+    activeTarget = null;
+    lastInterim = "";
+    addedFinalThisSession = false;
+
+    setTimeout(()=> setSpeechStatus(""), 1200);
   };
 
-  try{ rec.start(); }
-  catch(e){
+  try{
+    rec.start();
+  }catch(e){
     setDictButtonState(activeDictBtn, "idle");
     setSpeechStatus("Could not start dictation. Try Chrome + allow microphone.");
-    rec = null; activeDictBtn = null; activeTarget = null;
+    rec = null;
+    activeDictBtn = null;
+    activeTarget = null;
+    lastInterim = "";
+    addedFinalThisSession = false;
   }
 }
 
@@ -858,4 +891,3 @@ async function renderFiles(){
 
 </body>
 </html>
-```0
