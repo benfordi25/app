@@ -35,7 +35,10 @@
       border-bottom:1px solid var(--line);
     }
     .wrap{max-width:1100px;margin:0 auto;padding:14px 16px}
-    .top{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+    .top{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; flex-wrap:wrap;
+    }
     .brand{display:flex; align-items:center; gap:12px;}
     .logo{
       width:56px;height:56px;border-radius:14px;
@@ -50,7 +53,8 @@
     }
     .logo img{width:100%;height:100%;object-fit:contain;display:none}
     .brand h1{margin:0;font-size:16px;line-height:1.1}
-    .brand p{margin:2px 0 0;color:#a9b7d3;font-size:12px}
+    .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+
     .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     button{
       border:1px solid rgba(255,255,255,.16);
@@ -67,7 +71,7 @@
       padding:8px 10px;border-radius:999px;
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.06);
-      font-size:12px;color:#a9b7d3;
+      font-size:12px;color:var(--muted);
     }
     .pill strong{color:var(--text)}
 
@@ -79,6 +83,7 @@
       box-shadow: var(--shadow);
       padding:14px;
     }
+
     .grid{
       display:grid;
       grid-template-columns:1fr;
@@ -113,8 +118,9 @@
     .icon svg{width:26px;height:26px;opacity:.95}
     .ttext{min-width:0}
     .ttext h3{margin:0;font-size:14px;line-height:1.15}
-    .ttext p{margin:4px 0 0;color:#a9b7d3;font-size:12px}
-    .hint{margin-top:10px;color:#a9b7d3;font-size:12px}
+    .ttext p{margin:4px 0 0;color:var(--muted);font-size:12px}
+    .hint{margin-top:10px;color:var(--muted);font-size:12px}
+    code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:8px}
   </style>
 </head>
 
@@ -145,12 +151,15 @@
 
 <main>
   <div class="card">
-    <div style="color:#e7eefc">
+    <div>
       <strong>Quick Access</strong><br />
-      <span style="color:#a9b7d3;font-size:12px">Photo Notes uses a launcher at <code>/app/job-photo-notes/</code>.</span>
+      <span style="color:var(--muted);font-size:12px">
+        Photo Notes tile opens <code>/app/job-photo-notes/index.html</code> (direct file link to avoid 404).
+      </span>
     </div>
 
     <div class="grid">
+      <!-- Jobs Board -->
       <a class="tile" href="/app/jobs-board/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
@@ -164,6 +173,7 @@
         </div>
       </a>
 
+      <!-- Inspection Report (change later if needed) -->
       <a class="tile" href="/app/inspection-report/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
@@ -178,6 +188,7 @@
         </div>
       </a>
 
+      <!-- Works Completion Report (change later if needed) -->
       <a class="tile" href="/app/works-completion-report/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
@@ -192,8 +203,8 @@
         </div>
       </a>
 
-      <!-- Photo Notes (absolute path) -->
-      <a class="tile" href="/app/job-photo-notes/">
+      <!-- Photo Notes (DIRECT FILE LINK - avoids folder 404) -->
+      <a class="tile" href="/app/job-photo-notes/index.html">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
             <path d="M4 7a2 2 0 0 1 2-2h3l1-1h4l1 1h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="currentColor" stroke-width="2"/>
@@ -207,6 +218,7 @@
         </div>
       </a>
 
+      <!-- App Root -->
       <a class="tile" href="/app/">
         <div class="icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none">
@@ -223,7 +235,7 @@
 
     <div class="hint">
       <strong>Install:</strong> Android Chrome → ⋮ → <em>Add to Home screen</em>.<br />
-      <strong>Logo:</strong> tap the logo square to upload — it saves on your phone.
+      <strong>Cache tip:</strong> open with <code>?v=2</code> after updates.
     </div>
   </div>
 </main>
@@ -233,6 +245,7 @@
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 
+  // Shared logo (same key used across your apps)
   const logoBox = document.getElementById('logoBox');
   const logoInput = document.getElementById('logoInput');
   const logoImg = document.getElementById('logoImg');
