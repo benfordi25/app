@@ -119,7 +119,6 @@
     }
     textarea{min-height:90px;resize:vertical}
     .hint{color:var(--muted);font-size:12px;margin:8px 0 0}
-    .divider{height:1px;background:var(--line);margin:12px 0}
 
     .grid2{display:grid;grid-template-columns:1fr;gap:10px}
     @media(min-width:720px){ .grid2{grid-template-columns:1fr 1fr} }
@@ -138,11 +137,7 @@
       display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
     }
 
-    .photos{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:12px;
-    }
+    .photos{display:grid;grid-template-columns:1fr;gap:12px}
 
     .photoCard{
       border:1px solid rgba(255,255,255,.12);
@@ -151,53 +146,36 @@
       padding:10px;
       overflow:hidden;
     }
-    .photoTop{
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
-      margin-bottom:10px;
-    }
+    .photoTop{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:10px}
     .idx{font-weight:950}
     .mini{font-size:12px;color:var(--muted)}
     .photoGrid{
       display:grid;
-      grid-template-columns: 120px 1fr;
+      grid-template-columns:120px 1fr;
       gap:10px;
       align-items:start;
     }
-    @media(min-width:720px){
-      .photoGrid{ grid-template-columns: 180px 1fr; }
-    }
+    @media(min-width:720px){ .photoGrid{grid-template-columns:180px 1fr} }
     .thumb{
       width:120px;height:120px;border-radius:14px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.14);
+      overflow:hidden;border:1px solid rgba(255,255,255,.14);
       background: rgba(0,0,0,.2);
     }
-    @media(min-width:720px){
-      .thumb{ width:180px;height:180px; }
-    }
+    @media(min-width:720px){ .thumb{width:180px;height:180px} }
     .thumb img{width:100%;height:100%;object-fit:cover}
 
-    .noteActions{
-      display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:10px;
-    }
+    .noteActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
     .micStatus{
-      font-size:12px;
-      color: var(--muted);
-      padding:8px 10px;
-      border:1px solid rgba(255,255,255,.12);
+      font-size:12px;color:var(--muted);
+      padding:8px 10px;border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
       border-radius:999px;
     }
 
     .toast{
-      display:none;
-      margin-top:10px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: var(--muted);
-      font-size:12px;
+      display:none;margin-top:10px;padding:10px 12px;
+      border-radius:14px;border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);color:var(--muted);font-size:12px;
     }
     footer{color:var(--muted);text-align:center;padding:18px 10px 30px;font-size:12px}
   </style>
@@ -275,7 +253,9 @@
       <textarea id="generalNotes" placeholder="General notes for the job..."></textarea>
 
       <div class="toast" id="toast"></div>
-      <div class="hint">Voice dictation: works best in Chrome on Android. It appends FINAL results only (no duplicates).</div>
+      <div class="hint">
+        PDF clarity: photos export large and keep aspect ratio. (Bigger PDFs, but clear.)
+      </div>
     </div>
 
     <div>
@@ -295,7 +275,6 @@
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 
-  // Helpers
   function pad2(n){ return String(n).padStart(2,'0'); }
   function makeJobId(){
     const d = new Date();
@@ -316,7 +295,8 @@
     showToast._tm = setTimeout(()=> t.style.display='none', 2600);
   }
 
-  async function fileToDataURL(file, maxDim=1600, quality=0.82){
+  // HIGH QUALITY: bigger max size + higher quality JPEG
+  async function fileToDataURL(file, maxDim=2800, quality=0.92){
     const img = await new Promise((res, rej)=>{
       const i = new Image();
       i.onload=()=>res(i);
@@ -366,12 +346,9 @@
   const clearGeneralBtn = document.getElementById('clearGeneralBtn');
 
   // State
-  const state = {
-    jobId: makeJobId(),
-    photos: [] // { dataUrl, note }
-  };
+  const state = { jobId: makeJobId(), photos: [] }; // { dataUrl, note }
 
-  // Shared logo storage (same as your other apps)
+  // Shared logo
   const savedLogo = localStorage.getItem('fps_logo_v1');
   if(savedLogo){
     logoImg.src = savedLogo;
@@ -390,7 +367,7 @@
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
     if(!file) return;
-    const dataUrl = await fileToDataURL(file, 900, 0.90);
+    const dataUrl = await fileToDataURL(file, 1200, 0.94);
     logoImg.src = dataUrl;
     logoImg.style.display = 'block';
     logoFallback.style.display = 'none';
@@ -398,7 +375,7 @@
     showToast('Logo saved on this device.');
   });
 
-  // Voice dictation (final-only)
+  // Dictation (final-only)
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   function canDictate(){ return !!SpeechRecognition; }
 
@@ -419,11 +396,10 @@
         if(txt) onFinalText && onFinalText(txt);
       }
     };
-
     return rec;
   }
 
-  // Render photos list
+  // Render photos
   function render(){
     updateHeader();
     photosEl.innerHTML = "";
@@ -444,8 +420,7 @@
           <button type="button" class="danger">Remove</button>
         </div>
       `;
-      const removeBtn = top.querySelector('button');
-      removeBtn.addEventListener('click', ()=>{
+      top.querySelector('button').addEventListener('click', ()=>{
         state.photos.splice(idx,1);
         render();
       });
@@ -476,25 +451,25 @@
       micStatus.textContent = canDictate() ? "Voice: Idle" : "Voice: Not supported";
 
       const micBtn = document.createElement('button');
-      micBtn.type = "button";
-      micBtn.className = "warn";
-      micBtn.textContent = "Dictate to this photo";
+      micBtn.type="button";
+      micBtn.className="warn";
+      micBtn.textContent="Dictate to this photo";
 
       const stopBtn = document.createElement('button');
-      stopBtn.type = "button";
-      stopBtn.textContent = "Stop";
-      stopBtn.disabled = true;
+      stopBtn.type="button";
+      stopBtn.textContent="Stop";
+      stopBtn.disabled=true;
 
       const clearBtn = document.createElement('button');
-      clearBtn.type = "button";
-      clearBtn.className = "danger";
-      clearBtn.textContent = "Clear Notes";
+      clearBtn.type="button";
+      clearBtn.className="danger";
+      clearBtn.textContent="Clear Notes";
 
       let rec = null;
 
       clearBtn.addEventListener('click', ()=>{
-        ta.value = "";
-        p.note = "";
+        ta.value="";
+        p.note="";
       });
 
       micBtn.addEventListener('click', ()=>{
@@ -502,32 +477,31 @@
           alert("Voice dictation isn't supported on this browser. Use Chrome on Android.");
           return;
         }
-        micBtn.disabled = true;
-        stopBtn.disabled = false;
+        micBtn.disabled=true;
+        stopBtn.disabled=false;
 
         rec = createRecognition({
           onStatus: (s)=> micStatus.textContent = "Voice: " + s,
           onFinalText: (txt)=>{
             const current = (ta.value || "").trim();
-            const next = (current ? (current + " ") : "") + txt;
-            ta.value = next.trim();
+            ta.value = ((current ? current + " " : "") + txt).trim();
             p.note = ta.value;
           }
         });
 
         try{ rec.start(); }catch(e){
-          micStatus.textContent = "Voice: Error";
-          micBtn.disabled = false;
-          stopBtn.disabled = true;
-          rec = null;
+          micStatus.textContent="Voice: Error";
+          micBtn.disabled=false;
+          stopBtn.disabled=true;
+          rec=null;
         }
       });
 
       stopBtn.addEventListener('click', ()=>{
         try{ rec && rec.stop(); }catch(e){}
-        rec = null;
-        micBtn.disabled = false;
-        stopBtn.disabled = true;
+        rec=null;
+        micBtn.disabled=false;
+        stopBtn.disabled=true;
       });
 
       actions.appendChild(micStatus);
@@ -544,80 +518,58 @@
 
       card.appendChild(top);
       card.appendChild(grid);
+
       photosEl.appendChild(card);
     });
   }
-
   render();
 
   // Add photos
   async function addPhotos(files){
     const arr = Array.from(files || []);
     for(const f of arr){
-      const dataUrl = await fileToDataURL(f, 1600, 0.82);
+      const dataUrl = await fileToDataURL(f, 2800, 0.92);
       state.photos.push({ dataUrl, note: "" });
     }
     render();
   }
-
   galleryBtn.addEventListener('click', ()=> galleryInput.click());
   cameraBtn.addEventListener('click', ()=> cameraInput.click());
+  galleryInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files); galleryInput.value=""; });
+  cameraInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files); cameraInput.value=""; });
 
-  galleryInput.addEventListener('change', async (e)=>{
-    await addPhotos(e.target.files);
-    galleryInput.value = "";
-  });
-  cameraInput.addEventListener('change', async (e)=>{
-    await addPhotos(e.target.files);
-    cameraInput.value = "";
-  });
-
-  // Global dictation to General Notes
+  // Global dictation
   let globalRec = null;
-
   function setGlobalIdle(){
     globalMicStatus.textContent = "Voice: Idle";
     globalDictateBtn.textContent = "Dictate (Append to General Notes)";
     globalRec = null;
   }
-
   globalDictateBtn.addEventListener('click', ()=>{
     if(!canDictate()){
       alert("Voice dictation isn't supported on this browser. Use Chrome on Android.");
       return;
     }
-
     if(globalRec){
       try{ globalRec.stop(); }catch(e){}
       setGlobalIdle();
       return;
     }
-
-    globalDictateBtn.textContent = "Stop Dictation";
-
+    globalDictateBtn.textContent="Stop Dictation";
     globalRec = createRecognition({
       onStatus: (s)=> globalMicStatus.textContent = "Voice: " + s,
       onFinalText: (txt)=>{
         const current = (generalNotes.value || "").trim();
-        generalNotes.value = ((current ? (current + " ") : "") + txt).trim();
+        generalNotes.value = ((current ? current + " " : "") + txt).trim();
       }
     });
-
     globalRec.onend = ()=> setGlobalIdle();
-
-    try{ globalRec.start(); }catch(e){
-      setGlobalIdle();
-      alert("Could not start dictation. Check microphone permissions.");
-    }
+    try{ globalRec.start(); }catch(e){ setGlobalIdle(); alert("Could not start dictation. Check microphone permissions."); }
   });
-
-  clearGeneralBtn.addEventListener('click', ()=>{
-    generalNotes.value = "";
-  });
+  clearGeneralBtn.addEventListener('click', ()=>{ generalNotes.value=""; });
 
   // Save/Load draft
   const STORAGE_KEY = "fps_job_photo_notes_v1";
-
   function collectDraft(){
     return {
       jobId: state.jobId,
@@ -630,7 +582,6 @@
       photos: state.photos
     };
   }
-
   function applyDraft(d){
     if(!d) return;
     state.jobId = d.jobId || makeJobId();
@@ -642,12 +593,7 @@
     render();
     showToast("Draft loaded.");
   }
-
-  saveBtn.addEventListener('click', ()=>{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectDraft()));
-    showToast("Draft saved on this device.");
-  });
-
+  saveBtn.addEventListener('click', ()=>{ localStorage.setItem(STORAGE_KEY, JSON.stringify(collectDraft())); showToast("Draft saved on this device."); });
   loadBtn.addEventListener('click', ()=>{
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw){ alert("No saved draft found."); return; }
@@ -667,7 +613,7 @@
     showToast("New job started.");
   });
 
-  // ------- PDF EXPORT: Save to phone -------
+  // --------- PDF EXPORT (clear photos) ----------
   function safeFileName(name){
     return String(name || "fps-job")
       .replace(/[/\\?%*:|"<>]/g, "-")
@@ -675,25 +621,19 @@
       .trim();
   }
 
-  async function toJpegDataUrl(dataUrl){
-    // Ensure JPEG for jsPDF image insertion
-    if(dataUrl.startsWith("data:image/jpeg")) return dataUrl;
+  async function getImageInfo(dataUrl){
     const img = await new Promise((res, rej)=>{
       const i = new Image();
       i.onload=()=>res(i);
       i.onerror=rej;
       i.src = dataUrl;
     });
-    const c = document.createElement("canvas");
-    c.width = img.naturalWidth; c.height = img.naturalHeight;
-    const ctx = c.getContext("2d");
-    ctx.drawImage(img,0,0);
-    return c.toDataURL("image/jpeg", 0.86);
+    return { w: img.naturalWidth || img.width, h: img.naturalHeight || img.height };
   }
 
   exportPdfBtn.addEventListener('click', async ()=>{
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({unit:'mm', format:'a4'});
+    const doc = new jsPDF({unit:'mm', format:'a4', compress: true});
 
     const margin = 12;
     const pageW = doc.internal.pageSize.getWidth();
@@ -711,88 +651,125 @@
       generalNotes: (generalNotes.value || "").trim() || "-"
     };
 
-    function setHeader(){
+    function header(){
       doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(20);
       doc.text('FORD PROPERTY SERVICES', margin, 16);
       doc.setFontSize(12);
       doc.text('Job Photo Notes', margin, 23);
+
       doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(60);
       doc.text(`Job ID: ${jobData.jobId}`, pageW - margin, 16, {align:'right'});
       doc.text(`Saved: ${stamp}`, pageW - margin, 22, {align:'right'});
+
       doc.setDrawColor(200); doc.setLineWidth(0.35);
       doc.line(margin, 26, pageW - margin, 26);
     }
 
-    function wrapText(text, width){
+    function wrap(text, width){
       return doc.splitTextToSize(String(text || ""), width);
     }
 
-    setHeader();
-
-    // Job details block
+    // Page 1 summary
+    header();
     let y = 34;
+
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
-    doc.text('Job Details', margin, y);
-    y += 6;
+    doc.text('Job Details', margin, y); y += 6;
 
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
     doc.text(`Letting Agent: ${jobData.lettingAgent}`, margin, y); y += 6;
     doc.text(`Job Reference: ${jobData.jobRef}`, margin, y); y += 6;
 
-    const addrLines = wrapText(`Address: ${jobData.address}`, contentW);
+    const addrLines = wrap(`Address: ${jobData.address}`, contentW);
     doc.text(addrLines, margin, y); y += addrLines.length * 5 + 2;
 
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
     doc.text('General Notes', margin, y); y += 6;
 
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    const genLines = wrapText(jobData.generalNotes, contentW);
+    const genLines = wrap(jobData.generalNotes, contentW);
     doc.text(genLines, margin, y);
     y += genLines.length * 5 + 6;
 
-    // Photos + per-photo notes
+    // Each photo gets its own page for maximum clarity
     for(let i=0;i<state.photos.length;i++){
       const p = state.photos[i];
 
-      // new page if needed
-      const neededMin = 10 + 70 + 10; // heading + photo + some notes
-      if(y + neededMin > pageH - 14){
-        doc.addPage();
-        setHeader();
-        y = 34;
-      }
+      doc.addPage();
+      header();
 
+      let py = 34;
       doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
-      doc.text(`Photo ${i+1}`, margin, y);
-      y += 6;
+      doc.text(`Photo ${i+1}`, margin, py);
+      py += 6;
 
-      // Photo box sizing
-      const boxW = contentW;
-      const boxH = 78;
-      doc.setDrawColor(200); doc.setLineWidth(0.35);
-      doc.roundedRect(margin, y, boxW, boxH, 2, 2);
+      // Reserve space at bottom for notes (up to ~40mm). If notes longer, spill to next page.
+      const notesTopGap = 6;
+      const notesAreaMax = 42;
+      const imageMaxH = (pageH - margin - (py + notesTopGap + notesAreaMax));
+
+      // Determine image placement (keep aspect ratio, no stretching)
+      let iw = contentW;
+      let ih = imageMaxH;
 
       try{
-        const jpeg = await toJpegDataUrl(p.dataUrl);
-        // fit image inside box with small padding
-        doc.addImage(jpeg, 'JPEG', margin+2, y+2, boxW-4, boxH-4, undefined, 'FAST');
+        const info = await getImageInfo(p.dataUrl);
+        const aspect = info.w / info.h;
+
+        // fit by width first
+        iw = contentW;
+        ih = iw / aspect;
+
+        // if too tall, fit by height instead
+        if(ih > imageMaxH){
+          ih = imageMaxH;
+          iw = ih * aspect;
+        }
+
+        const ix = margin + (contentW - iw) / 2;
+        const iy = py;
+
+        // Border
+        doc.setDrawColor(200); doc.setLineWidth(0.35);
+        doc.roundedRect(ix, iy, iw, ih, 2, 2);
+
+        // Add image with best quality (no "FAST")
+        doc.addImage(p.dataUrl, 'JPEG', ix, iy, iw, ih, undefined, 'NONE');
+        py = iy + ih + notesTopGap;
       }catch(e){
         doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(120);
-        doc.text('Image error', margin+4, y+10);
+        doc.text('Image error', margin, py+10);
+        py += 22;
         doc.setTextColor(40);
       }
 
-      y += boxH + 6;
-
+      // Notes
       doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
-      doc.text('Notes:', margin, y);
-      y += 5;
+      doc.text('Notes:', margin, py);
+      py += 5;
 
       doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
       const noteText = (p.note || "").trim() || "-";
-      const noteLines = wrapText(noteText, contentW);
-      doc.text(noteLines, margin, y);
-      y += noteLines.length * 5 + 8;
+      const noteLines = wrap(noteText, contentW);
+
+      // If notes exceed page, continue onto next page
+      const lineH = 5;
+      const available = pageH - margin - py;
+      const maxLinesHere = Math.max(1, Math.floor(available / lineH));
+      const first = noteLines.slice(0, maxLinesHere);
+      doc.text(first, margin, py);
+
+      const remaining = noteLines.slice(maxLinesHere);
+      if(remaining.length){
+        doc.addPage();
+        header();
+        let ny = 34;
+        doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
+        doc.text(`Photo ${i+1} Notes (cont.)`, margin, ny);
+        ny += 8;
+        doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
+        doc.text(remaining, margin, ny);
+      }
     }
 
     // Footer page numbers
@@ -807,7 +784,7 @@
     }
 
     const filename = safeFileName(`${jobData.jobId} Photo Notes`) + ".pdf";
-    doc.save(filename); // downloads to phone
+    doc.save(filename);
   });
 
   if(!canDictate()){
