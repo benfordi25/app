@@ -874,16 +874,7 @@ function ukToISO(dateStr){
   if(!dd || !mm || !yyyy) return "";
   return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
 }
-  // Convert UK date DD/MM/YYYY → YYYY-MM-DD (calendar internal)
-function ukToISO(dateStr){
-  if(!dateStr) return "";
-  const clean = String(dateStr).split(" ")[0].trim();
-  const parts = clean.split("/");
-  if(parts.length !== 3) return "";
-  const [dd, mm, yyyy] = parts;
-  if(!dd || !mm || !yyyy) return "";
-  return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-}
+  
 function syncCalendarFeed(jobs){
   try{
     // build feed: { "YYYY-MM-DD": [ {title,address,time,ref,status,id} ] }
