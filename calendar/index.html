@@ -278,8 +278,14 @@ const FEED_KEY    = "fps_calendar_feed_v1";     // jobs board feed (auto)
   const toISODate = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 
   function loadEvents(){
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
-    catch { return {}; }
+  let manual = {};
+  try { manual = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch {}
+
+  let feed = {};
+  try { feed = JSON.parse(localStorage.getItem(FEED_KEY) || "{}"); } catch {}
+
+  // Merge: manual overrides feed if same date key exists
+  return { ...feed, ...manual };
   }
   function saveEvents(obj){
     localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
