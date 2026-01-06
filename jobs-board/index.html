@@ -503,33 +503,25 @@
   localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
   savedStatusEl.textContent = nowStamp();
 
-  // keep calendar feed in sync
   syncCalendarFeed(jobs);
-  }
+  
+}
   function load(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(raw){
-    jobs = JSON.parse(raw).map(migrateJob);
-    savedStatusEl.textContent = "Loaded";
-    syncCalendarFeed(jobs);
-    return;
-  }
-
-  const fallbackKeys = ["fps_jobs_board_workflow_v1"];
-  for(const k of fallbackKeys){
-    const r = localStorage.getItem(k);
-    if(r){
-      jobs = JSON.parse(r).map(migrateJob);
-      savedStatusEl.textContent = "Loaded (migrated)";
-      // save into the new key so it uses STORAGE_KEY from now on
-      save();
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      jobs = JSON.parse(raw).map(migrateJob);
+      savedStatusEl.textContent = "Loaded";
       return;
     }
-  }
-
-  jobs = [];
-  savedStatusEl.textContent = "—";
-}
+    const fallbackKeys = ["fps_jobs_board_workflow_v6","fps_jobs_board_workflow_v5","fps_jobs_board_workflow_v4","fps_jobs_board_workflow_v3"];
+    for(const k of fallbackKeys){
+      const r = localStorage.getItem(k);
+      if(r){
+        jobs = JSON.parse(r).map(migrateJob);
+        savedStatusEl.textContent = "Loaded (migrated)";
+        save();
+        return;
+      }
     }
     jobs = [];
     savedStatusEl.textContent = "—";
