@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ford Property Services – Job Costing</title>
+  <style>
+    :root { --bg:#0b1220; --card:#111a2e; --muted:#94a3b8; --text:#e5e7eb; --line:#26314d; }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    body{margin:0;background:linear-gradient(180deg,#0b1220,#070c16);color:var(--text)}
+    .wrap{max-width:1200px;margin:18px auto;padding:14px}
+    h1{font-size:18px;margin:0 0 8px}
+    .sub{color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.35}
+    .layout{display:grid;grid-template-columns:1fr;gap:12px}
+    @media(min-width:980px){ .layout{grid-template-columns:300px 1fr} }
+    .grid{display:grid;grid-template-columns:1fr;gap:12px}
+    @media(min-width:900px){ .grid{grid-template-columns:1.2fr .8fr} }
+    .card{background:rgba(17,26,46,.92);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .row{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+    @media(min-width:720px){ .row{grid-template-columns:repeat(4,1fr)} .row.two{grid-template-columns:repeat(2,1fr)} }
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input,select,button{width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:#0b1220;color:var(--text);outline:none}
+    input:focus,select:focus{border-color:#3b82f6}
+    button{cursor:pointer}
+    .btn{background:#1f3a6b;border-color:#2b4d90}
+    .btn:active{transform:translateY(1px)}
+    .small{padding:8px 10px;font-size:12px;border-radius:12px}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#0b1220;color:var(--muted);font-size:12px}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .topbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .right{display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:10px}
+    .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.35}
+    .danger{color:#fca5a5}
+    .ok{color:#86efac}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    th{font-size:12px;color:var(--muted);text-align:left;padding:0 8px}
+    td{padding:0 6px}
+
+    .totals{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:700px){ .totals{grid-template-columns:repeat(4,1fr)} }
+    .kpi{padding:12px;border-radius:14px;border:1px solid var(--line);background:#0b1220}
+    .kpi .t{font-size:12px;color:var(--muted)}
+    .kpi .v{font-size:18px;margin-top:6px}
+
+    .profitBox{border-color:rgba(134,239,172,.35)}
+    .lossBox{border-color:rgba(252,165,165,.35)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Ford Property Services – Job Costing</h1>
+        <div class="sub" id="subline">Cloud-synced across devices (Firebase). Multiple jobs + clean PDF export. Login required.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="pill" id="userPill">Not signed in</span>
+        <button class="small" id="signOutBtn" disabled>Sign out</button>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="card" id="loginCard">
+      <span class="pill">Login</span>
+      <div class="hint">Use the email/password you created in Firebase Authentication.</div>
+      <div class="row two" style="margin-top:10px">
+        <div>
+          <label>Email</label>
+          <input id="email" type="email" placeholder="you@domain.com" />
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••" />
+        </div>
+      </div>
+      <div class="right">
+        <button class="btn small" id="loginBtn">Sign in</button>
+      </div>
+      <div class="hint danger" id="loginErr" style="display:none"></div>
+      <div class="hint">
+        Tip: If login fails on GitHub Pages, add <span class="mono">YOURUSERNAME.github.io</span> to Firebase Auth → Authorized domains.
+      </div>
+    </div>
+
+    <!-- APP -->
+    <div class="layout" id="appLayout" style="display:none">
+      <!-- JOB SWITCHER -->
+      <div class="card">
+        <span class="pill">Jobs</span>
+
+        <div class="row" style="margin-top:10px">
+          <div>
+            <label>Open job</label>
+            <select id="jobSelect"></select>
+            <div class="hint">Saved in the cloud under your login.</div>
+          </div>
+        </div>
+
+        <div class="row two">
+          <div>
+            <label>New job: Property address</label>
+            <input id="newAddress" placeholder="e.g., 10 Example Rd, Postcode" />
+          </div>
+          <div>
+            <label>New job: Job label</label>
+            <input id="newLabel" placeholder="e.g., Bathroom refurb" />
+          </div>
+        </div>
+
+        <div class="right">
+          <button class="btn small" id="createJobBtn">+ Create job</button>
+          <button class="small" id="duplicateJobBtn">Duplicate</button>
+          <button class="small" id="deleteJobBtn">Delete</button>
+        </div>
+
+        <div class="hint">
+          <b>Sync:</b> <span class="mono" id="syncState">idle</span>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+
+        <div class="right">
+          <button class="small" id="pdfBtn">Create PDF</button>
+          <button class="small" id="exportBtn">Export JSON</button>
+        </div>
+
+        <div class="hint">
+          PDF is generated as a clean report with headings + tables (no app buttons).
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div>
+        <div class="grid">
+          <!-- LEFT -->
+          <div class="card">
+            <div class="row two">
+              <div>
+                <label>Property address</label>
+                <input id="propertyAddress" placeholder="e.g., Flat 2, 10 Example Rd, Postcode" />
+              </div>
+              <div>
+                <label>Job label</label>
+                <input id="jobLabel" placeholder="e.g., Kitchen refurb / leak repair" />
+              </div>
+            </div>
+
+            <div class="row two">
+              <div>
+                <label>Estimated duration (days)</label>
+                <input id="estDuration" type="number" step="0.5" min="0" placeholder="e.g., 6" />
+              </div>
+              <div>
+                <label>Currency</label>
+                <select id="currency">
+                  <option value="GBP">GBP (£)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="USD">USD ($)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label>Notes (optional)</label>
+                <input id="jobNotes" placeholder="Anything important for this job…" />
+              </div>
+            </div>
+
+            <div style="margin-top:14px">
+              <span class="pill">Labour</span>
+              <div class="hint">Set each person’s <b>rate/day</b> and <b>days</b>.</div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:20%">Person</th>
+                    <th style="width:18%">Other name</th>
+                    <th style="width:18%">Rate / day</th>
+                    <th style="width:18%">Days</th>
+                    <th style="width:26%">Total</th>
+                  </tr>
+                </thead>
+                <tbody id="labourBody"></tbody>
+              </table>
+            </div>
+
+            <div style="margin-top:14px">
+              <span class="pill">Materials</span>
+              <div class="hint">
+                Enter <b>gross</b> and <b>% to net</b> (default 20: net = gross / 1.2).
+              </div>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:16%">Date</th>
+                    <th style="width:30%">Description</th>
+                    <th style="width:16%">Gross</th>
+                    <th style="width:14%">% to net</th>
+                    <th style="width:16%">Net</th>
+                    <th style="width:8%"></th>
+                  </tr>
+                </thead>
+                <tbody id="matBody"></tbody>
+              </table>
+
+              <div class="right">
+                <button class="btn small" id="addMatBtn">+ Add material</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT -->
+          <div class="card">
+            <span class="pill">Estimate & Commission</span>
+
+            <div class="row two">
+              <div>
+                <label>Total estimate (NET)</label>
+                <input id="estimateNet" type="number" step="0.01" min="0" placeholder="e.g., 4250" />
+              </div>
+              <div>
+                <label>Commission % (to client)</label>
+                <input id="commissionPct" type="number" step="0.01" min="0" placeholder="e.g., 12.5" />
+              </div>
+            </div>
+
+            <div class="row two">
+              <div>
+                <label>Commission amount</label>
+                <input id="commissionAmt" disabled />
+              </div>
+              <div>
+                <label>Net left after commission</label>
+                <input id="netAfterCommission" disabled />
+              </div>
+            </div>
+
+            <div style="margin-top:14px">
+              <span class="pill">Live totals</span>
+
+              <div class="totals" style="margin-top:10px">
+                <div class="kpi">
+                  <div class="t">Labour total</div>
+                  <div class="v" id="kpiLabour">£0.00</div>
+                </div>
+                <div class="kpi">
+                  <div class="t">Materials (net)</div>
+                  <div class="v" id="kpiMaterials">£0.00</div>
+                </div>
+                <div class="kpi">
+                  <div class="t">Spent so far</div>
+                  <div class="v" id="kpiSpent">£0.00</div>
+                </div>
+                <div class="kpi">
+                  <div class="t">Remaining (vs net left)</div>
+                  <div class="v" id="kpiRemaining">£0.00</div>
+                </div>
+              </div>
+
+              <div class="kpi" id="profitLossBox" style="margin-top:10px">
+                <div class="t">Profit / Loss (NET)</div>
+                <div class="v" id="kpiProfitLoss">£0.00</div>
+                <div class="hint" id="profitLossHint"></div>
+              </div>
+
+              <div class="hint" id="statusHint"></div>
+
+              <div class="right">
+                <button class="small" id="resetBtn">Reset current job</button>
+              </div>
+
+              <div class="hint">
+                Profit/Loss (NET) = <span class="mono">(Net after commission) − (Labour + Materials net)</span>.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /appLayout -->
+  </div><!-- /wrap -->
+
+  <!-- Clean PDF libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+
+  <script type="module">
+    // =================== REQUIRED: paste your Firebase web config here ===================
+    const firebaseConfig = {
+      apiKey: "PASTE_ME",
+      authDomain: "PASTE_ME",
+      projectId: "PASTE_ME",
+      storageBucket: "PASTE_ME",
+      messagingSenderId: "PASTE_ME",
+      appId: "PASTE_ME"
+    };
+    // ================================================================================
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import {
+      getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import {
+      getFirestore,
+      collection, doc,
+      addDoc, deleteDoc, setDoc,
+      onSnapshot, query, orderBy,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+    const $ = (id) => document.getElementById(id);
+    const num = (v) => {
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const todayISO = () => new Date().toISOString().slice(0,10);
+    const safeName = (s) => (s || "").trim().slice(0, 80);
+
+    function currencySymbol(cur){
+      return cur === "GBP" ? "£" : cur === "EUR" ? "€" : "$";
+    }
+    function money(n, cur){
+      const sym = currencySymbol(cur);
+      const x = Number.isFinite(n) ? n : 0;
+      return sym + x.toFixed(2);
+    }
+
+    const defaultJob = () => ({
+      propertyAddress: "",
+      jobLabel: "",
+      estDuration: "",
+      jobNotes: "",
+      currency: "GBP",
+      estimateNet: "",
+      commissionPct: "",
+      labour: [
+        { person: "Ben", otherName: "", rate: "", days: "" },
+        { person: "Joe", otherName: "", rate: "", days: "" },
+        { person: "Brett", otherName: "", rate: "", days: "" },
+        { person: "Other", otherName: "", rate: "", days: "" }
+      ],
+      materials: [
+        { date: todayISO(), desc: "", gross: "", pctToNet: "20" }
+      ],
+      createdAt: null,
+      updatedAt: null
+    });
+
+    let state = defaultJob();
+    let uid = null;
+
+    let jobsUnsub = null;
+    let jobDocUnsub = null;
+
+    let currentJobId = null;
+    let savingTimer = null;
+    let applyingRemote = false;
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const jobsCol = (userId) => collection(db, "users", userId, "jobs");
+    const jobDoc = (userId, jobId) => doc(db, "users", userId, "jobs", jobId);
+
+    function setSync(text) { $("syncState").textContent = text; }
+
+    function materialNet(gross, pctToNet) {
+      const g = num(gross);
+      const p = num(pctToNet);
+      if (g <= 0) return 0;
+      if (p <= 0) return g;
+      return g / (1 + p/100);
+    }
+
+    function calcLabourTotal() {
+      return state.labour.reduce((sum, r) => sum + (num(r.rate) * num(r.days)), 0);
+    }
+    function calcMaterialsTotalNet() {
+      return state.materials.reduce((sum, m) => sum + materialNet(m.gross, m.pctToNet), 0);
+    }
+    function calcCommission(estNet, pct){
+      return estNet * (pct/100);
+    }
+
+    function personDisplay(row){
+      return row.person === "Other" ? (row.otherName || "Other") : row.person;
+    }
+
+    function renderLabour() {
+      const body = $("labourBody");
+      body.innerHTML = "";
+      state.labour.forEach((row, idx) => {
+        const tr = document.createElement("tr");
+
+        const personTd = document.createElement("td");
+        const sel = document.createElement("select");
+        ["Ben","Joe","Brett","Other"].forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p; opt.textContent = p;
+          sel.appendChild(opt);
+        });
+        sel.value = row.person;
+        sel.onchange = () => {
+          state.labour[idx].person = sel.value;
+          if (sel.value !== "Other") state.labour[idx].otherName = "";
+          queueSave(); renderAll();
+        };
+        personTd.appendChild(sel);
+
+        const otherTd = document.createElement("td");
+        const other = document.createElement("input");
+        other.placeholder = row.person === "Other" ? "Type name" : "—";
+        other.value = row.otherName || "";
+        other.disabled = row.person !== "Other";
+        other.oninput = () => { state.labour[idx].otherName = other.value; queueSave(false); };
+        otherTd.appendChild(other);
+
+        const rateTd = document.createElement("td");
+        const rate = document.createElement("input");
+        rate.type = "number"; rate.step = "0.01"; rate.min = "0";
+        rate.placeholder = "e.g., 180";
+        rate.value = row.rate;
+        rate.oninput = () => { state.labour[idx].rate = rate.value; queueSave(); renderTotals(); };
+        rateTd.appendChild(rate);
+
+        const daysTd = document.createElement("td");
+        const days = document.createElement("input");
+        days.type = "number"; days.step = "0.5"; days.min = "0";
+        days.placeholder = "e.g., 2";
+        days.value = row.days;
+        days.oninput = () => { state.labour[idx].days = days.value; queueSave(); renderTotals(); };
+        daysTd.appendChild(days);
+
+        const totalTd = document.createElement("td");
+        const total = document.createElement("input");
+        total.disabled = true;
+        total.value = money(num(row.rate) * num(row.days), state.currency);
+        totalTd.appendChild(total);
+
+        [personTd, otherTd, rateTd, daysTd, totalTd].forEach(td => tr.appendChild(td));
+        body.appendChild(tr);
+      });
+    }
+
+    function renderMaterials() {
+      const body = $("matBody");
+      body.innerHTML = "";
+      state.materials.forEach((m, idx) => {
+        const tr = document.createElement("tr");
+
+        const dateTd = document.createElement("td");
+        const date = document.createElement("input");
+        date.type = "date";
+        date.value = m.date || todayISO();
+        date.oninput = () => { state.materials[idx].date = date.value; queueSave(false); };
+        dateTd.appendChild(date);
+
+        const descTd = document.createElement("td");
+        const desc = document.createElement("input");
+        desc.placeholder = "e.g., plasterboard, fixings, paint…";
+        desc.value = m.desc || "";
+        desc.oninput = () => { state.materials[idx].desc = desc.value; queueSave(false); };
+        descTd.appendChild(desc);
+
+        const grossTd = document.createElement("td");
+        const gross = document.createElement("input");
+        gross.type = "number"; gross.step = "0.01"; gross.min = "0";
+        gross.placeholder = "e.g., 96.00";
+        gross.value = m.gross || "";
+        gross.oninput = () => { state.materials[idx].gross = gross.value; queueSave(); renderTotals(); };
+        grossTd.appendChild(gross);
+
+        const pctTd = document.createElement("td");
+        const pct = document.createElement("input");
+        pct.type = "number"; pct.step = "0.01"; pct.min = "0";
+        pct.placeholder = "20";
+        pct.value = (m.pctToNet ?? "20");
+        pct.oninput = () => { state.materials[idx].pctToNet = pct.value; queueSave(); renderTotals(); };
+        pctTd.appendChild(pct);
+
+        const netTd = document.createElement("td");
+        const net = document.createElement("input");
+        net.disabled = true;
+        net.value = money(materialNet(m.gross, m.pctToNet), state.currency);
+        netTd.appendChild(net);
+
+        const delTd = document.createElement("td");
+        const del = document.createElement("button");
+        del.textContent = "✕";
+        del.className = "small";
+        del.onclick = () => {
+          state.materials.splice(idx, 1);
+          if (state.materials.length === 0) state.materials.push({ date: todayISO(), desc:"", gross:"", pctToNet:"20" });
+          queueSave(); renderAll();
+        };
+        delTd.appendChild(del);
+
+        [dateTd, descTd, grossTd, pctTd, netTd, delTd].forEach(td => tr.appendChild(td));
+        body.appendChild(tr);
+      });
+    }
+
+    function computeSummary(){
+      const cur = state.currency;
+
+      const labourTotal = calcLabourTotal();
+      const materialsNet = calcMaterialsTotalNet();
+      const spent = labourTotal + materialsNet;
+
+      const estNet = num(state.estimateNet);
+      const commPct = num(state.commissionPct);
+      const commAmt = calcCommission(estNet, commPct);
+      const netAfterCommission = estNet - commAmt;
+
+      const remaining = netAfterCommission - spent; // profit/loss (net)
+
+      return { cur, labourTotal, materialsNet, spent, estNet, commPct, commAmt, netAfterCommission, remaining };
+    }
+
+    function renderTotals() {
+      const s = computeSummary();
+
+      $("commissionAmt").value = money(s.commAmt, s.cur);
+      $("netAfterCommission").value = money(s.netAfterCommission, s.cur);
+
+      $("kpiLabour").textContent = money(s.labourTotal, s.cur);
+      $("kpiMaterials").textContent = money(s.materialsNet, s.cur);
+      $("kpiSpent").textContent = money(s.spent, s.cur);
+      $("kpiRemaining").textContent = money(s.remaining, s.cur);
+
+      const plBox = $("profitLossBox");
+      $("kpiProfitLoss").textContent = money(s.remaining, s.cur);
+
+      if (s.remaining >= 0) {
+        plBox.classList.remove("lossBox"); plBox.classList.add("profitBox");
+        $("kpiProfitLoss").className = "v ok";
+        $("profitLossHint").innerHTML = `<span class="ok">Profit (within budget after commission)</span>`;
+      } else {
+        plBox.classList.remove("profitBox"); plBox.classList.add("lossBox");
+        $("kpiProfitLoss").className = "v danger";
+        $("profitLossHint").innerHTML = `<span class="danger">Loss (over budget after commission)</span>`;
+      }
+
+      const hint = $("statusHint");
+      if (s.netAfterCommission <= 0 && (state.estimateNet !== "" || state.commissionPct !== "")) {
+        hint.innerHTML = `<span class="danger">Net left after commission is £0 or less — check estimate/commission.</span>`;
+      } else if (s.remaining < 0) {
+        hint.innerHTML = `<span class="danger">Over budget vs net left (after commission).</span>`;
+      } else {
+        hint.innerHTML = `<span class="ok">Within budget vs net left (after commission).</span>`;
+      }
+    }
+
+    function renderAll() {
+      $("propertyAddress").value = state.propertyAddress || "";
+      $("jobLabel").value = state.jobLabel || "";
+      $("estDuration").value = state.estDuration || "";
+      $("jobNotes").value = state.jobNotes || "";
+      $("currency").value = state.currency || "GBP";
+      $("estimateNet").value = state.estimateNet || "";
+      $("commissionPct").value = state.commissionPct || "";
+
+      renderLabour();
+      renderMaterials();
+      renderTotals();
+    }
+
+    function queueSave(recalc = true) {
+      if (!uid || !currentJobId || applyingRemote) return;
+      if (recalc) renderTotals();
+      setSync("pending");
+      clearTimeout(savingTimer);
+      savingTimer = setTimeout(saveToCloud, 350);
+    }
+
+    async function saveToCloud() {
+      if (!uid || !currentJobId) return;
+      try {
+        setSync("saving…");
+        const ref = jobDoc(uid, currentJobId);
+        const payload = { ...state, updatedAt: serverTimestamp() };
+        await setDoc(ref, payload, { merge: true });
+        setSync("saved");
+      } catch (e) {
+        console.error(e);
+        setSync("error");
+      }
+    }
+
+    function subscribeToJob(jobId) {
+      if (jobDocUnsub) jobDocUnsub();
+      currentJobId = jobId;
+
+      setSync("loading…");
+      const ref = jobDoc(uid, jobId);
+
+      jobDocUnsub = onSnapshot(ref, (snap) => {
+        applyingRemote = true;
+        const data = snap.data();
+        state = { ...defaultJob(), ...(data || {}) };
+        renderAll();
+        setSync("synced");
+        setTimeout(() => { applyingRemote = false; }, 60);
+      }, (err) => {
+        console.error(err);
+        setSync("error");
+      });
+    }
+
+    function subscribeToJobsList() {
+      if (jobsUnsub) jobsUnsub();
+
+      const q = query(jobsCol(uid), orderBy("updatedAt", "desc"));
+      jobsUnsub = onSnapshot(q, (snap) => {
+        const select = $("jobSelect");
+        const prev = select.value;
+
+        const jobs = [];
+        snap.forEach(docSnap => {
+          const d = docSnap.data() || {};
+          jobs.push({
+            id: docSnap.id,
+            label: safeName(d.jobLabel) || "Untitled job",
+            address: safeName(d.propertyAddress) || ""
+          });
+        });
+
+        select.innerHTML = "";
+        if (jobs.length === 0) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "No jobs yet – create one";
+          select.appendChild(opt);
+          select.disabled = true;
+          return;
+        }
+
+        select.disabled = false;
+        jobs.forEach(j => {
+          const opt = document.createElement("option");
+          opt.value = j.id;
+          opt.textContent = j.address ? `${j.label} — ${j.address}` : j.label;
+          select.appendChild(opt);
+        });
+
+        const choose = (currentJobId && jobs.some(j => j.id === currentJobId)) ? currentJobId
+                    : (prev && jobs.some(j => j.id === prev)) ? prev
+                    : jobs[0].id;
+
+        select.value = choose;
+        if (choose && choose !== currentJobId) subscribeToJob(choose);
+      });
+    }
+
+    async function createJobFromInputs() {
+      const addr = safeName($("newAddress").value);
+      const lbl = safeName($("newLabel").value);
+
+      const job = defaultJob();
+      job.propertyAddress = addr;
+      job.jobLabel = lbl;
+      job.createdAt = serverTimestamp();
+      job.updatedAt = serverTimestamp();
+
+      const ref = await addDoc(jobsCol(uid), job);
+
+      $("newAddress").value = "";
+      $("newLabel").value = "";
+
+      subscribeToJob(ref.id);
+    }
+
+    async function duplicateCurrentJob() {
+      if (!currentJobId) return;
+      const copy = JSON.parse(JSON.stringify(state));
+      copy.createdAt = serverTimestamp();
+      copy.updatedAt = serverTimestamp();
+      copy.jobLabel = safeName((copy.jobLabel || "Job") + " (copy)");
+
+      const ref = await addDoc(jobsCol(uid), copy);
+      subscribeToJob(ref.id);
+    }
+
+    async function deleteCurrentJob() {
+      if (!currentJobId) return;
+      const name = safeName(state.jobLabel) || "this job";
+      if (!confirm(`Delete ${name}? This cannot be undone.`)) return;
+      await deleteDoc(jobDoc(uid, currentJobId));
+      currentJobId = null;
+      setSync("deleted");
+    }
+
+    // ---------------- CLEAN PDF (headings + tables; no buttons) ----------------
+    function formatDateISO(d){
+      if (!d) return "";
+      return d; // keep yyyy-mm-dd as entered
+    }
+
+    function pdfTitle(){
+      return "Ford Property Services – Job Costing Report";
+    }
+
+    async function createCleanPdf(){
+      const s = computeSummary();
+      const cur = s.cur;
+      const sym = currencySymbol(cur);
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF("p", "mm", "a4");
+
+      // Layout constants
+      const marginX = 14;
+      let y = 14;
+
+      // Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text(pdfTitle(), marginX, y);
+      y += 7;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, marginX, y);
+      y += 6;
+
+      // Job details table
+      const jobDetails = [
+        ["Property address", state.propertyAddress || ""],
+        ["Job label", state.jobLabel || ""],
+        ["Estimated duration (days)", state.estDuration || ""],
+        ["Currency", `${cur} (${sym})`],
+        ["Notes", state.jobNotes || ""],
+      ];
+
+      doc.autoTable({
+        startY: y,
+        head: [["Job details", ""]],
+        body: jobDetails,
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 2.5 },
+        headStyles: { fillColor: [20, 28, 45] },
+        columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 125 } },
+      });
+
+      y = doc.lastAutoTable.finalY + 6;
+
+      // Labour table
+      const labourRows = state.labour
+        .map(r => ({
+          person: personDisplay(r),
+          rate: num(r.rate),
+          days: num(r.days),
+          total: num(r.rate) * num(r.days)
+        }))
+        .filter(r => (r.rate !== 0 || r.days !== 0 || (r.person && r.person !== "Other")));
+
+      const labourBody = labourRows.map(r => ([
+        r.person,
+        r.rate ? money(r.rate, cur) : "",
+        r.days ? String(r.days) : "",
+        r.total ? money(r.total, cur) : ""
+      ]));
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Labour", marginX, y);
+      y += 2;
+
+      doc.autoTable({
+        startY: y,
+        head: [["Person", "Rate / day", "Days", "Total"]],
+        body: labourBody.length ? labourBody : [["", "", "", ""]],
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 2.5 },
+        headStyles: { fillColor: [20, 28, 45] },
+        columnStyles: {
+          0: { cellWidth: 60 },
+          1: { cellWidth: 40, halign: "right" },
+          2: { cellWidth: 25, halign: "right" },
+          3: { cellWidth: 55, halign: "right" },
+        },
+        didDrawPage: () => {},
+      });
+
+      y = doc.lastAutoTable.finalY + 6;
+
+      // Materials table
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Materials", marginX, y);
+      y += 2;
+
+      const matBody = state.materials.map(m => {
+        const g = num(m.gross);
+        const p = num(m.pctToNet);
+        const net = materialNet(m.gross, m.pctToNet);
+        return [
+          formatDateISO(m.date),
+          m.desc || "",
+          g ? money(g, cur) : "",
+          (m.pctToNet ?? "20") !== "" ? `${p.toFixed(2)}%` : "",
+          net ? money(net, cur) : ""
+        ];
+      });
+
+      doc.autoTable({
+        startY: y,
+        head: [["Date", "Description", "Gross", "% to net", "Net"]],
+        body: matBody.length ? matBody : [["", "", "", "", ""]],
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 2.5 },
+        headStyles: { fillColor: [20, 28, 45] },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 30, halign: "right" },
+          3: { cellWidth: 25, halign: "right" },
+          4: { cellWidth: 40, halign: "right" },
+        },
+      });
+
+      y = doc.lastAutoTable.finalY + 6;
+
+      // Financial summary
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Financial summary (NET)", marginX, y);
+      y += 2;
+
+      const summaryBody = [
+        ["Estimate (NET)", money(s.estNet, cur)],
+        ["Commission %", `${s.commPct.toFixed(2)}%`],
+        ["Commission amount", money(s.commAmt, cur)],
+        ["Net after commission", money(s.netAfterCommission, cur)],
+        ["Labour total", money(s.labourTotal, cur)],
+        ["Materials total (net)", money(s.materialsNet, cur)],
+        ["Spent so far", money(s.spent, cur)],
+        ["Profit / Loss (NET)", money(s.remaining, cur)],
+      ];
+
+      doc.autoTable({
+        startY: y,
+        head: [["Item", "Amount"]],
+        body: summaryBody,
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 2.5 },
+        headStyles: { fillColor: [20, 28, 45] },
+        columnStyles: {
+          0: { cellWidth: 95 },
+          1: { cellWidth: 85, halign: "right" },
+        },
+        didParseCell: function (data) {
+          // Color the profit/loss row
+          if (data.section === "body" && data.row.index === summaryBody.length - 1) {
+            const pl = s.remaining;
+            if (data.column.index === 1) {
+              data.cell.styles.textColor = pl >= 0 ? [0, 130, 0] : [170, 0, 0];
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        }
+      });
+
+      const namePart = (state.propertyAddress || state.jobLabel || "job")
+        .replace(/[^a-z0-9]+/gi,"-").toLowerCase().slice(0, 50);
+
+      doc.save(`fps-job-costing-${namePart || "report"}.pdf`);
+    }
+    // -------------------------------------------------------------------------
+
+    function wireInputs() {
+      $("jobSelect").onchange = () => {
+        const id = $("jobSelect").value;
+        if (id) subscribeToJob(id);
+      };
+
+      $("createJobBtn").onclick = async () => {
+        try { await createJobFromInputs(); }
+        catch(e){ console.error(e); alert("Could not create job. Check Firestore + rules + config."); }
+      };
+
+      $("duplicateJobBtn").onclick = async () => {
+        try { await duplicateCurrentJob(); }
+        catch(e){ console.error(e); alert("Could not duplicate job."); }
+      };
+
+      $("deleteJobBtn").onclick = async () => {
+        try { await deleteCurrentJob(); }
+        catch(e){ console.error(e); alert("Could not delete job."); }
+      };
+
+      $("propertyAddress").oninput = () => { state.propertyAddress = $("propertyAddress").value; queueSave(false); };
+      $("jobLabel").oninput = () => { state.jobLabel = $("jobLabel").value; queueSave(false); };
+      $("estDuration").oninput = () => { state.estDuration = $("estDuration").value; queueSave(false); };
+      $("jobNotes").oninput = () => { state.jobNotes = $("jobNotes").value; queueSave(false); };
+
+      $("currency").onchange = () => { state.currency = $("currency").value; queueSave(false); renderAll(); };
+      $("estimateNet").oninput = () => { state.estimateNet = $("estimateNet").value; queueSave(); };
+      $("commissionPct").oninput = () => { state.commissionPct = $("commissionPct").value; queueSave(); };
+
+      $("addMatBtn").onclick = () => {
+        state.materials.push({ date: todayISO(), desc:"", gross:"", pctToNet:"20" });
+        queueSave(); renderAll();
+      };
+
+      $("resetBtn").onclick = async () => {
+        if (!confirm("Reset this job? This will overwrite the saved job.")) return;
+        const keepCreated = state.createdAt;
+        state = defaultJob();
+        state.createdAt = keepCreated || state.createdAt;
+        queueSave(); renderAll();
+      };
+
+      $("exportBtn").onclick = () => {
+        const data = JSON.stringify({ jobId: currentJobId, ...state }, null, 2);
+        const blob = new Blob([data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `fps-job-${(state.jobLabel || "job").replace(/[^a-z0-9]+/gi,"-").toLowerCase()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      $("pdfBtn").onclick = async () => {
+        try { await createCleanPdf(); }
+        catch (e) { console.error(e); alert("PDF failed. Check your browser / try again."); }
+      };
+
+      $("signOutBtn").onclick = async () => { await signOut(auth); };
+    }
+
+    // Login
+    $("loginBtn").onclick = async () => {
+      $("loginErr").style.display = "none";
+      const email = $("email").value.trim();
+      const pass = $("password").value;
+      try {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (e) {
+        $("loginErr").textContent = e?.message || "Login failed.";
+        $("loginErr").style.display = "block";
+      }
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        uid = null;
+        if (jobsUnsub) jobsUnsub(); jobsUnsub = null;
+        if (jobDocUnsub) jobDocUnsub(); jobDocUnsub = null;
+        currentJobId = null;
+
+        $("userPill").textContent = "Not signed in";
+        $("signOutBtn").disabled = true;
+
+        $("loginCard").style.display = "block";
+        $("appLayout").style.display = "none";
+        return;
+      }
+
+      uid = user.uid;
+
+      $("userPill").textContent = user.email || "Signed in";
+      $("signOutBtn").disabled = false;
+
+      $("loginCard").style.display = "none";
+      $("appLayout").style.display = "grid";
+
+      wireInputs();
+      subscribeToJobsList();
+    });
+  </script>
+</body>
+</html>
