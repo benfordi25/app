@@ -184,7 +184,7 @@
             <div class="row two">
               <div>
                 <label>Estimated duration (days)</label>
-                <input id="estDuration" type="number" step="0.5" min="0" placeholder="e.g., 6" />
+                <input id="estDuration" type="text" inputmode="decimal" placeholder="e.g., 6" />
               </div>
               <div>
                 <label>Currency</label>
@@ -231,7 +231,7 @@
               <div class="row two" style="margin-top:10px">
                 <div>
                   <label>Estimated materials budget (NET)</label>
-                  <input id="estMaterialsNet" type="number" step="0.01" min="0" placeholder="e.g., 650" />
+                  <input id="estMaterialsNet" type="text" inputmode="decimal" placeholder="e.g., 650" />
                 </div>
                 <div>
                   <label>Estimated materials notes (optional)</label>
@@ -264,11 +264,11 @@
             <div class="row two">
               <div>
                 <label>Total estimate (NET)</label>
-                <input id="estimateNet" type="number" step="0.01" min="0" placeholder="e.g., 4250" />
+                <input id="estimateNet" type="text" inputmode="decimal" placeholder="e.g., 4250" />
               </div>
               <div>
                 <label>Commission % (to client)</label>
-                <input id="commissionPct" type="number" step="0.01" min="0" placeholder="e.g., 12.5" />
+                <input id="commissionPct" type="text" inputmode="decimal" placeholder="e.g., 12.5" />
               </div>
             </div>
 
@@ -340,6 +340,7 @@
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
+    // ✅ Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCfKXXlQyYJIGNjLOIVQqwtyL_QgDEG9Ps",
       authDomain: "ford-property-services-be377.firebaseapp.com",
@@ -350,10 +351,14 @@
     };
 
     const $ = (id) => document.getElementById(id);
+
+    // Accept commas, spaces etc. (UK-friendly)
     const num = (v) => {
-      const n = parseFloat(v);
+      const s = String(v ?? "").replace(/,/g, "").trim();
+      const n = parseFloat(s);
       return Number.isFinite(n) ? n : 0;
     };
+
     const todayISO = () => new Date().toISOString().slice(0,10);
     const safeName = (s) => (s || "").trim().slice(0, 80);
 
@@ -394,7 +399,7 @@
       materials: [
         { date: todayISO(), desc: "", net: "" }
       ],
-      status: "active",
+      status: "active",   // "active" | "archived"
       completedAt: null,
       createdAt: null,
       updatedAt: null
@@ -428,7 +433,7 @@
     }
     function calcCommission(estNet, pct){ return estNet * (pct/100); }
 
-    // For PDF comparison only (not used in live totals)
+    // PDF comparison only (not used in live totals)
     function calcLabourEstimatedBudget(){
       return (state.labour || []).reduce((sum, r) => sum + (num(r.rate) * num(r.estDays)), 0);
     }
@@ -503,8 +508,9 @@
       }
     }
 
-    // ✅ KEYBOARD FIX: do NOT call renderAll() on every keystroke.
-    // Update only state + totals + that row total input.
+    // ✅ Keyboard fix:
+    // - use type="text" + inputmode="decimal" for small boxes
+    // - never call renderAll() on keystrokes
     function renderLabour() {
       const body = $("labourBody");
       body.innerHTML = "";
@@ -513,6 +519,7 @@
       (state.labour || []).forEach((row, idx) => {
         const tr = document.createElement("tr");
 
+        // Person
         const personTd = document.createElement("td");
         const sel = document.createElement("select");
         ["Ben","Joe","Brett","Other"].forEach(p => sel.appendChild(new Option(p, p)));
@@ -522,42 +529,55 @@
           state.labour[idx].person = sel.value;
           if (sel.value !== "Other") state.labour[idx].otherName = "";
           queueSave(false);
-          renderLabour(); // re-render only labour table (not the whole page)
+          renderLabour(); // re-render only labour table
         };
         personTd.appendChild(sel);
 
+        // Other name
         const otherTd = document.createElement("td");
         const other = document.createElement("input");
+        other.type = "text";
+        other.autocomplete = "off";
         other.placeholder = row.person === "Other" ? "Type name" : "—";
         other.value = row.otherName || "";
         other.disabled = ro || row.person !== "Other";
         other.oninput = () => { state.labour[idx].otherName = other.value; queueSave(false); };
         otherTd.appendChild(other);
 
+        // Rate / day (small box)
         const rateTd = document.createElement("td");
         const rate = document.createElement("input");
-        rate.type = "number"; rate.step = "0.01"; rate.min = "0";
+        rate.type = "text";
+        rate.inputMode = "decimal";
+        rate.autocomplete = "off";
         rate.placeholder = "e.g., 180";
         rate.value = row.rate ?? "";
         rate.disabled = ro;
         rateTd.appendChild(rate);
 
+        // Est days (small box)
         const estTd = document.createElement("td");
         const est = document.createElement("input");
-        est.type = "number"; est.step = "0.5"; est.min = "0";
+        est.type = "text";
+        est.inputMode = "decimal";
+        est.autocomplete = "off";
         est.placeholder = "e.g., 2";
         est.value = row.estDays ?? "";
         est.disabled = ro;
         estTd.appendChild(est);
 
+        // Actual days (small box)
         const actTd = document.createElement("td");
         const act = document.createElement("input");
-        act.type = "number"; act.step = "0.5"; act.min = "0";
+        act.type = "text";
+        act.inputMode = "decimal";
+        act.autocomplete = "off";
         act.placeholder = "blank = use est";
         act.value = row.actDays ?? "";
         act.disabled = ro;
         actTd.appendChild(act);
 
+        // Total used (readonly)
         const totalTd = document.createElement("td");
         const total = document.createElement("input");
         total.disabled = true;
@@ -565,19 +585,14 @@
         totalTd.appendChild(total);
 
         const updateRowTotalAndTotals = () => {
-          // keep state current:
           state.labour[idx].rate = rate.value;
           state.labour[idx].estDays = est.value;
           state.labour[idx].actDays = act.value;
 
-          // update just this row total:
           const r = state.labour[idx];
           total.value = money(num(r.rate) * usedDays(r), state.currency);
 
-          // update KPIs:
           renderTotals();
-
-          // autosave:
           queueSave(false);
         };
 
@@ -608,15 +623,20 @@
 
         const descTd = document.createElement("td");
         const desc = document.createElement("input");
+        desc.type = "text";
+        desc.autocomplete = "off";
         desc.placeholder = "e.g., plasterboard, fixings, paint…";
         desc.value = m.desc || "";
         desc.disabled = ro;
         desc.oninput = () => { state.materials[idx].desc = desc.value; queueSave(false); };
         descTd.appendChild(desc);
 
+        // Net (small box) ✅ type text + inputmode decimal
         const netTd = document.createElement("td");
         const net = document.createElement("input");
-        net.type = "number"; net.step = "0.01"; net.min = "0";
+        net.type = "text";
+        net.inputMode = "decimal";
+        net.autocomplete = "off";
         net.placeholder = "e.g., 80.00";
         net.value = m.net || "";
         net.disabled = ro;
@@ -860,7 +880,7 @@
         await setDoc(jobDocRef(uid, currentJobId), {
           status: "archived",
           completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp
+          updatedAt: serverTimestamp()
         }, { merge: true });
         setSync("saved");
       } catch (e) {
@@ -902,7 +922,7 @@
 
       const estMat = num(state.estMaterialsNet);
       const estMatNote = (state.estMaterialsNote || "").trim();
-      const labourEstBudget = calcLabourEstimatedBudget(); // PDF comparison only
+      const labourEstBudget = calcLabourEstimatedBudget();
 
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF("p", "mm", "a4");
@@ -1018,9 +1038,9 @@
         ["Commission amount", money(s.commAmt, cur)],
         ["Net after commission", money(s.netAfterCommission, cur)],
         ["Labour total (used)", money(s.labourUsed, cur)],
-        ["Labour budget (est days x rate) – for target only", money(labourEstBudget, cur)],
+        ["Labour budget (est days x rate) – target only", money(labourEstBudget, cur)],
         ["Materials total (net)", money(s.materialsNet, cur)],
-        ["Materials budget (estimated) – for target only", estMat ? money(estMat, cur) : ""],
+        ["Materials budget (estimated) – target only", estMat ? money(estMat, cur) : ""],
         ["Spent so far", money(s.spent, cur)],
         ["Profit / Loss (NET)", money(s.remaining, cur)],
       ];
