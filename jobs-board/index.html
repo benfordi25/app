@@ -511,6 +511,7 @@
     if(raw){
       jobs = JSON.parse(raw).map(migrateJob);
       savedStatusEl.textContent = "Loaded";
+      syncCalendarFeed(jobs);
       return;
     }
     const fallbackKeys = ["fps_jobs_board_workflow_v6","fps_jobs_board_workflow_v5","fps_jobs_board_workflow_v4","fps_jobs_board_workflow_v3"];
