@@ -863,7 +863,15 @@
   renderAll();
   // ===== Calendar feed sync (Jobs Board -> Calendar) =====
 const CAL_FEED_KEY = "fps_calendar_feed_v1";
-
+// Convert UK date DD/MM/YYYY → YYYY-MM-DD (for calendar)
+function ukToISO(dateStr){
+  if(!dateStr) return "";
+  const parts = dateStr.split("/");
+  if(parts.length !== 3) return "";
+  const [dd, mm, yyyy] = parts;
+  if(!dd || !mm || !yyyy) return "";
+  return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+}
 function syncCalendarFeed(jobs){
   try{
     // build feed: { "YYYY-MM-DD": [ {title,address,time,ref,status,id} ] }
