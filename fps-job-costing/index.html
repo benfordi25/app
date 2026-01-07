@@ -62,6 +62,19 @@
     .readonly .readonlyTag{display:block}
     .readonly input,
     .readonly select{ opacity:.78; }
+
+    .errbar{
+      display:none;
+      margin:10px 0 0;
+      padding:10px;
+      border-radius:12px;
+      border:1px solid rgba(252,165,165,.35);
+      background:#0b1220;
+      color:#fca5a5;
+      font-size:12px;
+      line-height:1.35;
+      white-space:pre-wrap;
+    }
   </style>
 </head>
 
@@ -77,6 +90,8 @@
         <button class="small" id="signOutBtn" disabled>Sign out</button>
       </div>
     </div>
+
+    <div class="errbar" id="errbar"></div>
 
     <!-- LOGIN -->
     <div class="card" id="loginCard">
@@ -203,9 +218,7 @@
 
             <div style="margin-top:14px">
               <span class="pill">Labour</span>
-              <div class="hint">
-                Totals update when you leave a box (blur) or press Done/Enter. (Stops Android keypad closing.)
-              </div>
+              <div class="hint">Totals update when you leave a box (blur) or press Done/Enter.</div>
 
               <table>
                 <thead>
@@ -328,8 +341,11 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut }
-      from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import {
+      getAuth, onAuthStateChanged,
+      signInWithEmailAndPassword, signOut,
+      setPersistence, browserLocalPersistence
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import {
       getFirestore,
       collection, doc,
@@ -349,6 +365,16 @@
 
     const $ = (id) => document.getElementById(id);
 
+    function showErr(msg){
+      const el = $("errbar");
+      el.style.display = "block";
+      el.textContent = String(msg || "Unknown error");
+    }
+
+    // Catch any JS errors so you can SEE them instead of “won’t sign in”
+    window.addEventListener("error", (e) => showErr(`JS error: ${e.message}`));
+    window.addEventListener("unhandledrejection", (e) => showErr(`Promise error: ${e.reason?.message || e.reason}`));
+
     const num = (v) => {
       const s = String(v ?? "").replace(/,/g, "").trim();
       const n = parseFloat(s);
@@ -366,6 +392,9 @@
       return sym + x.toFixed(2);
     }
 
+    // Used days rule:
+    // - If Actual is blank → use Estimated
+    // - If Actual has any value → use Actual
     function usedDays(row){
       const act = row?.actDays;
       const hasActual = act !== null && act !== undefined && String(act) !== "";
@@ -391,7 +420,7 @@
       materials: [
         { date: todayISO(), desc: "", net: "" }
       ],
-      status: "active",
+      status: "active",   // "active" | "archived"
       completedAt: null,
       createdAt: null,
       updatedAt: null
@@ -411,6 +440,9 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    // Keep login on device (helps “sign-in then drops out” problems)
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
     const jobsCol = (userId) => collection(db, "users", userId, "jobs");
     const jobDocRef = (userId, jobId) => doc(db, "users", userId, "jobs", jobId);
 
@@ -425,11 +457,14 @@
     }
     function calcCommission(estNet, pct){ return estNet * (pct/100); }
 
+    // PDF comparison only (not used in live totals)
     function calcLabourEstimatedBudget(){
       return (state.labour || []).reduce((sum, r) => sum + (num(r.rate) * num(r.estDays)), 0);
     }
 
-    function personDisplay(row){ return row.person === "Other" ? (row.otherName || "Other") : row.person; }
+    function personDisplay(row){
+      return row.person === "Other" ? (row.otherName || "Other") : row.person;
+    }
 
     function computeSummary(){
       const cur = state.currency;
@@ -499,31 +534,28 @@
       }
     }
 
-    // ---- BLUR-ONLY: update totals only when leaving the field (or Done/Enter) ----
+    // BLUR-ONLY helper: update totals only on blur (or Enter/Done)
     function hookBlurOnly(el, applyStateFn, afterUpdateFn) {
-      const ro = isArchived();
-      if (ro) return;
+      if (!el) return;
 
-      // Keep state updated while typing (NO totals update)
       el.addEventListener("input", () => {
         applyStateFn();
-        queueSave(false); // save ok; does not touch totals or rerender
+        queueSave(false); // no totals update
       });
 
       const commit = () => {
         applyStateFn();
         if (afterUpdateFn) afterUpdateFn();
-        renderTotals();     // ✅ only here
+        renderTotals();
         queueSave(false);
       };
 
       el.addEventListener("blur", commit);
 
-      // Android "Done" / Enter key
       el.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-          el.blur(); // triggers commit
+          el.blur();
         }
       });
     }
@@ -536,6 +568,7 @@
       (state.labour || []).forEach((row, idx) => {
         const tr = document.createElement("tr");
 
+        // Person
         const personTd = document.createElement("td");
         const sel = document.createElement("select");
         ["Ben","Joe","Brett","Other"].forEach(p => sel.appendChild(new Option(p, p)));
@@ -545,11 +578,12 @@
           state.labour[idx].person = sel.value;
           if (sel.value !== "Other") state.labour[idx].otherName = "";
           queueSave(false);
-          renderLabour(); // ok (dropdown change closes keypad anyway)
+          renderLabour();
           renderTotals();
         };
         personTd.appendChild(sel);
 
+        // Other name
         const otherTd = document.createElement("td");
         const other = document.createElement("input");
         other.type = "text";
@@ -561,6 +595,7 @@
         other.onblur = () => { renderTotals(); queueSave(false); };
         otherTd.appendChild(other);
 
+        // Rate / day
         const rateTd = document.createElement("td");
         const rate = document.createElement("input");
         rate.type = "text";
@@ -571,6 +606,7 @@
         rate.disabled = ro;
         rateTd.appendChild(rate);
 
+        // Est days
         const estTd = document.createElement("td");
         const est = document.createElement("input");
         est.type = "text";
@@ -581,6 +617,7 @@
         est.disabled = ro;
         estTd.appendChild(est);
 
+        // Actual days
         const actTd = document.createElement("td");
         const act = document.createElement("input");
         act.type = "text";
@@ -591,6 +628,7 @@
         act.disabled = ro;
         actTd.appendChild(act);
 
+        // Total used (readonly)
         const totalTd = document.createElement("td");
         const total = document.createElement("input");
         total.disabled = true;
@@ -607,9 +645,11 @@
           total.value = money(num(r.rate) * usedDays(r), state.currency);
         };
 
-        hookBlurOnly(rate, applyState, updateRowTotal);
-        hookBlurOnly(est, applyState, updateRowTotal);
-        hookBlurOnly(act, applyState, updateRowTotal);
+        if (!ro){
+          hookBlurOnly(rate, applyState, updateRowTotal);
+          hookBlurOnly(est, applyState, updateRowTotal);
+          hookBlurOnly(act, applyState, updateRowTotal);
+        }
 
         [personTd, otherTd, rateTd, estTd, actTd, totalTd].forEach(td => tr.appendChild(td));
         body.appendChild(tr);
@@ -653,10 +693,9 @@
         net.disabled = ro;
         netTd.appendChild(net);
 
-        hookBlurOnly(net,
-          () => { state.materials[idx].net = net.value; },
-          null
-        );
+        if (!ro){
+          hookBlurOnly(net, () => { state.materials[idx].net = net.value; }, null);
+        }
 
         const delTd = document.createElement("td");
         if (!ro) {
@@ -695,7 +734,7 @@
       applyEditLock();
     }
 
-    function queueSave(recalc = false) {
+    function queueSave(_recalc = false) {
       if (!uid || !currentJobId || applyingRemote) return;
       if (isArchived()) return;
       setSync("pending");
@@ -713,6 +752,7 @@
       } catch (e) {
         console.error(e);
         setSync("error");
+        showErr(e?.message || e);
       }
     }
 
@@ -728,6 +768,7 @@
         const data = snap.data();
         state = { ...defaultJob(), ...(data || {}) };
 
+        // Backwards compatibility: old "days" becomes Estimated
         if (Array.isArray(state.labour)) {
           state.labour = state.labour.map(r => {
             if (!r || typeof r !== "object") return { person:"Other", otherName:"", rate:"", estDays:"", actDays:"" };
@@ -745,6 +786,7 @@
           state.labour = defaultJob().labour;
         }
 
+        // Materials: net-only (copy old gross -> net if needed)
         if (Array.isArray(state.materials)) {
           state.materials = state.materials.map(m => {
             if (m && typeof m === "object") {
@@ -766,6 +808,7 @@
       }, (err) => {
         console.error(err);
         setSync("error");
+        showErr(err?.message || err);
       });
     }
 
@@ -778,6 +821,7 @@
         const archivedSelect = $("archivedSelect");
 
         const prevActive = activeSelect.value;
+        const prevArchived = archivedSelect.value;
 
         const activeJobs = [];
         const archivedJobs = [];
@@ -821,16 +865,18 @@
           activeSelect.value = pickActive;
           if (pickActive !== currentJobId) subscribeToJob(pickActive);
         } else if (archivedJobs.length) {
-          const id = archivedJobs[0].id;
-          archivedSelect.value = id;
-          if (id !== currentJobId) subscribeToJob(id);
+          const pickArchived =
+            (prevArchived && archivedJobs.some(j => j.id === prevArchived)) ? prevArchived :
+            archivedJobs[0].id;
+          archivedSelect.value = pickArchived;
+          if (pickArchived !== currentJobId) subscribeToJob(pickArchived);
         } else {
           currentJobId = null;
           applyEditLock();
         }
 
         applyEditLock();
-      });
+      }, (err) => showErr(err?.message || err));
     }
 
     async function createJobFromInputs() {
@@ -880,19 +926,11 @@
       const name = safeName(state.jobLabel) || "this job";
       if (!confirm(`Mark ${name} as completed? (Moves to Archived)`)) return;
 
-      try {
-        setSync("saving…");
-        await setDoc(jobDocRef(uid, currentJobId), {
-          status: "archived",
-          completedAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        setSync("saved");
-      } catch (e) {
-        console.error(e);
-        setSync("error");
-        alert("Could not mark completed.");
-      }
+      await setDoc(jobDocRef(uid, currentJobId), {
+        status: "archived",
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
     }
 
     async function restoreArchivedSelected() {
@@ -900,19 +938,11 @@
       const id = $("archivedSelect").value;
       if (!id) return;
 
-      try {
-        setSync("saving…");
-        await setDoc(jobDocRef(uid, id), {
-          status: "active",
-          completedAt: null,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
-        setSync("saved");
-      } catch (e) {
-        console.error(e);
-        setSync("error");
-        alert("Could not restore job.");
-      }
+      await setDoc(jobDocRef(uid, id), {
+        status: "active",
+        completedAt: null,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
     }
 
     // ---------------- CLEAN PDF (headings + tables; no buttons) ----------------
@@ -1077,11 +1107,12 @@
       $("jobSelect").onchange = () => { const id = $("jobSelect").value; if (id) subscribeToJob(id); };
       $("archivedSelect").onchange = () => { const id = $("archivedSelect").value; if (id) subscribeToJob(id); };
 
-      $("createJobBtn").onclick = async () => { try { await createJobFromInputs(); } catch(e){ console.error(e); alert("Could not create job."); } };
-      $("duplicateJobBtn").onclick = async () => { try { await duplicateCurrentJob(); } catch(e){ console.error(e); alert("Could not duplicate job."); } };
-      $("deleteJobBtn").onclick = async () => { try { await deleteCurrentJob(); } catch(e){ console.error(e); alert("Could not delete job."); } };
-      $("markCompleteBtn").onclick = async () => { try { await markCurrentCompleted(); } catch(e){ console.error(e); alert("Could not mark completed."); } };
-      $("restoreBtn").onclick = async () => { try { await restoreArchivedSelected(); } catch(e){ console.error(e); alert("Could not restore job."); } };
+      $("createJobBtn").onclick = async () => { try { await createJobFromInputs(); } catch(e){ showErr(e?.message || e); alert("Could not create job."); } };
+      $("duplicateJobBtn").onclick = async () => { try { await duplicateCurrentJob(); } catch(e){ showErr(e?.message || e); alert("Could not duplicate job."); } };
+      $("deleteJobBtn").onclick = async () => { try { await deleteCurrentJob(); } catch(e){ showErr(e?.message || e); alert("Could not delete job."); } };
+
+      $("markCompleteBtn").onclick = async () => { try { await markCurrentCompleted(); } catch(e){ showErr(e?.message || e); alert("Could not mark completed."); } };
+      $("restoreBtn").onclick = async () => { try { await restoreArchivedSelected(); } catch(e){ showErr(e?.message || e); alert("Could not restore job."); } };
 
       $("propertyAddress").oninput = () => { state.propertyAddress = $("propertyAddress").value; queueSave(false); };
       $("jobLabel").oninput = () => { state.jobLabel = $("jobLabel").value; queueSave(false); };
@@ -1089,20 +1120,10 @@
 
       $("currency").onchange = () => { state.currency = $("currency").value; queueSave(false); renderAll(); };
 
-      // BLUR-only totals for these:
-      const estDuration = $("estDuration");
-      estDuration.addEventListener("input", () => { state.estDuration = estDuration.value; queueSave(false); });
-      estDuration.addEventListener("blur", () => { renderTotals(); queueSave(false); });
-
-      const estimateNet = $("estimateNet");
-      estimateNet.addEventListener("input", () => { state.estimateNet = estimateNet.value; queueSave(false); });
-      estimateNet.addEventListener("blur", () => { renderTotals(); queueSave(false); });
-      estimateNet.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); estimateNet.blur(); } });
-
-      const commissionPct = $("commissionPct");
-      commissionPct.addEventListener("input", () => { state.commissionPct = commissionPct.value; queueSave(false); });
-      commissionPct.addEventListener("blur", () => { renderTotals(); queueSave(false); });
-      commissionPct.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); commissionPct.blur(); } });
+      // blur-only totals for estimate/commission/duration
+      hookBlurOnly($("estDuration"), () => { state.estDuration = $("estDuration").value; }, null);
+      hookBlurOnly($("estimateNet"), () => { state.estimateNet = $("estimateNet").value; }, null);
+      hookBlurOnly($("commissionPct"), () => { state.commissionPct = $("commissionPct").value; }, null);
 
       $("estMaterialsNet").oninput = () => { state.estMaterialsNet = $("estMaterialsNet").value; queueSave(false); };
       $("estMaterialsNote").oninput = () => { state.estMaterialsNote = $("estMaterialsNote").value; queueSave(false); };
@@ -1137,26 +1158,8 @@
         URL.revokeObjectURL(url);
       };
 
-      $("pdfBtn").onclick = async () => { try { await createCleanPdf(); } catch (e) { console.error(e); alert("PDF failed."); } };
+      $("pdfBtn").onclick = async () => { try { await createCleanPdf(); } catch (e) { showErr(e?.message || e); alert("PDF failed."); } };
       $("signOutBtn").onclick = async () => { await signOut(auth); };
-    }
-
-    async function createJobFromInputs() {
-      const addr = safeName($("newAddress").value);
-      const lbl = safeName($("newLabel").value);
-
-      const job = defaultJob();
-      job.propertyAddress = addr;
-      job.jobLabel = lbl;
-      job.status = "active";
-      job.completedAt = null;
-      job.createdAt = serverTimestamp();
-      job.updatedAt = serverTimestamp();
-
-      const ref = await addDoc(jobsCol(uid), job);
-      $("newAddress").value = "";
-      $("newLabel").value = "";
-      subscribeToJob(ref.id);
     }
 
     $("loginBtn").onclick = async () => {
