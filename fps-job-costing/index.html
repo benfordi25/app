@@ -218,7 +218,9 @@
 
             <div style="margin-top:14px">
               <span class="pill">Labour</span>
-              <div class="hint">Totals update when you leave a box (blur) or press Done/Enter.</div>
+              <div class="hint">
+                Totals update only when you leave a box (blur). This prevents the keypad closing.
+              </div>
 
               <table>
                 <thead>
@@ -371,7 +373,6 @@
       el.textContent = String(msg || "Unknown error");
     }
 
-    // Catch any JS errors so you can SEE them instead of “won’t sign in”
     window.addEventListener("error", (e) => showErr(`JS error: ${e.message}`));
     window.addEventListener("unhandledrejection", (e) => showErr(`Promise error: ${e.reason?.message || e.reason}`));
 
@@ -392,9 +393,6 @@
       return sym + x.toFixed(2);
     }
 
-    // Used days rule:
-    // - If Actual is blank → use Estimated
-    // - If Actual has any value → use Actual
     function usedDays(row){
       const act = row?.actDays;
       const hasActual = act !== null && act !== undefined && String(act) !== "";
@@ -420,7 +418,7 @@
       materials: [
         { date: todayISO(), desc: "", net: "" }
       ],
-      status: "active",   // "active" | "archived"
+      status: "active",
       completedAt: null,
       createdAt: null,
       updatedAt: null
@@ -440,7 +438,6 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Keep login on device (helps “sign-in then drops out” problems)
     setPersistence(auth, browserLocalPersistence).catch(() => {});
 
     const jobsCol = (userId) => collection(db, "users", userId, "jobs");
@@ -457,7 +454,6 @@
     }
     function calcCommission(estNet, pct){ return estNet * (pct/100); }
 
-    // PDF comparison only (not used in live totals)
     function calcLabourEstimatedBudget(){
       return (state.labour || []).reduce((sum, r) => sum + (num(r.rate) * num(r.estDays)), 0);
     }
@@ -468,7 +464,6 @@
 
     function computeSummary(){
       const cur = state.currency;
-
       const labourUsed = calcLabourTotalUsed();
       const materialsNet = calcMaterialsTotalNet();
       const spent = labourUsed + materialsNet;
@@ -479,7 +474,6 @@
       const netAfterCommission = estNet - commAmt;
 
       const remaining = netAfterCommission - spent;
-
       return { cur, labourUsed, materialsNet, spent, estNet, commPct, commAmt, netAfterCommission, remaining };
     }
 
@@ -534,29 +528,25 @@
       }
     }
 
-    // BLUR-ONLY helper: update totals only on blur (or Enter/Done)
+    // ✅ FIX: no save while typing, only on blur
     function hookBlurOnly(el, applyStateFn, afterUpdateFn) {
       if (!el) return;
 
       el.addEventListener("input", () => {
-        applyStateFn();
-        queueSave(false); // no totals update
+        applyStateFn(); // update state only
       });
 
       const commit = () => {
         applyStateFn();
         if (afterUpdateFn) afterUpdateFn();
         renderTotals();
-        queueSave(false);
+        queueSave(false); // save only on blur
       };
 
       el.addEventListener("blur", commit);
 
       el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          el.blur();
-        }
+        if (e.key === "Enter") { e.preventDefault(); el.blur(); }
       });
     }
 
@@ -568,7 +558,6 @@
       (state.labour || []).forEach((row, idx) => {
         const tr = document.createElement("tr");
 
-        // Person
         const personTd = document.createElement("td");
         const sel = document.createElement("select");
         ["Ben","Joe","Brett","Other"].forEach(p => sel.appendChild(new Option(p, p)));
@@ -583,7 +572,6 @@
         };
         personTd.appendChild(sel);
 
-        // Other name
         const otherTd = document.createElement("td");
         const other = document.createElement("input");
         other.type = "text";
@@ -591,11 +579,10 @@
         other.placeholder = row.person === "Other" ? "Type name" : "—";
         other.value = row.otherName || "";
         other.disabled = ro || row.person !== "Other";
-        other.oninput = () => { state.labour[idx].otherName = other.value; queueSave(false); };
+        other.oninput = () => { state.labour[idx].otherName = other.value; };
         other.onblur = () => { renderTotals(); queueSave(false); };
         otherTd.appendChild(other);
 
-        // Rate / day
         const rateTd = document.createElement("td");
         const rate = document.createElement("input");
         rate.type = "text";
@@ -606,7 +593,6 @@
         rate.disabled = ro;
         rateTd.appendChild(rate);
 
-        // Est days
         const estTd = document.createElement("td");
         const est = document.createElement("input");
         est.type = "text";
@@ -617,7 +603,6 @@
         est.disabled = ro;
         estTd.appendChild(est);
 
-        // Actual days
         const actTd = document.createElement("td");
         const act = document.createElement("input");
         act.type = "text";
@@ -628,7 +613,6 @@
         act.disabled = ro;
         actTd.appendChild(act);
 
-        // Total used (readonly)
         const totalTd = document.createElement("td");
         const total = document.createElement("input");
         total.disabled = true;
@@ -669,7 +653,7 @@
         date.type = "date";
         date.value = m.date || todayISO();
         date.disabled = ro;
-        date.oninput = () => { state.materials[idx].date = date.value; queueSave(false); };
+        date.oninput = () => { state.materials[idx].date = date.value; };
         date.onblur = () => { renderTotals(); queueSave(false); };
         dateTd.appendChild(date);
 
@@ -680,7 +664,8 @@
         desc.placeholder = "e.g., plasterboard, fixings, paint…";
         desc.value = m.desc || "";
         desc.disabled = ro;
-        desc.oninput = () => { state.materials[idx].desc = desc.value; queueSave(false); };
+        desc.oninput = () => { state.materials[idx].desc = desc.value; };
+        desc.onblur = () => { queueSave(false); };
         descTd.appendChild(desc);
 
         const netTd = document.createElement("td");
@@ -739,7 +724,7 @@
       if (isArchived()) return;
       setSync("pending");
       clearTimeout(savingTimer);
-      savingTimer = setTimeout(saveToCloud, 350);
+      savingTimer = setTimeout(saveToCloud, 250);
     }
 
     async function saveToCloud() {
@@ -764,11 +749,13 @@
       const ref = jobDocRef(uid, jobId);
 
       jobDocUnsub = onSnapshot(ref, (snap) => {
+        // ✅ FIX: ignore local-write snapshots so UI doesn't re-render mid-typing
+        if (snap.metadata.hasPendingWrites) return;
+
         applyingRemote = true;
         const data = snap.data();
         state = { ...defaultJob(), ...(data || {}) };
 
-        // Backwards compatibility: old "days" becomes Estimated
         if (Array.isArray(state.labour)) {
           state.labour = state.labour.map(r => {
             if (!r || typeof r !== "object") return { person:"Other", otherName:"", rate:"", estDays:"", actDays:"" };
@@ -786,7 +773,6 @@
           state.labour = defaultJob().labour;
         }
 
-        // Materials: net-only (copy old gross -> net if needed)
         if (Array.isArray(state.materials)) {
           state.materials = state.materials.map(m => {
             if (m && typeof m === "object") {
@@ -1114,19 +1100,26 @@
       $("markCompleteBtn").onclick = async () => { try { await markCurrentCompleted(); } catch(e){ showErr(e?.message || e); alert("Could not mark completed."); } };
       $("restoreBtn").onclick = async () => { try { await restoreArchivedSelected(); } catch(e){ showErr(e?.message || e); alert("Could not restore job."); } };
 
-      $("propertyAddress").oninput = () => { state.propertyAddress = $("propertyAddress").value; queueSave(false); };
-      $("jobLabel").oninput = () => { state.jobLabel = $("jobLabel").value; queueSave(false); };
-      $("jobNotes").oninput = () => { state.jobNotes = $("jobNotes").value; queueSave(false); };
+      $("propertyAddress").oninput = () => { state.propertyAddress = $("propertyAddress").value; };
+      $("propertyAddress").onblur  = () => { queueSave(false); };
 
-      $("currency").onchange = () => { state.currency = $("currency").value; queueSave(false); renderAll(); };
+      $("jobLabel").oninput = () => { state.jobLabel = $("jobLabel").value; };
+      $("jobLabel").onblur  = () => { queueSave(false); };
 
-      // blur-only totals for estimate/commission/duration
+      $("jobNotes").oninput = () => { state.jobNotes = $("jobNotes").value; };
+      $("jobNotes").onblur  = () => { queueSave(false); };
+
+      $("currency").onchange = () => { state.currency = $("currency").value; renderTotals(); queueSave(false); };
+
       hookBlurOnly($("estDuration"), () => { state.estDuration = $("estDuration").value; }, null);
       hookBlurOnly($("estimateNet"), () => { state.estimateNet = $("estimateNet").value; }, null);
       hookBlurOnly($("commissionPct"), () => { state.commissionPct = $("commissionPct").value; }, null);
 
-      $("estMaterialsNet").oninput = () => { state.estMaterialsNet = $("estMaterialsNet").value; queueSave(false); };
-      $("estMaterialsNote").oninput = () => { state.estMaterialsNote = $("estMaterialsNote").value; queueSave(false); };
+      $("estMaterialsNet").oninput = () => { state.estMaterialsNet = $("estMaterialsNet").value; };
+      $("estMaterialsNet").onblur  = () => { queueSave(false); };
+
+      $("estMaterialsNote").oninput = () => { state.estMaterialsNote = $("estMaterialsNote").value; };
+      $("estMaterialsNote").onblur  = () => { queueSave(false); };
 
       $("addMatBtn").onclick = () => {
         if (isArchived()) return;
