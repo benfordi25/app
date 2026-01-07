@@ -444,10 +444,7 @@ let pendingCloudSave = false;
 
   
 
-    // PWA service worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-    }
+    
 
     // Workflow
     const STATUSES = [
