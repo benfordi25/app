@@ -374,6 +374,7 @@
       doc,
       getDoc,
       setDoc,
+      onSnapshot,
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
@@ -389,182 +390,6 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
-    // ===============================
-// Cloud sync (Firestore) - DROP-IN PATCH
-// Keeps your existing UI/fields. Only syncs your jobs array/object.
-// ===============================
-
-// CHANGE THESE ONLY IF YOUR FIRESTORE PATH IS DIFFERENT:
-const CLOUD_COLLECTION = "jobsBoard";
-const CLOUD_DOC_ID = "shared"; // you are looking at jobsBoard/shared in screenshots
-
-const deviceId = (() => {
-  const k = "fps_device_id";
-  let v = localStorage.getItem(k);
-  if (!v) {
-    v = (crypto?.randomUUID?.() || ("dev_" + Math.random().toString(16).slice(2)));
-    localStorage.setItem(k, v);
-  }
-  return v;
-})();
-
-let cloudReady = false;
-let suppressCloudApply = false;
-let lastLocalChangeMs = 0;
-let lastAppliedCloudMs = 0;
-let pendingCloudSaveTimer = null;
-
-const cloudDocRef = doc(db, CLOUD_COLLECTION, CLOUD_DOC_ID);
-
-// ---- Helpers: you must provide these two functions (likely already exist in your code)
-// 1) getJobsForSync(): return your current jobs data (array/object) from your app state
-// 2) applyJobsFromSync(jobsData): apply jobs into your app state + re-render UI
-//
-// To avoid changing your fields/UI, we do NOT touch DOM here.
-// You will "wire" these at the end (Step 3).
-
-function queueCloudSave() {
-  lastLocalChangeMs = Date.now();
-  if (!cloudReady) return;
-
-  if (pendingCloudSaveTimer) clearTimeout(pendingCloudSaveTimer);
-  pendingCloudSaveTimer = setTimeout(async () => {
-    try {
-      const jobsData = getJobsForSync(); // <-- your app state
-      // If nothing to save, skip
-      if (jobsData == null) return;
-
-      await setDoc(cloudDocRef, {
-        jobs: jobsData,
-        updatedAtMs: Date.now(),
-        updatedBy: deviceId,
-      }, { merge: true });
-
-      // console.log("[cloud] saved ok", new Date().toISOString());
-    } catch (e) {
-      console.error("[cloud] save failed:", e);
-    }
-  }, 800);
-}
-
-async function startCloudListener() {
-  onSnapshot(cloudDocRef, (snap) => {
-    if (!snap.exists()) {
-      // Doc not created yet — that's fine. First save will create it.
-      // console.log("[cloud] doc does not exist yet");
-      return;
-    }
-    const data = snap.data() || {};
-    const cloudMs = Number(data.updatedAtMs || 0);
-    const cloudJobs = data.jobs;
-
-    // Ignore if no jobs payload
-    if (cloudJobs == null) return;
-
-    // Prevent loop when we just wrote
-    if (suppressCloudApply) return;
-
-    // If cloud is newer than what we've applied, apply it
-    if (cloudMs > lastAppliedCloudMs) {
-      // If we have unsaved local changes very recently, don't instantly overwrite
-      // (prevents “I type then it disappears”)
-      const localIsDirty = (Date.now() - lastLocalChangeMs) < 2000;
-      if (localIsDirty) {
-        // Let local win: push local again shortly
-        // console.log("[cloud] local dirty, pushing local to win");
-        queueCloudSave();
-        return;
-      }
-
-      lastAppliedCloudMs = cloudMs;
-      try {
-        suppressCloudApply = true;
-        applyJobsFromSync(cloudJobs); // <-- your app state + render
-      } finally {
-        suppressCloudApply = false;
-      }
-      // console.log("[cloud] applied", cloudMs);
-    }
-  }, (err) => {
-    console.error("[cloud] onSnapshot error:", err);
-  });
-}
-
-async function ensureSignedIn() {
-  // If user already signed in, good
-  const u = auth.currentUser;
-  if (u) return u;
-
-  // Wait for auth state once
-  const user = await new Promise((resolve) => {
-    const unsub = onAuthStateChanged(auth, (usr) => {
-      unsub();
-      resolve(usr);
-    });
-  });
-
-  if (user) return user;
-
-  // Otherwise sign in anonymously
-  try {
-    const cred = await signInAnonymously(auth);
-    return cred.user;
-  } catch (e) {
-    console.error("[auth] signInAnonymously failed:", e);
-    throw e;
-  }
-}
-
-async function initCloudSync() {
-  try {
-    const user = await ensureSignedIn();
-    // console.log("[auth] signed in uid:", user.uid);
-
-    cloudReady = true;
-    await startCloudListener();
-
-    // Create doc if it doesn't exist by doing a lightweight merge write
-    await setDoc(cloudDocRef, {
-      createdAtMs: Date.now(),
-      createdBy: deviceId
-    }, { merge: true });
-
-    // Push local up once on start (creates doc + gets your data into cloud)
-    queueCloudSave();
-
-  } catch (e) {
-    cloudReady = false;
-    console.error("[cloud] init failed:", e);
-  }
-}
-
-// Call this once after Firebase init and after your app state is ready:
-initCloudSync();
-
-// Expose hook you can call from your existing code whenever jobs change:
-window.__queueCloudSave = queueCloudSave;
-    // ===============================
-// 🔗 WIRE CLOUD SYNC TO YOUR APP
-// ===============================
-
-// IMPORTANT:
-// Replace `jobs` if your variable is named differently
-// Replace `render()` if your render function has a different name
-
-function getJobsForSync() {
-  return jobs;
-}
-
-function applyJobsFromSync(jobsData) {
-  jobs = jobsData;
-
-  // keep your existing local backup (important)
-  try {
-    localStorage.setItem("jobs", JSON.stringify(jobs));
-  } catch (e) {}
-
-  render();
-}
 
     // PWA service worker (safe even if sw.js is empty)
     if ('serviceWorker' in navigator) {
@@ -745,30 +570,91 @@ function applyJobsFromSync(jobsData) {
     let currentUserId = null;
     let cloudLoaded = false;
 
+    // Device ID so we can ignore our own writes arriving back via onSnapshot
+    const deviceId = (() => {
+      const k = "fps_device_id";
+      let v = localStorage.getItem(k);
+      if (!v) {
+        v = (crypto?.randomUUID?.() || ("dev_" + Math.random().toString(16).slice(2)));
+        localStorage.setItem(k, v);
+      }
+      return v;
+    })();
+
+    let unsubCloud = null;
+    let lastAppliedCloudMs = 0;
+    let lastLocalWriteMs = 0;
+
     async function loadJobsFromCloud(){
       try{
         const ref = doc(db, "jobsBoard", "shared");
         const snap = await getDoc(ref);
         if(!snap.exists()){
-          return { exists:false, jobs:[] };
+          return { exists:false, jobs:[], updatedAtMs:0 };
         }
         const data = snap.data() || {};
         const arr = Array.isArray(data.jobs) ? data.jobs.map(migrateJob) : [];
-        return { exists:true, jobs:arr };
+        const updatedAtMs = Number(data.updatedAtMs || 0);
+        return { exists:true, jobs:arr, updatedAtMs };
       }catch(e){
         console.error("Cloud load failed:", e);
-        return { exists:false, jobs:[] };
+        return { exists:false, jobs:[], updatedAtMs:0 };
       }
     }
 
     async function saveJobsToCloud(){
       try{
         const ref = doc(db, "jobsBoard", "shared");
-        await setDoc(ref, { jobs, updatedAt: serverTimestamp() }, { merge:true });
-        console.log("Saved to cloud:", jobs.length);
+        lastLocalWriteMs = Date.now();
+        await setDoc(ref, {
+          jobs,
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now(),
+          updatedBy: deviceId
+        }, { merge:true });
+        // console.log("Saved to cloud:", jobs.length);
       }catch(e){
         console.error("Cloud save failed:", e);
       }
+    }
+
+    function startRealtimeCloudSync(){
+      if(unsubCloud) return; // already running
+      const ref = doc(db, "jobsBoard", "shared");
+
+      unsubCloud = onSnapshot(ref, (snap)=>{
+        if(!snap.exists()) return;
+
+        const data = snap.data() || {};
+        const cloudMs = Number(data.updatedAtMs || 0);
+        const by = String(data.updatedBy || "");
+        const cloudJobs = Array.isArray(data.jobs) ? data.jobs.map(migrateJob) : null;
+
+        if(!cloudJobs) return;
+
+        // Ignore older snapshots
+        if(cloudMs && cloudMs <= lastAppliedCloudMs) return;
+
+        // Ignore our own write bouncing back
+        // (and also avoid overwriting while user just typed)
+        const localIsFresh = (Date.now() - lastLocalWriteMs) < 1500;
+        if(by === deviceId && localIsFresh) return;
+
+        // If user just changed locally, don't overwrite; push local again
+        const localIsDirty = (Date.now() - lastLocalWriteMs) < 800;
+        if(localIsDirty){
+          saveJobsToCloud();
+          return;
+        }
+
+        lastAppliedCloudMs = cloudMs || Date.now();
+        jobs = cloudJobs;
+        saveLocal();
+        savedStatusEl.textContent = "Synced from cloud";
+        renderAll();
+      }, (err)=>{
+        console.error("Cloud realtime error:", err);
+      });
     }
 
     // Never overwrite cloud with blank local.
@@ -777,34 +663,36 @@ function applyJobsFromSync(jobsData) {
       loadLocal();
       renderAll();
 
-      // 2) ensure signed in (anon) then load cloud
-      const ensureSignedIn = async ()=>{
+      // 2) ensure signed in (anon)
+      const ensureSignedInOnce = async ()=>{
         if(auth.currentUser) return auth.currentUser;
         await signInAnonymously(auth);
         return auth.currentUser;
       };
 
       try{
-        await ensureSignedIn();
+        await ensureSignedInOnce();
       }catch(e){
         console.error("Anonymous sign-in failed:", e);
-        // still let app run local-only
-        cloudLoaded = true;
+        cloudLoaded = true; // local-only
         return;
       }
 
       currentUserId = auth.currentUser?.uid || null;
 
-      // 3) load cloud
+      // 3) load cloud once
       const cloud = await loadJobsFromCloud();
       cloudLoaded = true;
 
-      // 4) decide what to use
+      // 4) start realtime listener
+      startRealtimeCloudSync();
+
       const localCount = jobs.length;
       const cloudCount = cloud.jobs.length;
 
       if(cloudCount > 0){
         jobs = cloud.jobs;
+        lastAppliedCloudMs = cloud.updatedAtMs || Date.now();
         saveLocal();
         savedStatusEl.textContent = "Loaded from cloud";
         renderAll();
@@ -817,6 +705,11 @@ function applyJobsFromSync(jobsData) {
         await saveJobsToCloud();
         savedStatusEl.textContent = "Seeded cloud from local";
       }else{
+        // create doc so other devices can see it exists
+        try{
+          const ref = doc(db, "jobsBoard", "shared");
+          await setDoc(ref, { createdAt: serverTimestamp(), createdAtMs: Date.now(), createdBy: deviceId }, { merge:true });
+        }catch{}
         savedStatusEl.textContent = "Cloud empty";
       }
     }
@@ -824,10 +717,12 @@ function applyJobsFromSync(jobsData) {
     // Save wrapper used by app actions
     function save(){
       saveLocal();
-      // only try cloud after boot and auth available
       if(!cloudLoaded || !currentUserId) return;
       saveJobsToCloud();
     }
+
+    // Expose hook so you can call: window.__queueCloudSave?.();
+    window.__queueCloudSave = () => save();
 
     function norm(s){ return String(s||"").toLowerCase(); }
     function matches(job, q){
