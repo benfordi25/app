@@ -98,6 +98,22 @@
       border-color: rgba(168,85,247,.45);
     }
 
+    /* Call button styled like other buttons */
+    a.callBtn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:900;
+      white-space:nowrap;
+      text-decoration:none;
+    }
+
     main{max-width:1700px;margin:0 auto;padding:16px}
     .card{
       background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
@@ -313,6 +329,11 @@
         <input id="mInvRef" placeholder="Optional" />
       </div>
 
+      <div>
+        <label>Phone Number (optional)</label>
+        <input id="mPhone" inputmode="tel" placeholder="e.g., 07..." />
+      </div>
+
       <div style="grid-column:1/-1">
         <label>Notes</label>
         <textarea id="mNotes" placeholder="Access info, parts needed, tenant details, etc."></textarea>
@@ -345,6 +366,10 @@
     </div>
   </div>
 </div>
+
+<a href="../dashboard/" style="position:fixed;bottom:10px;right:10px;z-index:9999;font-weight:900;color:#9ecbff;text-decoration:none;border:1px solid rgba(255,255,255,.2);padding:8px 12px;border-radius:12px;background:#0b1220;">
+  🏠 Dashboard
+</a>
 
 <script>
   if ('serviceWorker' in navigator) {
@@ -396,6 +421,11 @@
     return (STATUSES.find(s=>s.key===key)?.label) || key;
   }
 
+  // phone sanitiser for tel: links
+  function telSan(s){
+    return String(s || "").trim().replace(/[^\d+]/g, "");
+  }
+
   const boardEl = document.getElementById('board');
   const totalCountEl = document.getElementById('totalCount');
   const savedStatusEl = document.getElementById('savedStatus');
@@ -421,6 +451,7 @@
   const mEstVisitDT = document.getElementById('mEstVisitDT');
   const mWorksDT = document.getElementById('mWorksDT');
   const mInvRef = document.getElementById('mInvRef');
+  const mPhone = document.getElementById('mPhone');
   const mNotes = document.getElementById('mNotes');
 
   const logoBox = document.getElementById('logoBox');
@@ -489,6 +520,7 @@
     j.estVisitDT = j.estVisitDT || "";
     j.worksDT = j.worksDT || j.estWorkDT || "";
     j.invRef = j.invRef || "";
+    j.phone = j.phone || "";
     j.notes = j.notes || "";
     j.agent = j.agent || "";
     j.ref = j.ref || "";
@@ -500,12 +532,11 @@
   }
 
   function save(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
-  savedStatusEl.textContent = nowStamp();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+    savedStatusEl.textContent = nowStamp();
+    syncCalendarFeed(jobs);
+  }
 
-  syncCalendarFeed(jobs);
-  
-}
   function load(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw){
@@ -531,7 +562,7 @@
   function matches(job, q){
     if(!q) return true;
     q = norm(q);
-    return [job.agent, job.ref, job.address, job.notes, job.estNo, job.invRef, job.estVisitDT, job.worksDT]
+    return [job.agent, job.ref, job.address, job.notes, job.estNo, job.invRef, job.phone, job.estVisitDT, job.worksDT]
       .some(x => norm(x).includes(q));
   }
 
@@ -550,6 +581,7 @@
     mEstVisitDT.value = "";
     mWorksDT.value = "";
     mInvRef.value = "";
+    mPhone.value = "";
     mNotes.value = "";
   }
   function openAdd(){ clearModal(); openModal(); }
@@ -567,6 +599,7 @@
     mEstVisitDT.value = job.estVisitDT || "";
     mWorksDT.value = job.worksDT || "";
     mInvRef.value = job.invRef || "";
+    mPhone.value = job.phone || "";
     mNotes.value = job.notes || "";
     openModal();
   }
@@ -581,6 +614,7 @@
       estVisitDT: mEstVisitDT.value || "",
       worksDT: mWorksDT.value || "",
       invRef: mInvRef.value.trim(),
+      phone: mPhone.value.trim(),
       notes: mNotes.value.trim(),
       updatedAt: new Date().toISOString()
     };
@@ -754,10 +788,18 @@
         if(job.worksDT) chips.push(`Works: ${ukDT(job.worksDT)}`);
         if(estNo) chips.push(`Estimate No: ${estNo}`);
         if(job.invRef) chips.push(`Invoice: ${job.invRef}`);
+        if((job.phone || "").trim()) chips.push(`Phone: ${job.phone.trim()}`);
 
         const btns = [];
         btns.push(`<button type="button" data-act="edit">Edit</button>`);
         btns.push(`<button type="button" class="warn" data-act="move_back">Move Back</button>`);
+
+        // Call button on specific stages only
+        const canCall = ["req_est","est_visit_booked","est_accepted","works_booked"];
+        if(canCall.includes(job.status) && (job.phone || "").trim()){
+          const tel = telSan(job.phone);
+          if(tel) btns.push(`<a class="callBtn" href="tel:${escapeHtml(tel)}">Call</a>`);
+        }
 
         if(job.status === "req_est"){
           btns.push(`<button type="button" class="primary" data-act="book_est_visit">Book Estimate Visit</button>`);
@@ -830,13 +872,14 @@
   function exportCsv(){
     const header = [
       "id","status","status_label","letting_agent","job_ref","address","estimate_no",
-      "estimate_visit_dt","works_booked_dt","invoice_ref","notes","created_at","updated_at"
+      "estimate_visit_dt","works_booked_dt","invoice_ref","phone","notes","created_at","updated_at"
     ];
     const rows = jobs.map(j=>[
       j.id, j.status, statusLabel(j.status),
       j.agent || "", j.ref || "", j.address || "", j.estNo || "",
       j.estVisitDT || "", j.worksDT || "",
-      j.invRef || "", (j.notes || "").replace(/\n/g," "),
+      j.invRef || "", j.phone || "",
+      (j.notes || "").replace(/\n/g," "),
       j.createdAt || "", j.updatedAt || ""
     ]);
     const csv = [header, ...rows].map(r=>r.map(csvEscape).join(",")).join("\n");
@@ -863,63 +906,64 @@
   // Init
   load();
   renderAll();
+
   // ===== Calendar feed sync (Jobs Board -> Calendar) =====
-const CAL_FEED_KEY = "fps_calendar_feed_v1";
-// Convert UK date DD/MM/YYYY → YYYY-MM-DD (for calendar)
-function ukToISO(dateStr){
-  if(!dateStr) return "";
-  const parts = dateStr.split("/");
-  if(parts.length !== 3) return "";
-  const [dd, mm, yyyy] = parts;
-  if(!dd || !mm || !yyyy) return "";
-  return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
-}
-  
-function syncCalendarFeed(jobs){
-  try{
-    const feed = {};
-
-    for (const j of (jobs || [])){
-      const rawDate = (
-        j.date ||
-        j.jobDate ||
-        j.scheduledDate ||
-        j.visitDate ||
-        j.bookingDate ||
-        j.estVisitDT ||
-        j.worksDT ||
-        j.estWorkDT ||
-        ""
-      ).trim();
-
-      const date = ukToISO(rawDate);
-      if(!date) continue;
-
-      const item = {
-        id: j.id || j.jobId || j.ref || String(Math.random()),
-        title: (j.address || j.ref || "Job").trim(),
-        address: (j.address || "").trim(),
-        time: (j.time || j.jobTime || j.scheduledTime || j.visitTime || "").trim(),
-        ref: (j.ref || "").trim(),
-        status: (j.status || "").trim(),
-        updatedAt: j.updatedAt || j.createdAt || new Date().toISOString()
-      };
-
-      if(!feed[date]) feed[date] = [];
-      feed[date].push(item);
-    }
-
-    // sort by time (optional)
-    for (const d of Object.keys(feed)){
-      feed[d].sort((a,b)=> String(a.time).localeCompare(String(b.time)));
-    }
-
-    // ✅ IMPORTANT: write once, after loops
-    localStorage.setItem(CAL_FEED_KEY, JSON.stringify(feed));
-  } catch(e){
-    console.warn("Calendar feed sync failed", e);
+  const CAL_FEED_KEY = "fps_calendar_feed_v1";
+  // Convert UK date DD/MM/YYYY → YYYY-MM-DD (for calendar)
+  function ukToISO(dateStr){
+    if(!dateStr) return "";
+    const parts = dateStr.split("/");
+    if(parts.length !== 3) return "";
+    const [dd, mm, yyyy] = parts;
+    if(!dd || !mm || !yyyy) return "";
+    return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
   }
-}
+
+  function syncCalendarFeed(jobs){
+    try{
+      const feed = {};
+
+      for (const j of (jobs || [])){
+        const rawDate = (
+          j.date ||
+          j.jobDate ||
+          j.scheduledDate ||
+          j.visitDate ||
+          j.bookingDate ||
+          j.estVisitDT ||
+          j.worksDT ||
+          j.estWorkDT ||
+          ""
+        ).trim();
+
+        const date = ukToISO(rawDate);
+        if(!date) continue;
+
+        const item = {
+          id: j.id || j.jobId || j.ref || String(Math.random()),
+          title: (j.address || j.ref || "Job").trim(),
+          address: (j.address || "").trim(),
+          time: (j.time || j.jobTime || j.scheduledTime || j.visitTime || "").trim(),
+          ref: (j.ref || "").trim(),
+          status: (j.status || "").trim(),
+          updatedAt: j.updatedAt || j.createdAt || new Date().toISOString()
+        };
+
+        if(!feed[date]) feed[date] = [];
+        feed[date].push(item);
+      }
+
+      // sort by time (optional)
+      for (const d of Object.keys(feed)){
+        feed[d].sort((a,b)=> String(a.time).localeCompare(String(b.time)));
+      }
+
+      // write once, after loops
+      localStorage.setItem(CAL_FEED_KEY, JSON.stringify(feed));
+    } catch(e){
+      console.warn("Calendar feed sync failed", e);
+    }
+  }
 </script>
 </body>
 </html>
