@@ -184,7 +184,7 @@
             <div class="row two">
               <div>
                 <label>Estimated duration (days)</label>
-                <input id="estDuration" type="text" inputmode="decimal" placeholder="e.g., 6" />
+                <input id="estDuration" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g., 6" />
               </div>
               <div>
                 <label>Currency</label>
@@ -231,7 +231,7 @@
               <div class="row two" style="margin-top:10px">
                 <div>
                   <label>Estimated materials budget (NET)</label>
-                  <input id="estMaterialsNet" type="text" inputmode="decimal" placeholder="e.g., 650" />
+                  <input id="estMaterialsNet" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g., 650" />
                 </div>
                 <div>
                   <label>Estimated materials notes (optional)</label>
@@ -264,11 +264,11 @@
             <div class="row two">
               <div>
                 <label>Total estimate (NET)</label>
-                <input id="estimateNet" type="text" inputmode="decimal" placeholder="e.g., 4250" />
+                <input id="estimateNet" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g., 4250" />
               </div>
               <div>
                 <label>Commission % (to client)</label>
-                <input id="commissionPct" type="text" inputmode="decimal" placeholder="e.g., 12.5" />
+                <input id="commissionPct" type="text" inputmode="decimal" autocomplete="off" placeholder="e.g., 12.5" />
               </div>
             </div>
 
@@ -340,7 +340,6 @@
       serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-    // ✅ Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyCfKXXlQyYJIGNjLOIVQqwtyL_QgDEG9Ps",
       authDomain: "ford-property-services-be377.firebaseapp.com",
@@ -352,13 +351,11 @@
 
     const $ = (id) => document.getElementById(id);
 
-    // Accept commas, spaces etc. (UK-friendly)
     const num = (v) => {
       const s = String(v ?? "").replace(/,/g, "").trim();
       const n = parseFloat(s);
       return Number.isFinite(n) ? n : 0;
     };
-
     const todayISO = () => new Date().toISOString().slice(0,10);
     const safeName = (s) => (s || "").trim().slice(0, 80);
 
@@ -371,9 +368,6 @@
       return sym + x.toFixed(2);
     }
 
-    // Used days rule:
-    // - If Actual is blank → use Estimated
-    // - If Actual has any value → use Actual
     function usedDays(row){
       const act = row?.actDays;
       const hasActual = act !== null && act !== undefined && String(act) !== "";
@@ -399,7 +393,7 @@
       materials: [
         { date: todayISO(), desc: "", net: "" }
       ],
-      status: "active",   // "active" | "archived"
+      status: "active",
       completedAt: null,
       createdAt: null,
       updatedAt: null
@@ -413,6 +407,7 @@
 
     let currentJobId = null;
     let savingTimer = null;
+    let totalsTimer = null;
     let applyingRemote = false;
 
     const app = initializeApp(firebaseConfig);
@@ -433,7 +428,6 @@
     }
     function calcCommission(estNet, pct){ return estNet * (pct/100); }
 
-    // PDF comparison only (not used in live totals)
     function calcLabourEstimatedBudget(){
       return (state.labour || []).reduce((sum, r) => sum + (num(r.rate) * num(r.estDays)), 0);
     }
@@ -455,6 +449,14 @@
       const remaining = netAfterCommission - spent;
 
       return { cur, labourUsed, materialsNet, spent, estNet, commPct, commAmt, netAfterCommission, remaining };
+    }
+
+    function scheduleTotals(){
+      clearTimeout(totalsTimer);
+      totalsTimer = setTimeout(() => {
+        // only update after user pauses typing (prevents Android keypad closing)
+        renderTotals();
+      }, 250);
     }
 
     function applyEditLock(){
@@ -508,9 +510,6 @@
       }
     }
 
-    // ✅ Keyboard fix:
-    // - use type="text" + inputmode="decimal" for small boxes
-    // - never call renderAll() on keystrokes
     function renderLabour() {
       const body = $("labourBody");
       body.innerHTML = "";
@@ -519,7 +518,6 @@
       (state.labour || []).forEach((row, idx) => {
         const tr = document.createElement("tr");
 
-        // Person
         const personTd = document.createElement("td");
         const sel = document.createElement("select");
         ["Ben","Joe","Brett","Other"].forEach(p => sel.appendChild(new Option(p, p)));
@@ -529,11 +527,10 @@
           state.labour[idx].person = sel.value;
           if (sel.value !== "Other") state.labour[idx].otherName = "";
           queueSave(false);
-          renderLabour(); // re-render only labour table
+          renderLabour();
         };
         personTd.appendChild(sel);
 
-        // Other name
         const otherTd = document.createElement("td");
         const other = document.createElement("input");
         other.type = "text";
@@ -544,7 +541,7 @@
         other.oninput = () => { state.labour[idx].otherName = other.value; queueSave(false); };
         otherTd.appendChild(other);
 
-        // Rate / day (small box)
+        // SMALL BOXES: text + inputmode decimal
         const rateTd = document.createElement("td");
         const rate = document.createElement("input");
         rate.type = "text";
@@ -555,7 +552,6 @@
         rate.disabled = ro;
         rateTd.appendChild(rate);
 
-        // Est days (small box)
         const estTd = document.createElement("td");
         const est = document.createElement("input");
         est.type = "text";
@@ -566,7 +562,6 @@
         est.disabled = ro;
         estTd.appendChild(est);
 
-        // Actual days (small box)
         const actTd = document.createElement("td");
         const act = document.createElement("input");
         act.type = "text";
@@ -577,14 +572,13 @@
         act.disabled = ro;
         actTd.appendChild(act);
 
-        // Total used (readonly)
         const totalTd = document.createElement("td");
         const total = document.createElement("input");
         total.disabled = true;
         total.value = money(num(row.rate) * usedDays(row), state.currency);
         totalTd.appendChild(total);
 
-        const updateRowTotalAndTotals = () => {
+        const onSmallInput = () => {
           state.labour[idx].rate = rate.value;
           state.labour[idx].estDays = est.value;
           state.labour[idx].actDays = act.value;
@@ -592,13 +586,14 @@
           const r = state.labour[idx];
           total.value = money(num(r.rate) * usedDays(r), state.currency);
 
-          renderTotals();
+          // ✅ debounce totals (prevents Android keypad closing)
+          scheduleTotals();
           queueSave(false);
         };
 
-        rate.addEventListener("input", updateRowTotalAndTotals, { passive: true });
-        est.addEventListener("input", updateRowTotalAndTotals, { passive: true });
-        act.addEventListener("input", updateRowTotalAndTotals, { passive: true });
+        rate.addEventListener("input", onSmallInput);
+        est.addEventListener("input", onSmallInput);
+        act.addEventListener("input", onSmallInput);
 
         [personTd, otherTd, rateTd, estTd, actTd, totalTd].forEach(td => tr.appendChild(td));
         body.appendChild(tr);
@@ -631,7 +626,6 @@
         desc.oninput = () => { state.materials[idx].desc = desc.value; queueSave(false); };
         descTd.appendChild(desc);
 
-        // Net (small box) ✅ type text + inputmode decimal
         const netTd = document.createElement("td");
         const net = document.createElement("input");
         net.type = "text";
@@ -642,7 +636,7 @@
         net.disabled = ro;
         net.oninput = () => {
           state.materials[idx].net = net.value;
-          renderTotals();
+          scheduleTotals();      // ✅ debounce totals
           queueSave(false);
         };
         netTd.appendChild(net);
@@ -656,7 +650,7 @@
             state.materials.splice(idx, 1);
             if (state.materials.length === 0) state.materials.push({ date: todayISO(), desc:"", net:"" });
             renderMaterials();
-            renderTotals();
+            scheduleTotals();
             queueSave(false);
           };
           delTd.appendChild(del);
@@ -687,7 +681,7 @@
     function queueSave(recalc = true) {
       if (!uid || !currentJobId || applyingRemote) return;
       if (isArchived()) return;
-      if (recalc) renderTotals();
+      if (recalc) scheduleTotals();
       setSync("pending");
       clearTimeout(savingTimer);
       savingTimer = setTimeout(saveToCloud, 350);
@@ -718,7 +712,6 @@
         const data = snap.data();
         state = { ...defaultJob(), ...(data || {}) };
 
-        // Backwards compatibility: old "days" becomes Estimated
         if (Array.isArray(state.labour)) {
           state.labour = state.labour.map(r => {
             if (!r || typeof r !== "object") return { person:"Other", otherName:"", rate:"", estDays:"", actDays:"" };
@@ -736,7 +729,6 @@
           state.labour = defaultJob().labour;
         }
 
-        // Materials: net-only (copy old gross -> net if needed)
         if (Array.isArray(state.materials)) {
           state.materials = state.materials.map(m => {
             if (m && typeof m === "object") {
@@ -770,7 +762,6 @@
         const archivedSelect = $("archivedSelect");
 
         const prevActive = activeSelect.value;
-        const prevArchived = archivedSelect.value;
 
         const activeJobs = [];
         const archivedJobs = [];
@@ -814,11 +805,9 @@
           activeSelect.value = pickActive;
           if (pickActive !== currentJobId) subscribeToJob(pickActive);
         } else if (archivedJobs.length) {
-          const pickArchived =
-            (prevArchived && archivedJobs.some(j => j.id === prevArchived)) ? prevArchived :
-            archivedJobs[0].id;
-          archivedSelect.value = pickArchived;
-          if (pickArchived !== currentJobId) subscribeToJob(pickArchived);
+          const id = archivedJobs[0].id;
+          archivedSelect.value = id;
+          if (id !== currentJobId) subscribeToJob(id);
         } else {
           currentJobId = null;
           applyEditLock();
@@ -910,7 +899,7 @@
       }
     }
 
-    // ---------------- CLEAN PDF (headings + tables; no buttons) ----------------
+    // ---------------- CLEAN PDF ----------------
     function formatDateISO(d){ return d || ""; }
 
     async function createCleanPdf(){
@@ -1066,7 +1055,7 @@
 
       pdf.save(`fps-job-costing-${namePart || "report"}.pdf`);
     }
-    // -------------------------------------------------------------------------
+    // ------------------------------------------------------------
 
     function wireInputs() {
       $("jobSelect").onchange = () => { const id = $("jobSelect").value; if (id) subscribeToJob(id); };
@@ -1080,13 +1069,13 @@
 
       $("propertyAddress").oninput = () => { state.propertyAddress = $("propertyAddress").value; queueSave(false); };
       $("jobLabel").oninput = () => { state.jobLabel = $("jobLabel").value; queueSave(false); };
-      $("estDuration").oninput = () => { state.estDuration = $("estDuration").value; queueSave(false); };
+      $("estDuration").oninput = () => { state.estDuration = $("estDuration").value; scheduleTotals(); queueSave(false); };
       $("jobNotes").oninput = () => { state.jobNotes = $("jobNotes").value; queueSave(false); };
 
       $("currency").onchange = () => { state.currency = $("currency").value; queueSave(false); renderAll(); };
 
-      $("estimateNet").oninput = () => { state.estimateNet = $("estimateNet").value; renderTotals(); queueSave(false); };
-      $("commissionPct").oninput = () => { state.commissionPct = $("commissionPct").value; renderTotals(); queueSave(false); };
+      $("estimateNet").oninput = () => { state.estimateNet = $("estimateNet").value; scheduleTotals(); queueSave(false); };
+      $("commissionPct").oninput = () => { state.commissionPct = $("commissionPct").value; scheduleTotals(); queueSave(false); };
 
       $("estMaterialsNet").oninput = () => { state.estMaterialsNet = $("estMaterialsNet").value; queueSave(false); };
       $("estMaterialsNote").oninput = () => { state.estMaterialsNote = $("estMaterialsNote").value; queueSave(false); };
@@ -1095,7 +1084,7 @@
         if (isArchived()) return;
         state.materials.push({ date: todayISO(), desc:"", net:"" });
         renderMaterials();
-        renderTotals();
+        scheduleTotals();
         queueSave(false);
       };
 
