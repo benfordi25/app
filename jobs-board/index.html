@@ -377,14 +377,22 @@
       onSnapshot
     } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "PASTE_FROM_FIREBASE",
-      authDomain: "PASTE_FROM_FIREBASE",
-      projectId: "PASTE_FROM_FIREBASE",
-      storageBucket: "PASTE_FROM_FIREBASE",
-      messagingSenderId: "PASTE_FROM_FIREBASE",
-      appId: "PASTE_FROM_FIREBASE"
-    };
+    // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
+  authDomain: "fps-jobs-board.firebaseapp.com",
+  projectId: "fps-jobs-board",
+  storageBucket: "fps-jobs-board.firebasestorage.app",
+  messagingSenderId: "386598717430",
+  appId: "1:386598717430:web:06a2b508f1d7fcc92069d7"
+};
+
+
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
