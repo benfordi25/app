@@ -119,7 +119,6 @@ video{width:100%;height:100%;object-fit:cover}
         <div class="small">Photo Notes</div>
       </div>
     </div>
-    <!-- IMPORTANT: since this file is /job-photo-notes/, dashboard is usually ../dashboard/ -->
     <a class="back" href="../dashboard/">← Dashboard</a>
   </div>
 </header>
@@ -229,9 +228,20 @@ function invalidatePdf(){
   $("downloadPdf").disabled = true;
 }
 
+function applyStateToUI(){
+  $("address").value = state.address || "";
+  $("date").value = state.date || "";
+  $("general").value = state.general || "";
+  invalidatePdf();
+  render();
+}
+
 function saveState(){
   localStorage.setItem(STORE, JSON.stringify(state));
   invalidatePdf();
+
+  // ✅ Cloud save hook (added)
+  window.__queueCloudSave?.();
 }
 
 function loadState(){
@@ -239,10 +249,7 @@ function loadState(){
     const raw = localStorage.getItem(STORE);
     if(raw) state = JSON.parse(raw);
   }catch(e){}
-  $("address").value = state.address || "";
-  $("date").value = state.date || "";
-  $("general").value = state.general || "";
-  render();
+  applyStateToUI();
 }
 
 /* default date today */
@@ -458,8 +465,6 @@ async function toggleDictation(targetTextarea, dictButton, liveLineEl){
   rec = new SR();
   rec.lang = "en-GB";
   rec.interimResults = true;
-
-  // More reliable on Android/PWA than continuous=true
   rec.continuous = false;
   rec.maxAlternatives = 1;
 
@@ -776,10 +781,182 @@ $("downloadPdf").addEventListener("click", ()=>{
 });
 
 /* =======================
+   CLOUD SYNC HOOKS (exposed for module)
+======================= */
+window.__getPhotoNotesState = () => state;
+window.__applyPhotoNotesFromCloud = (remote) => {
+  // defensive normalize
+  const s = (remote && typeof remote === "object") ? remote : { address:"", date:"", general:"", items:[] };
+  if(!Array.isArray(s.items)) s.items = [];
+  state = s;
+
+  // keep local backup in sync
+  try{ localStorage.setItem(STORE, JSON.stringify(state)); }catch(e){}
+  applyStateToUI();
+};
+
+/* =======================
    START
 ======================= */
 loadState();
 render();
 </script>
+
+<!-- ✅ Firestore Cloud Sync (module) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged, signInAnonymously
+  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+  import {
+    getFirestore, doc, getDoc, setDoc, onSnapshot
+  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+  // 🔧 REPLACE THESE WITH YOUR NEW FIREBASE PROJECT WEB CONFIG
+  const firebaseConfig = {
+    apiKey: "PASTE_FROM_FIREBASE",
+    authDomain: "PASTE_FROM_FIREBASE",
+    projectId: "PASTE_FROM_FIREBASE",
+    storageBucket: "PASTE_FROM_FIREBASE",
+    messagingSenderId: "PASTE_FROM_FIREBASE",
+    appId: "PASTE_FROM_FIREBASE"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Shared doc for ALL your devices (same data everywhere)
+  const CLOUD_COLLECTION = "photoNotes";
+  const CLOUD_DOC_ID = "shared";
+  const ref = doc(db, CLOUD_COLLECTION, CLOUD_DOC_ID);
+
+  const deviceId = (() => {
+    const k = "fps_photo_device_id";
+    let v = localStorage.getItem(k);
+    if(!v){
+      v = (crypto?.randomUUID?.() || ("dev_" + Math.random().toString(16).slice(2)));
+      localStorage.setItem(k, v);
+    }
+    return v;
+  })();
+
+  let cloudReady = false;
+  let suppressApply = false;
+  let lastLocalEditMs = 0;
+  let lastAppliedCloudMs = 0;
+  let saveTimer = null;
+
+  function getLocalState(){
+    return window.__getPhotoNotesState?.();
+  }
+  function applyFromCloud(payload){
+    window.__applyPhotoNotesFromCloud?.(payload);
+  }
+
+  function queueCloudSave(){
+    lastLocalEditMs = Date.now();
+    if(!cloudReady) return;
+    if(saveTimer) clearTimeout(saveTimer);
+
+    saveTimer = setTimeout(async ()=>{
+      try{
+        const data = getLocalState();
+        if(data == null) return;
+
+        await setDoc(ref, {
+          state: data,
+          updatedAtMs: Date.now(),
+          updatedBy: deviceId
+        }, { merge:true });
+
+      }catch(e){
+        console.error("[photoNotes] cloud save failed:", e);
+      }
+    }, 700);
+  }
+
+  // expose for non-module script
+  window.__queueCloudSave = queueCloudSave;
+
+  function startListener(){
+    onSnapshot(ref, (snap)=>{
+      if(!snap.exists()) return;
+      const data = snap.data() || {};
+      const cloudMs = Number(data.updatedAtMs || 0);
+      const cloudState = data.state;
+
+      if(cloudState == null) return;
+      if(suppressApply) return;
+
+      // only apply newer cloud versions
+      if(cloudMs > lastAppliedCloudMs){
+        // prevent overwrite while actively editing
+        const localDirty = (Date.now() - lastLocalEditMs) < 1800;
+        if(localDirty){
+          queueCloudSave(); // local wins
+          return;
+        }
+        lastAppliedCloudMs = cloudMs;
+
+        try{
+          suppressApply = true;
+          applyFromCloud(cloudState);
+        }finally{
+          suppressApply = false;
+        }
+      }
+    }, (err)=>{
+      console.error("[photoNotes] listener error:", err);
+    });
+  }
+
+  async function ensureSignedIn(){
+    if(auth.currentUser) return auth.currentUser;
+    const user = await new Promise((resolve)=>{
+      const unsub = onAuthStateChanged(auth, (u)=>{ unsub(); resolve(u); });
+    });
+    if(user) return user;
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  }
+
+  async function boot(){
+    try{
+      await ensureSignedIn();
+      cloudReady = true;
+
+      startListener();
+
+      // create doc if missing
+      const snap = await getDoc(ref);
+      if(!snap.exists()){
+        await setDoc(ref, {
+          state: getLocalState() || { address:"", date:"", general:"", items:[] },
+          createdAtMs: Date.now(),
+          createdBy: deviceId,
+          updatedAtMs: Date.now(),
+          updatedBy: deviceId
+        }, { merge:true });
+      }else{
+        // pull cloud down on first load (cloud wins if it has something)
+        const data = snap.data() || {};
+        if(data.state){
+          applyFromCloud(data.state);
+          lastAppliedCloudMs = Number(data.updatedAtMs || 0);
+        }
+      }
+
+      // push local up once (in case local has newer edits)
+      queueCloudSave();
+    }catch(e){
+      cloudReady = false;
+      console.error("[photoNotes] auth/cloud init failed:", e);
+    }
+  }
+
+  boot();
+</script>
+
 </body>
 </html>
