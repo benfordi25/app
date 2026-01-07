@@ -414,7 +414,7 @@ async function loadJobsFromCloud() {
   if (!currentUserId) return;
 
   try {
-    const ref = doc(db, "jobsBoards", currentUserId);
+    const ref = doc(db, "jobsBoards", "shared");
     const snap = await getDoc(ref);
 
     if (snap.exists()) {
