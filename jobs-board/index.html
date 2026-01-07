@@ -640,16 +640,10 @@ signInAnonymously(auth).catch((error) => {
       }
     }
 
-    // Auth: sign in anonymously so it works on any device (enable Anonymous provider in Firebase Auth)
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUserId = user.uid;
-        await loadJobsFromCloud();
-      } else {
-        console.log("Not logged in – signing in anonymously...");
-        try { await signInAnonymously(auth); } catch(e){ console.error("Anonymous sign-in failed", e); }
-      }
-    });
+    
+
+      
+    
 
     function save(){
       localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
