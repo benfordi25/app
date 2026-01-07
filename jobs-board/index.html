@@ -622,9 +622,10 @@ onAuthStateChanged(auth, (user) => {
   }
 
   function save(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
-    savedStatusEl.textContent = nowStamp();
-    syncCalendarFeed(jobs);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(jobs));
+  savedStatusEl.textContent = nowStamp();
+  syncCalendarFeed(jobs);
+  saveJobsToCloud(); // 🔥 THIS is the key line
   }
 
   function load(){
