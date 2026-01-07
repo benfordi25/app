@@ -804,7 +804,7 @@ a.callBtn:hover{
         const canCall = ["req_est","est_visit_booked","est_accepted","works_booked"];
         if(canCall.includes(job.status) && (job.phone || "").trim()){
           const tel = telSan(job.phone);
-          if(tel) btns.push(`<a class="callBtn" href="tel:${escapeHtml(tel)}">Call</a>`);
+          if(tel) btns.push(`<a class="callBtn" href="tel:${escapeHtml(tel)}">📞 Call</a>`);
         }
 
         if(job.status === "req_est"){
