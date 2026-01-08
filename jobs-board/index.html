@@ -210,7 +210,6 @@
       font-weight:950;
     }
     details.col[open] .chev{ transform: rotate(90deg); }
-
     .colBody{ display:grid; gap:10px; }
 
     .job{
@@ -599,7 +598,6 @@
     const detailsDocs  = document.getElementById('detailsDocs');
     const detailsEdit  = document.getElementById('detailsEdit');
 
-    // Status dropdown
     STATUSES.forEach(s=>{
       const o = document.createElement('option');
       o.value = s.key;
@@ -607,7 +605,6 @@
       mStatus.appendChild(o);
     });
 
-    // Logo (local)
     const savedLogo = localStorage.getItem('fps_logo_v1');
     if(savedLogo){
       logoImg.src = savedLogo;
@@ -642,16 +639,13 @@
       logoFallback.style.display = 'none';
     });
 
-    // ===== Data =====
     const STORAGE_KEY = "fps_jobs_board_workflow_v9";
     let jobs = [];
     let editingId = null;
 
-    // Column open state is in-memory only (reload = collapsed)
     const colState = {};
     let forceCollapseNextRender = true;
 
-    // Deep-link: ?job=JOB_ID opens details
     const urlParams = new URLSearchParams(location.search);
     const pendingJobId = urlParams.get("job");
     let pendingHandled = false;
@@ -663,7 +657,6 @@
       if(!j) return;
       pendingHandled = true;
       openDetailsModal(pendingJobId);
-      // history.replaceState({}, "", location.pathname);
     }
 
     window.addEventListener("pageshow", () => {
@@ -862,7 +855,6 @@
       refreshJobSheetDocsUI();
     }
     function openAdd(){ clearModal(); openModal(); }
-
     function openEdit(id){
       const job = jobs.find(j=>j.id===id);
       if(!job) return;
@@ -886,7 +878,7 @@
     function refreshJobSheetDocsUI(){
       const canUse = !!editingId && !!jobs.find(j=>j.id===editingId);
       mDocsHint.style.display = canUse ? "none" : "block";
-      mDocsAdd.disabled = !canUse;
+      mDocsAdd.disabled = false;   // ✅ we allow click (we'll auto-save draft)
       mDocsOpen.disabled = !canUse;
 
       if(!canUse){
@@ -907,42 +899,49 @@
       }).join(" • ") + (docs.length>3 ? ` • +${docs.length-3} more` : "");
     }
 
-    // ✅ FIX: This function was missing (your buttons were calling it, so nothing happened).
-    // It ensures there is a saved job ID so documents can attach reliably.
-    function ensureJobSavedForDocs(){
-      // already editing an existing job
-      if(editingId && jobs.find(j=>j.id===editingId)) return editingId;
-
-      // otherwise create a "draft" job immediately and keep the modal open
-      const id = uid();
-      const draft = {
-        id,
+    // ✅ NEW: Save as draft (without closing modal) so Add Photo/PDF works even on a brand new job
+    function saveDraftForDocs(){
+      const payload = {
+        id: editingId || uid(),
         agent: mAgent.value.trim(),
         ref: mRef.value.trim(),
         address: mAddress.value.trim(),
         estNo: mEstNo.value.trim(),
-        status: mStatus.value || "req_est",
+        status: mStatus.value,
         estVisitDT: mEstVisitDT.value || "",
         worksDT: mWorksDT.value || "",
         invRef: mInvRef.value.trim(),
         phone: mPhone.value.trim(),
         notes: mNotes.value.trim(),
-        docs: [],
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
-      jobs.unshift(draft);
-      editingId = id;
+      if(!payload.address){
+        if(!confirm("No address entered. Save this job as a draft so you can add documents?")) return null;
+      }
 
-      // flip UI into edit mode but DO NOT close the modal
-      modalTitle.textContent = "Edit Job";
-      deleteBtn.style.display = "inline-block";
+      if(editingId){
+        const i = jobs.findIndex(j=>j.id===editingId);
+        if(i>=0) jobs[i] = { ...jobs[i], ...payload };
+      }else{
+        payload.createdAt = new Date().toISOString();
+        payload.docs = [];
+        jobs.unshift(payload);
+        editingId = payload.id; // ✅ now it's a real saved job
+        modalTitle.textContent = "Edit Job";
+        deleteBtn.style.display = 'inline-block';
+      }
+
       save();
       renderAll();
       refreshJobSheetDocsUI();
+      return editingId;
+    }
 
-      return id;
+    // ✅ NEW: the function your click handlers were calling (it was missing)
+    function ensureJobSavedForDocs(){
+      if(editingId && jobs.some(j=>j.id===editingId)) return editingId;
+      return saveDraftForDocs();
     }
 
     function upsertJob(){
@@ -1054,7 +1053,7 @@
 
     docsAddBtn.addEventListener("click", ()=>{
       if(!docsJobId) return;
-      // direct user gesture => safe to open picker
+      docsInput.value = "";
       docsInput.click();
     });
 
@@ -1104,7 +1103,8 @@
               <div>
                 <b>${escapeHtml(name)}</b>
                 <div class="small">${escapeHtml(mime || "file")}${size ? " • " + escapeHtml(size) : ""}${when ? " • " + escapeHtml(when) : ""}</div>
-                ${docItem.url ? `<div class="small"><a href="${escapeHtml(docItem.url)}" target="_blank" style="color:#9ecbff;text-decoration:none;font-weight:900">Open</a></div>` : ""}
+                ${docItem.url ? `<div class="small"><a href="${escapeHtml(docItem.url)}\\"
+                   target="_blank" style="color:#9ecbff;text-decoration:none;font-weight:900">Open</a></div>` : ""}
               </div>
             </div>
             <div class="row">
@@ -1149,8 +1149,6 @@
       const files = Array.from(e.target.files || []);
       if(files.length === 0) return;
 
-      // if we are in Add Job modal, attach to that job
-      if(editingId) docsJobId = editingId;
       const job = jobs.find(j=>j.id===docsJobId);
       if(!job) return closeDocs();
 
@@ -1198,7 +1196,6 @@
       }
     });
 
-    // ===== Bookings list + board =====
     function renderBookings(filteredJobs){
       const now = Date.now();
       const items = [];
@@ -1253,6 +1250,7 @@
         col.className = 'col';
 
         col.open = forceCollapseNextRender ? false : !!colState[status.key];
+
         col.addEventListener("toggle", ()=>{
           colState[status.key] = col.open;
         });
@@ -1379,7 +1377,7 @@
     exportBtn.addEventListener('click', exportCsv);
     searchEl.addEventListener('input', renderAll);
 
-    // ✅ Add Job modal: documents buttons (now WORK because ensureJobSavedForDocs exists)
+    // ✅ FIXED: Add Photo/PDF now works in Add Job modal too (auto-saves draft if needed)
     mDocsOpen.addEventListener('click', ()=>{
       const id = ensureJobSavedForDocs();
       if(!id) return;
@@ -1390,10 +1388,8 @@
       const id = ensureJobSavedForDocs();
       if(!id) return;
       docsJobId = id;
-
-      // direct click => should open picker on Android/iOS; add a tiny fallback for picky browsers
-      try { docsInput.click(); }
-      catch { setTimeout(()=> docsInput.click(), 0); }
+      docsInput.value = "";
+      docsInput.click();
     });
 
     syncBoot();
