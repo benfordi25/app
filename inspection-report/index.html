@@ -44,7 +44,6 @@
     .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
     .brand{display:flex; align-items:center; gap:12px;}
 
-    /* LOGO: crisp + not squashed */
     .logo{
       width:56px;height:56px;border-radius:14px;
       background: rgba(255,255,255,.92);
@@ -230,21 +229,6 @@
       font-weight:900;
     }
 
-    .sigWrap{
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
-      padding:10px;
-    }
-    .sigBox{
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.03);
-      border-radius: 14px;
-      overflow:hidden;
-    }
-    canvas{width:100%;height:180px;display:block;touch-action:none}
-    .sigBtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-
     footer{color:var(--muted);text-align:center;padding:18px 10px 30px;font-size:12px}
   </style>
 </head>
@@ -414,27 +398,6 @@
       </label>
     </div>
 
-    <div class="sigWrap">
-      <div class="sectionTitle">Signature</div>
-      <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Signed on device • Sign-off</div>
-
-      <div class="sigBox">
-        <canvas id="sig"></canvas>
-      </div>
-
-      <div class="sigBtns">
-        <button type="button" id="clearSigBtn">Clear Signature</button>
-        <button type="button" id="saveLocalBtn">Save Draft</button>
-        <button type="button" id="loadLocalBtn">Load Draft</button>
-      </div>
-
-      <div class="divider"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:12px">
-        <div><b style="color:var(--text)">Finalised:</b> <span id="sigFinalised">—</span></div>
-        <div><b style="color:var(--text)">Report ID:</b> <span id="sigReportId"></span></div>
-      </div>
-    </div>
-
   </div>
 </main>
 
@@ -491,6 +454,15 @@
     return dataUrl;
   }
 
+  function blobToDataURL(blob){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> resolve(String(r.result || ""));
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+
   // State
   const state = { reportId: makeReportId(), finalised: null, beforePhotos: [], afterPhotos: [], logoDataUrl: null };
 
@@ -500,8 +472,6 @@
   const rhReportId = document.getElementById('rhReportId');
   const rhFinalised = document.getElementById('rhFinalised');
   const dateCompletedText = document.getElementById('dateCompletedText');
-  const sigFinalised = document.getElementById('sigFinalised');
-  const sigReportId = document.getElementById('sigReportId');
 
   const beforeTick = document.getElementById('beforeTick');
   const afterTick = document.getElementById('afterTick');
@@ -545,32 +515,19 @@
 
   const newBtn = document.getElementById('newBtn');
   const pdfBtn = document.getElementById('pdfBtn');
-  const saveLocalBtn = document.getElementById('saveLocalBtn');
-  const loadLocalBtn = document.getElementById('loadLocalBtn');
 
   // Defaults
   dateCompletedISO.value = todayISO();
-
-  // Auto-load saved logo (persistent on this device)
-  const savedLogo = localStorage.getItem('fps_logo_v1');
-  if(savedLogo){
-    state.logoDataUrl = savedLogo;
-    logoImg.src = state.logoDataUrl;
-    logoImg.style.display = 'block';
-    logoFallback.style.display = 'none';
-  }
 
   // UI
   function setFinalisedUI(){
     const t = state.finalised ? ukDateTime(state.finalised) : "—";
     finalisedText.textContent = t;
     rhFinalised.textContent = t;
-    sigFinalised.textContent = t;
   }
   function setReportIdUI(){
     reportIdText.textContent = state.reportId;
     rhReportId.textContent = state.reportId;
-    sigReportId.textContent = state.reportId;
   }
   function setDateCompletedUI(){
     const uk = ukFromISO(dateCompletedISO.value);
@@ -587,6 +544,45 @@
     afterEmptyHint.style.display = state.afterPhotos.length ? "none" : "block";
   }
 
+  function setLogo(src){
+    state.logoDataUrl = src || null;
+    if(src){
+      logoImg.src = src;
+      logoImg.style.display = 'block';
+      logoFallback.style.display = 'none';
+    }else{
+      logoImg.removeAttribute('src');
+      logoImg.style.display = 'none';
+      logoFallback.style.display = 'block';
+    }
+  }
+
+  async function loadLockedLogoFallback(){
+    // Always available if you upload: icons/fps-logo.png
+    const defaultLogoPath = 'icons/fps-logo.png';
+    try{
+      const res = await fetch(defaultLogoPath, {cache:'no-store'});
+      if(!res.ok) return false;
+      const blob = await res.blob();
+      const dataUrl = await blobToDataURL(blob);
+      setLogo(dataUrl);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  // Auto-load logo: 1) saved override, else 2) locked repo logo
+  (async ()=>{
+    const savedLogo = localStorage.getItem('fps_logo_v1');
+    if(savedLogo){
+      setLogo(savedLogo);
+    }else{
+      const ok = await loadLockedLogoFallback();
+      if(!ok) setLogo(null);
+    }
+  })();
+
   setReportIdUI(); setFinalisedUI(); setDateCompletedUI(); updateEvidenceMarks(); updatePhotoCounts();
   dateCompletedISO.addEventListener('input', setDateCompletedUI);
   beforeTick.addEventListener('change', updateEvidenceMarks);
@@ -597,12 +593,9 @@
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
     if(!file) return;
-    state.logoDataUrl = await fileToDataURL(file, 900, 0.90);
-    logoImg.src = state.logoDataUrl;
-    logoImg.style.display = 'block';
-    logoFallback.style.display = 'none';
-    // Save logo permanently for this device
-    localStorage.setItem('fps_logo_v1', state.logoDataUrl);
+    const dataUrl = await fileToDataURL(file, 900, 0.90);
+    setLogo(dataUrl);
+    localStorage.setItem('fps_logo_v1', dataUrl);
   });
 
   // Photos
@@ -654,140 +647,8 @@
   afterGalleryInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files, state.afterPhotos, afterThumbs); afterGalleryInput.value=''; });
   afterCameraInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files, state.afterPhotos, afterThumbs); afterCameraInput.value=''; });
 
-  // Signature pad
-  const canvas = document.getElementById('sig');
-  const ctx = canvas.getContext('2d');
-  let drawing = false, last = null;
-
-  function resizeCanvas(){
-    const rect = canvas.getBoundingClientRect();
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
-    canvas.width = Math.round(rect.width * dpr);
-    canvas.height = Math.round(rect.height * dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.lineWidth = 2.4;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(231,238,252,.95)';
-  }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  function getPos(evt){
-    const rect = canvas.getBoundingClientRect();
-    const t = (evt.touches && evt.touches[0]) ? evt.touches[0] : evt;
-    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
-  }
-  function start(evt){ drawing = true; last = getPos(evt); }
-  function move(evt){
-    if(!drawing) return;
-    evt.preventDefault();
-    const p = getPos(evt);
-    ctx.beginPath();
-    ctx.moveTo(last.x,last.y);
-    ctx.lineTo(p.x,p.y);
-    ctx.stroke();
-    last = p;
-  }
-  function end(){ drawing = false; last = null; }
-
-  canvas.addEventListener('mousedown', start);
-  canvas.addEventListener('mousemove', move);
-  canvas.addEventListener('mouseup', end);
-  canvas.addEventListener('mouseleave', end);
-  canvas.addEventListener('touchstart', start, {passive:false});
-  canvas.addEventListener('touchmove', move, {passive:false});
-  canvas.addEventListener('touchend', end);
-
-  document.getElementById('clearSigBtn').addEventListener('click', ()=> ctx.clearRect(0,0,canvas.width,canvas.height));
-
-  function signatureDataUrl(){
-    const tmp = document.createElement('canvas');
-    tmp.width = canvas.width; tmp.height = canvas.height;
-    const empty = tmp.toDataURL('image/png');
-    const cur = canvas.toDataURL('image/png');
-    return (cur === empty) ? null : cur;
-  }
-
-  // Draft save/load
-  function collectDraft(){
-    return {
-      state: {
-        reportId: state.reportId,
-        finalised: state.finalised ? state.finalised.toISOString() : null,
-        beforePhotos: state.beforePhotos,
-        afterPhotos: state.afterPhotos
-      },
-      fields: {
-        lettingAgent: lettingAgent.value || "",
-        jobRef: jobRef.value || "",
-        propertyAddress: propertyAddress.value || "",
-        dateCompletedISO: dateCompletedISO.value || "",
-        invoiceRequired: !!invoiceRequired.checked,
-        invoiceNumber: invoiceNumber.value || "",
-        estimateRequired: !!estimateRequired.checked,
-        estimateNumber: estimateNumber.value || "",
-        beforeTick: !!beforeTick.checked,
-        afterTick: !!afterTick.checked,
-        worksNotes: worksNotes.value || "",
-        extraAttachments: !!extraAttachments.checked,
-        signature: canvas.toDataURL('image/png')
-      }
-    };
-  }
-
-  function applyDraft(d){
-    if(!d) return;
-    if(d.state){
-      state.reportId = d.state.reportId || state.reportId;
-      state.finalised = d.state.finalised ? new Date(d.state.finalised) : null;
-      state.beforePhotos = d.state.beforePhotos || [];
-      state.afterPhotos = d.state.afterPhotos || [];
-    }
-    if(d.fields){
-      lettingAgent.value = d.fields.lettingAgent ?? "";
-      jobRef.value = d.fields.jobRef ?? "";
-      propertyAddress.value = d.fields.propertyAddress ?? "";
-      dateCompletedISO.value = d.fields.dateCompletedISO ?? dateCompletedISO.value;
-
-      invoiceRequired.checked = !!d.fields.invoiceRequired;
-      invoiceNumber.value = d.fields.invoiceNumber ?? "";
-      estimateRequired.checked = !!d.fields.estimateRequired;
-      estimateNumber.value = d.fields.estimateNumber ?? "";
-
-      beforeTick.checked = !!d.fields.beforeTick;
-      afterTick.checked = !!d.fields.afterTick;
-      worksNotes.value = d.fields.worksNotes ?? "";
-      extraAttachments.checked = !!d.fields.extraAttachments;
-
-      if(d.fields.signature){
-        const img = new Image();
-        img.onload = ()=>{
-          resizeCanvas();
-          ctx.drawImage(img,0,0,canvas.width/(window.devicePixelRatio||1), canvas.height/(window.devicePixelRatio||1));
-        };
-        img.src = d.fields.signature;
-      }
-    }
-
-    setReportIdUI(); setFinalisedUI(); setDateCompletedUI();
-    renderThumbs(state.beforePhotos, beforeThumbs, (i)=>{ state.beforePhotos.splice(i,1); renderThumbs(state.beforePhotos,beforeThumbs,arguments.callee); autoTickFromPhotos(); updatePhotoCounts(); });
-    renderThumbs(state.afterPhotos, afterThumbs, (i)=>{ state.afterPhotos.splice(i,1); renderThumbs(state.afterPhotos,afterThumbs,arguments.callee); autoTickFromPhotos(); updatePhotoCounts(); });
-    updateEvidenceMarks(); updatePhotoCounts();
-  }
-
-  saveLocalBtn.addEventListener('click', ()=>{
-    localStorage.setItem('fps_inspection_report_pwa_v5', JSON.stringify(collectDraft()));
-    alert('Draft saved on this device.');
-  });
-  loadLocalBtn.addEventListener('click', ()=>{
-    const raw = localStorage.getItem('fps_inspection_report_pwa_v5');
-    if(!raw){ alert('No saved draft found.'); return; }
-    applyDraft(JSON.parse(raw));
-    alert('Draft loaded.');
-  });
-
   // New report reset
-  newBtn.addEventListener('click', ()=>{
+  newBtn.addEventListener('click', async ()=>{
     if(!confirm('Start a new report? This clears fields + photos (logo stays).')) return;
 
     state.reportId = makeReportId();
@@ -810,32 +671,31 @@
     worksNotes.value = "";
     extraAttachments.checked = false;
 
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
     setReportIdUI(); setFinalisedUI(); setDateCompletedUI();
     updateEvidenceMarks(); updatePhotoCounts();
     renderThumbs(state.beforePhotos, beforeThumbs, ()=>{});
     renderThumbs(state.afterPhotos, afterThumbs, ()=>{});
+
+    // If the logo disappeared due to storage clearing, reload the locked fallback
+    if(!state.logoDataUrl){
+      await loadLockedLogoFallback();
+    }
   });
 
   // PDF helpers
-  function tickLine(doc, label, checked, x, y){
+  function tickBox(doc, checked, x, y){
     doc.setDrawColor(120);
     doc.setLineWidth(0.35);
-    doc.rect(x, y-4, 4.3, 4.3);
+    doc.rect(x, y-3.8, 4.2, 4.2);
     if(checked){
-      doc.setLineWidth(0.7);
-      doc.line(x+0.8, y-2.2, x+1.9, y-0.9);
-      doc.line(x+1.9, y-0.9, x+3.7, y-3.3);
+      doc.setLineWidth(0.75);
+      doc.line(x+0.8, y-2.0, x+1.9, y-0.8);
+      doc.line(x+1.9, y-0.8, x+3.7, y-3.3);
       doc.setLineWidth(0.35);
     }
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10);
-    doc.setTextColor(40);
-    doc.text(label, x+6, y-0.6);
   }
 
-  // Generate PDF (PRO version)
+  // Generate PDF (aligned + no signature)
   pdfBtn.addEventListener('click', async ()=>{
     if(!dateCompletedISO.value){
       alert("Please choose a Date Completed.");
@@ -868,11 +728,10 @@
       beforeTaken: !!beforeTick.checked,
       afterTaken: !!afterTick.checked,
       worksNotes: (worksNotes.value || "").trim() || "-",
-      extraAttachments: !!extraAttachments.checked,
-      signature: signatureDataUrl()
+      extraAttachments: !!extraAttachments.checked
     };
 
-    // --- PDF style helpers (professional look) ---
+    // PDF style helpers
     function imgTypeFromDataUrl(d){
       if(!d) return "JPEG";
       return d.startsWith("data:image/png") ? "PNG" : "JPEG";
@@ -909,19 +768,12 @@
     }
 
     function sectionBar(title, y){
-      fillBar(margin, y, usableW, 8);
+      fillBar(margin, y, usableW, 7.5);
       doc.setFont('helvetica','bold');
       doc.setFontSize(10);
       doc.setTextColor(35);
-      doc.text(title.toUpperCase(), margin+3, y+5.6);
-      return y + 10;
-    }
-
-    function labelValue(label, value, x, y){
-      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
-      doc.text(label, x, y);
-      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-      doc.text(value, x+34, y);
+      doc.text(title.toUpperCase(), margin+3, y+5.3);
+      return y + 9.5;
     }
 
     function ensureSpace(curY, needed){
@@ -946,24 +798,22 @@
       const lines = doc.splitTextToSize(text, innerW - pad*2);
 
       const lineH = 4.6;
-      const topPad = 7.5;
-      const bottomPad = 5.5;
+      const topPad = 7.0;
+      const bottomPad = 5.0;
 
-      // split across pages if needed
       let idx = 0;
       while(idx < lines.length){
-        y = ensureSpace(y, 22);
+        y = ensureSpace(y, 20);
 
-        // available height on this page for the notes box
         const maxBoxH = (pageH - 16) - y;
         const maxLines = Math.max(1, Math.floor((maxBoxH - (topPad+bottomPad)) / lineH));
         const chunk = lines.slice(idx, idx + maxLines);
 
-        const boxH = Math.max(22, (chunk.length * lineH) + topPad + bottomPad);
+        const boxH = Math.max(20, (chunk.length * lineH) + topPad + bottomPad);
         box(innerX, y, innerW, boxH, 2);
 
         doc.text(chunk, innerX + pad, y + topPad);
-        y += boxH + 6;
+        y += boxH + 5;
         idx += maxLines;
 
         if(idx < lines.length){
@@ -975,14 +825,13 @@
       return y;
     }
 
-    // --- HEADER (tighter + pro) ---
+    // HEADER (tight + wide logo)
     let y = 12;
 
-    // logo area (wider, not squashed)
     const logoBoxW = 36;
     const logoBoxH = 16;
+
     if(state.logoDataUrl){
-      // draw logo inside a wide box, preserving aspect ratio
       fitImage(doc, state.logoDataUrl, margin, y, logoBoxW, logoBoxH);
     }else{
       doc.setDrawColor(170);
@@ -992,14 +841,12 @@
       doc.text('LOGO', margin+10, y+10);
     }
 
-    // Company + Title
     doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(25);
     doc.text('FORD PROPERTY SERVICES', margin + logoBoxW + 6, y + 6);
 
     doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(45);
     doc.text('Inspection Report', margin + logoBoxW + 6, y + 12);
 
-    // Right header block
     doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(25);
     doc.text('FINAL / COMPLETED', pageW - margin, y + 6, {align:'right'});
     doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(45);
@@ -1008,92 +855,103 @@
 
     y += 20;
 
-    // --- JOB DETAILS (tighter, aligned) ---
+    // JOB DETAILS (fixed grid so nothing drifts)
     y = sectionBar('Job Details', y);
 
-    const jobBoxH = 44;
+    // Two-column grid
+    const jobBoxH = 42;
     box(margin, y, usableW, jobBoxH, 2);
 
-    // Left column
-    labelValue('Letting Agent', data.lettingAgent, margin+4, y+10);
-    labelValue('Job Reference', data.jobRef, margin+4, y+18);
-    // address wraps
+    const colGap = 6;
+    const colW = (usableW - colGap) / 2;
+
+    const col1X = margin + 4;
+    const col2X = margin + colW + colGap + 4;
+
+    const labelW = 30;
+    const rowH = 6;
+
+    // Address lines (cap to 2 lines for stable layout)
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    const addrLinesAll = doc.splitTextToSize(data.propertyAddress, colW - labelW - 6);
+    const addrLines = addrLinesAll.slice(0,2);
+    const addrTooLong = addrLinesAll.length > 2;
+
+    const r0 = y + 10;
+    const r1 = r0 + rowH;
+    const r2 = r1 + rowH;
+    const r3 = r2 + rowH;
+    const r4 = r3 + rowH;
+
+    function field(colX, rowY, label, value){
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+      doc.text(label, colX, rowY);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+      doc.text(value, colX + labelW, rowY);
+    }
+
+    field(col1X, r0, 'Letting Agent', data.lettingAgent);
+    field(col1X, r1, 'Job Ref', data.jobRef);
+
+    // Address label + lines
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
-    doc.text('Property Address', margin+4, y+26);
+    doc.text('Address', col1X, r2);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(doc.splitTextToSize(data.propertyAddress, 92), margin+38, y+26);
+    if(addrLines[0]) doc.text(addrLines[0], col1X + labelW, r2);
+    if(addrLines[1]) doc.text(addrLines[1] + (addrTooLong ? "…" : ""), col1X + labelW, r3);
 
-    labelValue('Date Completed', data.dateCompleted, margin+4, y+36);
+    field(col1X, r4, 'Date', data.dateCompleted);
 
-    // Right column: completed by + billing ticks
+    // Right column: Completed By + Invoice + Estimate (aligned to the same rows)
+    field(col2X, r0, 'Completed', data.completedBy);
+
+    // Invoice (row1+row2)
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
-    doc.text('Completed By', margin+118, y+10);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(data.completedBy, margin+150, y+10);
+    doc.text('Invoice', col2X, r1);
+    tickBox(doc, data.invoiceRequired, col2X + labelW, r1);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
+    doc.text('Required', col2X + labelW + 6, r1);
 
-    // Invoice + Estimate (compact)
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(`No: ${data.invoiceNumber}`, col2X, r2);
+
+    // Estimate (row3+row4)
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
-    doc.text('Invoice', margin+118, y+20);
-    tickLine(doc, 'Required', data.invoiceRequired, margin+150, y+20);
+    doc.text('Estimate', col2X, r3);
+    tickBox(doc, data.estimateRequired, col2X + labelW, r3);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
+    doc.text('Required', col2X + labelW + 6, r3);
+
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(`No: ${data.invoiceNumber}`, margin+118, y+28);
+    doc.text(`No: ${data.estimateNumber}`, col2X, r4);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
-    doc.text('Estimate', margin+118, y+36);
-    tickLine(doc, 'Required', data.estimateRequired, margin+150, y+36);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(`No: ${data.estimateNumber}`, margin+118, y+44);
+    y += jobBoxH + 5;
 
-    y += jobBoxH + 6;
-
-    // --- PHOTO EVIDENCE (tick boxes, not text) ---
+    // PHOTO EVIDENCE (compact)
     y = sectionBar('Photo Evidence', y);
-    const peH = 16;
+    const peH = 12;
     box(margin, y, usableW, peH, 2);
 
-    // Two tick lines inside the evidence box
-    tickLine(doc, 'Before photos taken', data.beforeTaken, margin+6, y+10);
-    tickLine(doc, 'After photos taken', data.afterTaken, margin+92, y+10);
+    // two inline ticks
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    tickBox(doc, data.beforeTaken, margin+6, y+7.7);
+    doc.text('Before photos taken', margin+12, y+7.7);
 
-    y += peH + 6;
+    tickBox(doc, data.afterTaken, margin+92, y+7.7);
+    doc.text('After photos taken', margin+98, y+7.7);
 
-    // --- NOTES (auto size + page split) ---
+    y += peH + 5;
+
+    // NOTES (auto size + page split)
     y = addNotesAuto('Works / Inspection Notes', data.worksNotes, y);
 
-    // --- EXTRA ATTACHMENTS + SIGNATURE (more pro, less empty) ---
-    y = ensureSpace(y, 70);
+    // EXTRA ATTACHMENTS (final section on page 1, no signature)
+    y = ensureSpace(y, 20);
     y = sectionBar('Extra Attachments', y);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
     doc.text(data.extraAttachments ? 'Photo / Video files attached to email' : 'None', margin+3, y-1);
-    y += 6;
 
-    y = ensureSpace(y, 70);
-    y = sectionBar('Signature', y);
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(55);
-    doc.text('Signed on device  •  Sign-off', margin+3, y-1);
-    y += 4;
-
-    const sigH = 44;
-    box(margin, y, usableW, sigH, 2);
-
-    if(data.signature){
-      try{
-        // keep signature from looking tiny: scale to fit nicely
-        doc.addImage(data.signature, 'PNG', margin+6, y+7, 95, 30, undefined, 'FAST');
-      }catch(e){}
-    }else{
-      doc.setTextColor(120);
-      doc.text('No signature captured', margin+6, y+18);
-      doc.setTextColor(35);
-    }
-
-    doc.setTextColor(55);
-    doc.setFontSize(9.5);
-    doc.text(`Finalised: ${data.finalised}`, margin+3, y + sigH + 8);
-    doc.text(`Report ID: ${data.reportId}`, margin+3, y + sigH + 13);
-
-    // --- PHOTOS (append after details/signature so first page looks complete) ---
+    // PHOTOS (start after page 1 content)
     async function addPhotoPages(title, photos){
       if(!photos || !photos.length) return;
       doc.addPage();
@@ -1154,4 +1012,4 @@
 
 <a href="../dashboard/" style="position:fixed;top:10px;right:10px;z-index:9999;font-weight:900;color:#9ecbff;text-decoration:none;border:1px solid rgba(255,255,255,.2);padding:8px 12px;border-radius:12px;background:#0b1220;">
   🏠 Dashboard
-  </a>
+</a>
