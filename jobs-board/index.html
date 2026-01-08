@@ -181,47 +181,52 @@
     @media(min-width:980px){ .board{ grid-template-columns: repeat(4, 1fr); } }
     @media(min-width:1400px){ .board{ grid-template-columns: repeat(10, 1fr); } }
 
-    .col{
+    /* ✅ Collapsible columns are <details> */
+    details.col{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
       border-radius: 14px;
       padding:10px;
-      min-height:170px;
+      min-width:0;
     }
-
-    /* ✅ Collapsible columns */
-    .colHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:10px;
+    details.col > summary{
+      list-style:none;
       cursor:pointer;
       user-select:none;
-      padding:8px;
-      border-radius:12px;
     }
-    .colHead:hover{ background: rgba(255,255,255,.04); }
+    details.col > summary::-webkit-details-marker{ display:none; }
+
+    .colHead{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; margin-bottom:0;
+    }
+    details.col[open] .colHead{ margin-bottom:10px; }
 
     .colTitle{font-weight:950; letter-spacing:.3px; font-size:12px; text-transform:uppercase}
     .count{color:var(--muted); font-size:12px}
-    .colChevron{ color:var(--muted); font-weight:950; }
 
-    .col.isCollapsed .colBody{ display:none; }
+    .chev{
+      display:inline-block;
+      transition: transform .18s ease;
+      color: var(--muted);
+      font-weight:950;
+    }
+    details.col[open] .chev{ transform: rotate(90deg); }
+
+    .colBody{ display:grid; gap:10px; }
 
     .job{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(0,0,0,.18);
       border-radius: 14px;
       padding:10px;
-      margin-bottom:10px;
     }
     .jobTop{
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
       gap:10px;
-      flex-wrap:wrap;
+      flex-wrap:wrap; /* mobile: prevent overflow */
     }
     .jobTitle{font-weight:950;margin:0;font-size:13px;line-height:1.2;}
     .meta{color:var(--muted);font-size:12px;margin-top:4px}
@@ -259,7 +264,7 @@
       padding:16px; z-index:50;
     }
 
-    /* ✅ modal becomes a flex column with max-height */
+    /* ✅ Sticky Save/Delete bar inside modal */
     .modal{
       width:min(900px, 100%);
       background: linear-gradient(180deg, rgba(15,27,51,.98), rgba(12,23,48,.98));
@@ -276,7 +281,6 @@
     .modalHead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
     .modalHead h2{margin:0;font-size:16px}
 
-    /* ✅ grid becomes the scroll area */
     .grid2{
       display:grid;
       grid-template-columns:1fr;
@@ -288,7 +292,6 @@
     }
     @media(min-width:720px){ .grid2{grid-template-columns:1fr 1fr} }
 
-    /* ✅ sticky action bar */
     .modalActions{
       display:flex;
       gap:10px;
@@ -414,7 +417,6 @@
           <textarea id="mNotes" placeholder="Access info, parts needed, tenant details, etc."></textarea>
         </div>
 
-        <!-- Job Sheet Documents controls -->
         <div style="grid-column:1/-1">
           <label>Documents</label>
           <div class="row">
@@ -429,26 +431,6 @@
       <div class="modalActions">
         <button id="deleteBtn" class="danger" type="button" style="display:none">Delete Job</button>
         <button id="saveJobBtn" class="ok" type="button">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Quick Date/Time Modal -->
-  <div class="modalBack" id="quickBack">
-    <div class="modal" style="width:min(520px, 100%)">
-      <div class="modalHead">
-        <h2 id="quickTitle">Set Booking</h2>
-        <button type="button" id="quickClose">Close</button>
-      </div>
-
-      <div>
-        <label id="quickLabel">Choose date + time</label>
-        <input id="quickDT" type="datetime-local" />
-        <div class="small" style="margin-top:8px">Pick the date, then pick the time.</div>
-      </div>
-
-      <div class="modalActions">
-        <button id="quickSave" class="ok" type="button">Save</button>
       </div>
     </div>
   </div>
@@ -478,7 +460,7 @@
     </div>
   </div>
 
-  <!-- Details (read-only) screen -->
+  <!-- Details screen -->
   <div class="modalBack" id="detailsBack">
     <div class="modal" style="width:min(760px, 100%)">
       <div class="modalHead">
@@ -493,7 +475,6 @@
     </div>
   </div>
 
-  <!-- hidden input for documents -->
   <input id="docsInput" type="file" accept="image/*,application/pdf" multiple style="display:none" />
 
   <!-- Dashboard button -->
@@ -506,25 +487,9 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import {
-      getAuth,
-      onAuthStateChanged,
-      signInAnonymously
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-    import {
-      getFirestore,
-      doc,
-      getDoc,
-      setDoc,
-      onSnapshot
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-    import {
-      getStorage,
-      ref as sRef,
-      uploadBytes,
-      getDownloadURL,
-      deleteObject
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
@@ -539,10 +504,6 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
     const storage = getStorage(app);
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-    }
 
     const STATUSES = [
       { key: "req_est", label: "Requires Estimate" },
@@ -622,14 +583,6 @@
     const logoImg = document.getElementById('logoImg');
     const logoFallback = document.getElementById('logoFallback');
 
-    const quickBack = document.getElementById('quickBack');
-    const quickClose = document.getElementById('quickClose');
-    const quickTitle = document.getElementById('quickTitle');
-    const quickLabel = document.getElementById('quickLabel');
-    const quickDT = document.getElementById('quickDT');
-    const quickSave = document.getElementById('quickSave');
-
-    // Documents modal elements
     const docsBack = document.getElementById('docsBack');
     const docsClose = document.getElementById('docsClose');
     const docsDone = document.getElementById('docsDone');
@@ -640,31 +593,19 @@
     const docsEmpty = document.getElementById('docsEmpty');
     const docsInput = document.getElementById('docsInput');
 
-    // Job sheet documents controls
     const mDocsOpen = document.getElementById('mDocsOpen');
     const mDocsAdd  = document.getElementById('mDocsAdd');
     const mDocsHint = document.getElementById('mDocsHint');
     const mDocsMini = document.getElementById('mDocsMini');
 
-    // Details screen elements
     const detailsBack  = document.getElementById('detailsBack');
     const detailsClose = document.getElementById('detailsClose');
     const detailsTitle = document.getElementById('detailsTitle');
     const detailsBody  = document.getElementById('detailsBody');
     const detailsDocs  = document.getElementById('detailsDocs');
     const detailsEdit  = document.getElementById('detailsEdit');
-    let detailsJobId = null;
 
-    // Collapsed state (default collapsed = true)
-    const COLLAPSE_KEY = "fps_jobs_board_collapsed_v1";
-    function loadCollapsed(){
-      try{ return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "{}"); }catch{ return {}; }
-    }
-    function saveCollapsed(obj){
-      localStorage.setItem(COLLAPSE_KEY, JSON.stringify(obj));
-    }
-
-    // Status dropdown
+    // ✅ Status dropdown
     STATUSES.forEach(s=>{
       const o = document.createElement('option');
       o.value = s.key;
@@ -672,7 +613,7 @@
       mStatus.appendChild(o);
     });
 
-    // Shared logo (local only)
+    // Logo (local)
     const savedLogo = localStorage.getItem('fps_logo_v1');
     if(savedLogo){
       logoImg.src = savedLogo;
@@ -711,6 +652,25 @@
     const STORAGE_KEY = "fps_jobs_board_workflow_v9";
     let jobs = [];
     let editingId = null;
+
+    // ✅ Column open state is in-memory only (so reload = collapsed)
+    const colState = {}; // statusKey -> boolean
+
+    // ✅ Deep-link from calendar: ?job=JOB_ID opens details
+    const urlParams = new URLSearchParams(location.search);
+    const pendingJobId = urlParams.get("job");
+    let pendingHandled = false;
+
+    function tryOpenJobFromUrl(){
+      if(pendingHandled) return;
+      if(!pendingJobId) return;
+      const j = jobs.find(x=>x?.id === pendingJobId);
+      if(!j) return;
+      pendingHandled = true;
+      openDetailsModal(pendingJobId);
+      // Optional: clean the URL so refresh doesn't keep reopening
+      // history.replaceState({}, "", location.pathname);
+    }
 
     function migrateJob(j){
       if(!j || typeof j !== "object") return j;
@@ -762,13 +722,10 @@
 
     async function ensureSignedIn(){
       if(auth.currentUser) return auth.currentUser;
-
       const user = await new Promise((resolve) => {
         const unsub = onAuthStateChanged(auth, (usr) => { unsub(); resolve(usr); });
       });
-
       if(user) return user;
-
       await signInAnonymously(auth);
       return auth.currentUser;
     }
@@ -817,6 +774,7 @@
           saveLocal();
           savedStatusEl.textContent = "Updated from cloud";
           renderAll();
+          tryOpenJobFromUrl();
         } finally {
           suppressRemoteApply = false;
         }
@@ -828,6 +786,7 @@
     async function syncBoot(){
       loadLocal();
       renderAll();
+      tryOpenJobFromUrl();
 
       try{
         const u = await ensureSignedIn();
@@ -860,30 +819,14 @@
           saveLocal();
           savedStatusEl.textContent = "Loaded from cloud";
           renderAll();
+          tryOpenJobFromUrl();
         } else {
           savedStatusEl.textContent = "Cloud ready (empty)";
         }
       }catch(e){
         console.error("[cloud] boot check failed:", e);
       }
-
-      // ✅ Deep link from Calendar: ?job=JOB_ID => open details modal
-      try{
-        const params = new URLSearchParams(location.search);
-        const jobId = params.get("job");
-        if(jobId){
-          // wait a tick in case render happens first
-          setTimeout(()=>{
-            openDetailsModal(jobId);
-            params.delete("job");
-            const qs = params.toString();
-            history.replaceState(null,"", location.pathname + (qs ? ("?"+qs) : ""));
-          }, 50);
-        }
-      }catch{}
     }
-
-    window.__queueCloudSave = queueCloudSave;
 
     function save(){
       saveLocal();
@@ -898,7 +841,7 @@
         .some(x => norm(x).includes(q));
     }
 
-    // ===== Job Sheet Modal =====
+    // ===== Modal =====
     function openModal(){ modalBack.style.display = 'flex'; }
     function closeModalFn(){ modalBack.style.display = 'none'; }
     function clearModal(){
@@ -962,16 +905,6 @@
       }).join(" • ") + (docs.length>3 ? ` • +${docs.length-3} more` : "");
     }
 
-    mDocsOpen.addEventListener('click', ()=>{
-      if(!editingId) return;
-      openDocs(editingId);
-    });
-    mDocsAdd.addEventListener('click', ()=>{
-      if(!editingId) return alert("Save the job first, then add documents.");
-      docsJobId = editingId;
-      docsInput.click();
-    });
-
     function upsertJob(){
       const payload = {
         id: editingId || uid(),
@@ -998,8 +931,6 @@
         payload.docs = [];
         jobs.unshift(payload);
       }
-
-      window.__queueCloudSave?.();
       save(); renderAll(); closeModalFn();
     }
 
@@ -1007,75 +938,12 @@
       if(!editingId) return;
       if(!confirm("Delete this job?")) return;
       jobs = jobs.filter(j=>j.id!==editingId);
-
-      window.__queueCloudSave?.();
       save(); renderAll(); closeModalFn();
     }
 
-    // ===== Quick booking modal =====
-    let quickJobId = null;
-    let quickMode = null;
-    function openQuick(jobId, mode){
-      const job = jobs.find(j=>j.id===jobId);
-      if(!job) return;
-      quickJobId = jobId;
-      quickMode = mode;
-
-      if(mode === "estVisitDT"){
-        quickTitle.textContent = "Book Estimate Visit";
-        quickLabel.textContent = "Choose estimate visit date + time";
-        quickDT.value = job.estVisitDT || "";
-      } else {
-        quickTitle.textContent = "Works Booked In";
-        quickLabel.textContent = "Choose works date + time";
-        quickDT.value = job.worksDT || "";
-      }
-      quickBack.style.display = "flex";
-    }
-    function closeQuick(){
-      quickBack.style.display = "none";
-      quickJobId = null;
-      quickMode = null;
-      quickDT.value = "";
-    }
-    quickClose.addEventListener('click', closeQuick);
-    quickBack.addEventListener('click', (e)=>{ if(e.target===quickBack) closeQuick(); });
-
-    quickSave.addEventListener('click', ()=>{
-      const job = jobs.find(j=>j.id===quickJobId);
-      if(!job) return closeQuick();
-      if(!quickDT.value){
-        alert("Please choose a date and time.");
-        return;
-      }
-
-      if(quickMode === "estVisitDT"){
-        job.estVisitDT = quickDT.value;
-        job.status = "est_visit_booked";
-      } else {
-        job.worksDT = quickDT.value;
-        job.status = "works_booked";
-      }
-
-      job.updatedAt = new Date().toISOString();
-      window.__queueCloudSave?.();
-      save(); renderAll(); closeQuick();
-    });
-
-    function moveBack(job){
-      const idx = STAGE_ORDER.indexOf(job.status);
-      if(idx <= 0) return;
-      job.status = STAGE_ORDER[idx - 1];
-      job.updatedAt = new Date().toISOString();
-
-      window.__queueCloudSave?.();
-      save(); renderAll();
-    }
-
-    // ===== Details (read-only) =====
+    // ===== Details =====
     function closeDetails(){
       detailsBack.style.display = "none";
-      detailsJobId = null;
     }
     detailsClose.addEventListener("click", closeDetails);
     detailsBack.addEventListener("click", (e)=>{ if(e.target===detailsBack) closeDetails(); });
@@ -1084,7 +952,6 @@
       const job = jobs.find(j=>j.id===jobId);
       if(!job) return;
 
-      detailsJobId = jobId;
       const title = job.address?.trim() ? job.address.trim() : "(No address)";
       detailsTitle.textContent = "Job Details";
 
@@ -1119,31 +986,7 @@
       detailsBack.style.display = "flex";
     }
 
-    // Actions
-    function doAction(job, act){
-      if(act === "move_back") return moveBack(job);
-
-      if(act === "details") return openDetailsModal(job.id);
-      if(act === "documents") return openDocs(job.id);
-
-      if(act === "book_est_visit") return openQuick(job.id, "estVisitDT");
-      if(act === "to_attended_est_required") job.status = "attended_est_required";
-      if(act === "to_est_complete") job.status = "est_complete";
-
-      if(act === "to_est_accepted") job.status = "est_accepted";
-      if(act === "to_est_not_accepted") job.status = "est_not_accepted";
-
-      if(act === "book_works") return openQuick(job.id, "worksDT");
-      if(act === "to_works_done_invoice_required") job.status = "works_done_invoice_required";
-      if(act === "to_invoice_sent_complete") job.status = "invoice_sent_complete";
-      if(act === "to_invoice_paid") job.status = "invoice_paid";
-
-      job.updatedAt = new Date().toISOString();
-      window.__queueCloudSave?.();
-      save(); renderAll();
-    }
-
-    // ===== Documents per job =====
+    // ===== Documents (per job) =====
     let docsJobId = null;
 
     function openDocs(jobId){
@@ -1248,7 +1091,6 @@
 
       job.docs = (job.docs||[]).filter(d=>d.id!==docId);
       job.updatedAt = new Date().toISOString();
-      window.__queueCloudSave?.();
       save();
       renderDocs();
       renderAll();
@@ -1267,7 +1109,6 @@
       if(files.length === 0) return;
 
       if(editingId) docsJobId = editingId;
-
       const job = jobs.find(j=>j.id===docsJobId);
       if(!job) return closeDocs();
 
@@ -1301,7 +1142,6 @@
         }
 
         job.updatedAt = new Date().toISOString();
-        window.__queueCloudSave?.();
         save();
         renderDocs();
         renderAll();
@@ -1353,7 +1193,7 @@
             <div class="small">Letting Agent: ${escapeHtml(agent)} • Assigned Agent: ${escapeHtml(ref)}</div>
           </div>
           <div class="row">
-            <button type="button">Details</button>
+            <button type="button">Open</button>
           </div>
         `;
         el.querySelector("button").addEventListener("click", ()=> openDetailsModal(it.job.id));
@@ -1364,46 +1204,32 @@
     function renderBoard(filteredJobs){
       boardEl.innerHTML = "";
 
-      const collapsedState = loadCollapsed();
-
       STATUSES.forEach(status=>{
-        const col = document.createElement('div');
-        col.className = 'col';
-
         const list = filteredJobs.filter(j=>j.status===status.key);
 
-        const head = document.createElement('div');
-        head.className = 'colHead';
-        head.innerHTML = `
+        const col = document.createElement('details');
+        col.className = 'col';
+
+        // ✅ Default collapsed on fresh load, but remember while using the page
+        col.open = !!colState[status.key];
+
+        col.addEventListener("toggle", ()=>{
+          colState[status.key] = col.open;
+        });
+
+        const summary = document.createElement('summary');
+        summary.className = 'colHead';
+        summary.innerHTML = `
           <div class="colTitle">${status.label}</div>
-          <div style="display:flex;align-items:center;gap:10px">
+          <div class="row" style="gap:8px">
             <div class="count">${list.length}</div>
-            <div class="colChevron">▸</div>
+            <span class="chev">▸</span>
           </div>
         `;
-        col.appendChild(head);
+        col.appendChild(summary);
 
         const body = document.createElement("div");
         body.className = "colBody";
-        col.appendChild(body);
-
-        // ✅ Default collapsed on all devices (YES)
-        const isCollapsed = (collapsedState[status.key] !== undefined) ? !!collapsedState[status.key] : true;
-
-        function setCollapsed(on){
-          col.classList.toggle("isCollapsed", !!on);
-          const chev = head.querySelector(".colChevron");
-          if(chev) chev.textContent = on ? "▸" : "▾";
-          collapsedState[status.key] = !!on;
-          saveCollapsed(collapsedState);
-        }
-
-        setCollapsed(isCollapsed);
-
-        // ✅ Click the STATUS TITLE BAR (header) to toggle (YES)
-        head.addEventListener("click", ()=>{
-          setCollapsed(!col.classList.contains("isCollapsed"));
-        });
 
         list.forEach(job=>{
           const el = document.createElement('div');
@@ -1425,7 +1251,6 @@
           btns.push(`<button type="button" data-act="edit">Edit</button>`);
           btns.push(`<button type="button" data-act="details">Details</button>`);
           btns.push(`<button type="button" data-act="documents">Documents</button>`);
-          btns.push(`<button type="button" class="warn" data-act="move_back">Move Back</button>`);
 
           const canCall = ["req_est","est_visit_booked","est_accepted","works_booked"];
           if(canCall.includes(job.status) && (job.phone || "").trim()){
@@ -1435,32 +1260,6 @@
           if(canCall.includes(job.status) && (job.address || "").trim()){
             const addr = encodeURIComponent(job.address);
             btns.push(`<a class="mapBtn" href="https://www.google.com/maps/search/?api=1&query=${addr}" target="_blank">🗺️ Open Maps</a>`);
-          }
-
-          if(job.status === "req_est"){
-            btns.push(`<button type="button" class="primary" data-act="book_est_visit">Book Estimate Visit</button>`);
-          }
-          if(job.status === "est_visit_booked"){
-            btns.push(`<button type="button" class="purple" data-act="to_attended_est_required">Attended – Estimate Required</button>`);
-          }
-          if(job.status === "attended_est_required"){
-            btns.push(`<button type="button" class="purple" data-act="to_est_complete">Estimate Complete</button>`);
-          }
-          if(job.status === "est_complete"){
-            btns.push(`<button type="button" class="ok" data-act="to_est_accepted">Accepted</button>`);
-            btns.push(`<button type="button" class="danger" data-act="to_est_not_accepted">Not Accepted</button>`);
-          }
-          if(job.status === "est_accepted"){
-            btns.push(`<button type="button" class="primary" data-act="book_works">Works Booked In</button>`);
-          }
-          if(job.status === "works_booked"){
-            btns.push(`<button type="button" class="ok" data-act="to_works_done_invoice_required">Works Completed – Invoice Required</button>`);
-          }
-          if(job.status === "works_done_invoice_required"){
-            btns.push(`<button type="button" class="ok" data-act="to_invoice_sent_complete">Invoice Sent & Complete</button>`);
-          }
-          if(job.status === "invoice_sent_complete"){
-            btns.push(`<button type="button" class="ok" data-act="to_invoice_paid">Invoice Paid</button>`);
           }
 
           const docsCount = Array.isArray(job.docs) ? job.docs.length : 0;
@@ -1480,18 +1279,13 @@
           `;
 
           el.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEdit(job.id));
-          el.querySelectorAll('[data-act]').forEach(b=>{
-            const act = b.getAttribute('data-act');
-            if(act === "edit") return;
-            b.addEventListener('click', (evt)=>{
-              evt.stopPropagation();
-              doAction(job, act);
-            });
-          });
+          el.querySelector('[data-act="details"]').addEventListener('click', ()=> openDetailsModal(job.id));
+          el.querySelector('[data-act="documents"]').addEventListener('click', ()=> openDocs(job.id));
 
           body.appendChild(el);
         });
 
+        col.appendChild(body);
         boardEl.appendChild(col);
       });
     }
@@ -1542,6 +1336,16 @@
     deleteBtn.addEventListener('click', deleteJob);
     exportBtn.addEventListener('click', exportCsv);
     searchEl.addEventListener('input', renderAll);
+
+    mDocsOpen.addEventListener('click', ()=>{
+      if(!editingId) return;
+      openDocs(editingId);
+    });
+    mDocsAdd.addEventListener('click', ()=>{
+      if(!editingId) return alert("Save the job first, then add documents.");
+      docsJobId = editingId;
+      docsInput.click();
+    });
 
     syncBoot();
   </script>
