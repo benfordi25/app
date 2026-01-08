@@ -25,6 +25,7 @@
       --purple: rgba(168,85,247,.9);
     }
     *{box-sizing:border-box}
+    html, body{ overflow-x:hidden; } /* mobile: prevent sideways scroll */
     body{
       margin:0;
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
@@ -76,6 +77,7 @@
       cursor:pointer;
       font-weight:900;
       white-space:nowrap;
+      max-width:100%;
     }
     button.primary{
       background: linear-gradient(135deg, var(--blue), rgba(74,163,255,.35));
@@ -103,6 +105,8 @@
       padding:10px 12px;border-radius:14px;font-weight:900;text-decoration:none;color:#fff;
       background: linear-gradient(135deg, #16a34a, #22c55e);
       border:1px solid rgba(34,197,94,.45);
+      max-width:100%;
+      white-space:nowrap;
     }
     a.callBtn:hover{ filter: brightness(1.08); }
 
@@ -111,8 +115,19 @@
       padding:10px 12px;border-radius:14px;font-weight:900;text-decoration:none;color:#fff;
       background:linear-gradient(135deg, #2563eb, #3b82f6);
       border:1px solid rgba(59,130,246,.45);
+      max-width:100%;
+      white-space:nowrap;
     }
     a.mapBtn:hover{ filter:brightness(1.08); }
+
+    /* Mobile: let long buttons wrap (prevents horizontal overflow) */
+    @media(max-width:520px){
+      button, a.callBtn, a.mapBtn{
+        white-space:normal;
+        padding:9px 10px;
+        font-size:12px;
+      }
+    }
 
     main{max-width:1700px;margin:0 auto;padding:16px}
     .card{
@@ -184,10 +199,23 @@
       padding:10px;
       margin-bottom:10px;
     }
-    .jobTop{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+    .jobTop{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      flex-wrap:wrap; /* mobile: prevent overflow */
+    }
     .jobTitle{font-weight:950;margin:0;font-size:13px;line-height:1.2;}
     .meta{color:var(--muted);font-size:12px;margin-top:4px}
-    .jobBtns{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center}
+    .jobBtns{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:center;
+      max-width:100%;
+    }
     .chip{
       display:inline-flex; gap:8px; align-items:center;
       padding:6px 8px;border-radius:999px;
@@ -197,7 +225,6 @@
       font-size:12px;margin-top:8px;
     }
 
-    /* NEW: subtle highlight chips for bookings (no layout change) */
     .chip.bookingEst{
       color: var(--text);
       border-color: rgba(74,163,255,.45);
@@ -337,6 +364,17 @@
           <label>Notes</label>
           <textarea id="mNotes" placeholder="Access info, parts needed, tenant details, etc."></textarea>
         </div>
+
+        <!-- NEW: Job Sheet Documents controls -->
+        <div style="grid-column:1/-1">
+          <label>Documents</label>
+          <div class="row">
+            <button id="mDocsOpen" type="button">Open Documents</button>
+            <button id="mDocsAdd" class="primary" type="button">Add Photo/PDF</button>
+          </div>
+          <div class="small" id="mDocsHint" style="margin-top:8px;display:block">Save the job first to add documents.</div>
+          <div id="mDocsMini" class="small" style="margin-top:8px"></div>
+        </div>
       </div>
 
       <div class="modalActions">
@@ -366,7 +404,7 @@
     </div>
   </div>
 
-  <!-- NEW: Documents Modal -->
+  <!-- Documents Modal -->
   <div class="modalBack" id="docsBack">
     <div class="modal" style="width:min(780px, 100%)">
       <div class="modalHead">
@@ -387,6 +425,21 @@
 
       <div class="modalActions">
         <button id="docsDone" class="ok" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW: Details (read-only) screen -->
+  <div class="modalBack" id="detailsBack">
+    <div class="modal" style="width:min(760px, 100%)">
+      <div class="modalHead">
+        <h2 id="detailsTitle">Job Details</h2>
+        <button type="button" id="detailsClose">Close</button>
+      </div>
+      <div id="detailsBody" class="small"></div>
+      <div class="modalActions">
+        <button id="detailsDocs" type="button">Documents</button>
+        <button id="detailsEdit" class="primary" type="button">Edit</button>
       </div>
     </div>
   </div>
@@ -438,12 +491,10 @@
     const db = getFirestore(app);
     const storage = getStorage(app);
 
-    // PWA service worker (safe even if sw.js is empty)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
     }
 
-    // Workflow starts at Requires Estimate
     const STATUSES = [
       { key: "req_est", label: "Requires Estimate" },
       { key: "est_visit_booked", label: "Estimate Visit Booked In" },
@@ -507,7 +558,7 @@
     const saveJobBtn = document.getElementById('saveJobBtn');
 
     const mAgent = document.getElementById('mAgent');
-    const mRef = document.getElementById('mRef'); // now "Assigned Agent"
+    const mRef = document.getElementById('mRef');
     const mAddress = document.getElementById('mAddress');
     const mEstNo = document.getElementById('mEstNo');
     const mStatus = document.getElementById('mStatus');
@@ -539,6 +590,21 @@
     const docsList = document.getElementById('docsList');
     const docsEmpty = document.getElementById('docsEmpty');
     const docsInput = document.getElementById('docsInput');
+
+    // Job sheet documents controls
+    const mDocsOpen = document.getElementById('mDocsOpen');
+    const mDocsAdd  = document.getElementById('mDocsAdd');
+    const mDocsHint = document.getElementById('mDocsHint');
+    const mDocsMini = document.getElementById('mDocsMini');
+
+    // Details screen elements
+    const detailsBack  = document.getElementById('detailsBack');
+    const detailsClose = document.getElementById('detailsClose');
+    const detailsTitle = document.getElementById('detailsTitle');
+    const detailsBody  = document.getElementById('detailsBody');
+    const detailsDocs  = document.getElementById('detailsDocs');
+    const detailsEdit  = document.getElementById('detailsEdit');
+    let detailsJobId = null;
 
     // Status dropdown
     STATUSES.forEach(s=>{
@@ -584,7 +650,7 @@
     });
 
     // ===== Data =====
-    const STORAGE_KEY = "fps_jobs_board_workflow_v8"; // bumped (safe)
+    const STORAGE_KEY = "fps_jobs_board_workflow_v9"; // bumped
     let jobs = [];
     let editingId = null;
 
@@ -598,9 +664,9 @@
       j.phone = j.phone || "";
       j.notes = j.notes || "";
       j.agent = j.agent || "";
-      j.ref = j.ref || "";     // now labelled "Assigned Agent"
+      j.ref = j.ref || "";
       j.address = j.address || "";
-      j.docs = Array.isArray(j.docs) ? j.docs : []; // NEW
+      j.docs = Array.isArray(j.docs) ? j.docs : [];
       j.createdAt = j.createdAt || new Date().toISOString();
       j.updatedAt = j.updatedAt || new Date().toISOString();
       if(!j.status || !STAGE_ORDER.includes(j.status)) j.status = "req_est";
@@ -625,11 +691,10 @@
       savedStatusEl.textContent = nowStamp();
     }
 
-    // ===== Cloud sync (REAL realtime) =====
+    // ===== Cloud sync =====
     let currentUserId = null;
     let cloudReady = false;
 
-    // Track changes to avoid overwrite loops
     let lastLocalChangeMs = 0;
     let lastAppliedCloudMs = 0;
     let suppressRemoteApply = false;
@@ -677,17 +742,11 @@
         const cloudJobsRaw = data.jobs;
 
         if(!Array.isArray(cloudJobsRaw)) return;
-
-        // prevent applying right after our own write
         if(suppressRemoteApply) return;
-
-        // ignore old snapshots
         if(cloudMs <= lastAppliedCloudMs) return;
 
-        // if user is actively changing locally, don't wipe their input
         const localDirty = (Date.now() - lastLocalChangeMs) < 1500;
         if(localDirty){
-          // local wins: push again
           queueCloudSave();
           return;
         }
@@ -709,11 +768,9 @@
     }
 
     async function syncBoot(){
-      // 1) local first
       loadLocal();
       renderAll();
 
-      // 2) auth
       try{
         const u = await ensureSignedIn();
         currentUserId = u?.uid || null;
@@ -725,17 +782,14 @@
 
       cloudReady = true;
 
-      // 3) ensure doc exists (merge write)
       try{
         await setDoc(cloudRef, { createdAtMs: Date.now() }, { merge:true });
       }catch(e){
         console.error("[cloud] cannot create doc:", e);
       }
 
-      // 4) start realtime
       startRealtimeCloud();
 
-      // 5) one-time: if cloud empty but local has jobs, seed cloud
       try{
         const snap = await getDoc(cloudRef);
         const data = snap.exists() ? (snap.data() || {}) : {};
@@ -744,7 +798,6 @@
           queueCloudSave();
           savedStatusEl.textContent = "Seeded cloud from local";
         } else if(cloudArr.length > 0){
-          // If cloud already has data, prefer cloud once at start
           jobs = cloudArr.map(migrateJob);
           saveLocal();
           savedStatusEl.textContent = "Loaded from cloud";
@@ -757,10 +810,8 @@
       }
     }
 
-    // Expose hook
     window.__queueCloudSave = queueCloudSave;
 
-    // Save wrapper used by app actions
     function save(){
       saveLocal();
       queueCloudSave();
@@ -774,7 +825,7 @@
         .some(x => norm(x).includes(q));
     }
 
-    // Modal
+    // ===== Job Sheet Modal =====
     function openModal(){ modalBack.style.display = 'flex'; }
     function closeModalFn(){ modalBack.style.display = 'none'; }
     function clearModal(){
@@ -791,6 +842,7 @@
       mInvRef.value = "";
       mPhone.value = "";
       mNotes.value = "";
+      refreshJobSheetDocsUI();
     }
     function openAdd(){ clearModal(); openModal(); }
     function openEdit(id){
@@ -809,25 +861,49 @@
       mInvRef.value = job.invRef || "";
       mPhone.value = job.phone || "";
       mNotes.value = job.notes || "";
+      refreshJobSheetDocsUI();
       openModal();
     }
 
-    // NEW: Details button -> open edit + focus notes
-    function openDetails(id){
-      openEdit(id);
-      setTimeout(()=>{
-        try{
-          mNotes.scrollIntoView({behavior:"smooth", block:"center"});
-          mNotes.focus();
-        }catch{}
-      }, 50);
+    function refreshJobSheetDocsUI(){
+      const canUse = !!editingId && !!jobs.find(j=>j.id===editingId);
+      mDocsHint.style.display = canUse ? "none" : "block";
+      mDocsAdd.disabled = !canUse;
+      mDocsOpen.disabled = !canUse;
+
+      if(!canUse){
+        mDocsMini.textContent = "";
+        return;
+      }
+      const job = jobs.find(j=>j.id===editingId);
+      const docs = Array.isArray(job.docs) ? job.docs : [];
+      if(docs.length === 0){
+        mDocsMini.textContent = "No documents yet.";
+        return;
+      }
+      const latest = docs.slice().sort((a,b)=>(b.createdAtMs||0)-(a.createdAtMs||0)).slice(0,3);
+      mDocsMini.innerHTML = `Latest: ` + latest.map(d=>{
+        const name = escapeHtml(d.name || "file");
+        const url = escapeHtml(d.url || "#");
+        return `<a href="${url}" target="_blank" style="color:#9ecbff;text-decoration:none;font-weight:900">${name}</a>`;
+      }).join(" • ") + (docs.length>3 ? ` • +${docs.length-3} more` : "");
     }
+
+    mDocsOpen.addEventListener('click', ()=>{
+      if(!editingId) return;
+      openDocs(editingId);
+    });
+    mDocsAdd.addEventListener('click', ()=>{
+      if(!editingId) return alert("Save the job first, then add documents.");
+      docsJobId = editingId;
+      docsInput.click();
+    });
 
     function upsertJob(){
       const payload = {
         id: editingId || uid(),
         agent: mAgent.value.trim(),
-        ref: mRef.value.trim(), // assigned agent
+        ref: mRef.value.trim(),
         address: mAddress.value.trim(),
         estNo: mEstNo.value.trim(),
         status: mStatus.value,
@@ -853,6 +929,7 @@
       window.__queueCloudSave?.();
       save(); renderAll(); closeModalFn();
     }
+
     function deleteJob(){
       if(!editingId) return;
       if(!confirm("Delete this job?")) return;
@@ -862,9 +939,9 @@
       save(); renderAll(); closeModalFn();
     }
 
-    // Quick booking modal
+    // ===== Quick booking modal =====
     let quickJobId = null;
-    let quickMode = null; // "estVisitDT" | "worksDT"
+    let quickMode = null;
     function openQuick(jobId, mode){
       const job = jobs.find(j=>j.id===jobId);
       if(!job) return;
@@ -912,7 +989,6 @@
       save(); renderAll(); closeQuick();
     });
 
-    // Move Back
     function moveBack(job){
       const idx = STAGE_ORDER.indexOf(job.status);
       if(idx <= 0) return;
@@ -923,11 +999,58 @@
       save(); renderAll();
     }
 
+    // ===== Details (read-only) =====
+    function closeDetails(){
+      detailsBack.style.display = "none";
+      detailsJobId = null;
+    }
+    detailsClose.addEventListener("click", closeDetails);
+    detailsBack.addEventListener("click", (e)=>{ if(e.target===detailsBack) closeDetails(); });
+
+    function openDetailsModal(jobId){
+      const job = jobs.find(j=>j.id===jobId);
+      if(!job) return;
+
+      detailsJobId = jobId;
+      const title = job.address?.trim() ? job.address.trim() : "(No address)";
+      detailsTitle.textContent = "Job Details";
+
+      const docsCount = Array.isArray(job.docs) ? job.docs.length : 0;
+      const tel = telSan(job.phone||"");
+      const mapUrl = job.address?.trim()
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}`
+        : "";
+
+      detailsBody.innerHTML = `
+        <div style="border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);border-radius:14px;padding:10px">
+          <div style="font-weight:950;margin-bottom:6px">${escapeHtml(title)}</div>
+          <div>Letting Agent: <b>${escapeHtml(job.agent||"-")}</b></div>
+          <div>Assigned Agent: <b>${escapeHtml(job.ref||"-")}</b></div>
+          <div>Status: <b>${escapeHtml(statusLabel(job.status))}</b></div>
+          ${job.estNo ? `<div>Estimate No: <b>${escapeHtml(job.estNo)}</b></div>` : ""}
+          ${job.invRef ? `<div>Invoice Ref: <b>${escapeHtml(job.invRef)}</b></div>` : ""}
+          ${job.estVisitDT ? `<div style="margin-top:10px"><span class="chip bookingEst">Est visit: ${escapeHtml(ukDT(job.estVisitDT))}</span></div>` : ""}
+          ${job.worksDT ? `<div style="margin-top:10px"><span class="chip bookingWorks">Works: ${escapeHtml(ukDT(job.worksDT))}</span></div>` : ""}
+          ${job.notes ? `<div style="margin-top:12px;white-space:pre-wrap">${escapeHtml(job.notes)}</div>` : `<div style="margin-top:12px;color:var(--muted)">No notes.</div>`}
+          <div style="margin-top:12px">Documents: <b>${docsCount}</b></div>
+          <div class="row" style="margin-top:12px">
+            ${tel ? `<a class="callBtn" href="tel:${escapeHtml(tel)}">📞 Call</a>` : ""}
+            ${mapUrl ? `<a class="mapBtn" href="${escapeHtml(mapUrl)}" target="_blank">🗺️ Open Maps</a>` : ""}
+          </div>
+        </div>
+      `;
+
+      detailsDocs.onclick = ()=> openDocs(jobId);
+      detailsEdit.onclick = ()=> { closeDetails(); openEdit(jobId); };
+
+      detailsBack.style.display = "flex";
+    }
+
     // Actions
     function doAction(job, act){
       if(act === "move_back") return moveBack(job);
 
-      if(act === "details") return openDetails(job.id);
+      if(act === "details") return openDetailsModal(job.id);
       if(act === "documents") return openDocs(job.id);
 
       if(act === "book_est_visit") return openQuick(job.id, "estVisitDT");
@@ -1039,6 +1162,9 @@
 
           docsList.appendChild(el);
         });
+
+      // If job sheet is open and this is that job, refresh mini list
+      refreshJobSheetDocsUI();
     }
 
     async function deleteDocForJob(docId){
@@ -1048,7 +1174,6 @@
       const docItem = (job.docs||[]).find(d=>d.id===docId);
       if(!docItem) return;
 
-      // remove from job first (fast UI)
       job.docs = (job.docs||[]).filter(d=>d.id!==docId);
       job.updatedAt = new Date().toISOString();
       window.__queueCloudSave?.();
@@ -1056,7 +1181,6 @@
       renderDocs();
       renderAll();
 
-      // try delete from storage (best effort)
       try{
         if(docItem.storagePath){
           await deleteObject(sRef(storage, docItem.storagePath));
@@ -1069,10 +1193,13 @@
     docsInput.addEventListener("change", async (e)=>{
       const files = Array.from(e.target.files || []);
       if(files.length === 0) return;
+
+      // If user clicked Add Photo/PDF from job sheet, force job id to editingId
+      if(editingId) docsJobId = editingId;
+
       const job = jobs.find(j=>j.id===docsJobId);
       if(!job) return closeDocs();
 
-      // ensure signed in / cloud ready before storage ops
       try{ await ensureSignedIn(); }catch{}
 
       docsAddBtn.disabled = true;
@@ -1114,10 +1241,11 @@
         docsAddBtn.disabled = false;
         docsAddBtn.textContent = "Add Documents";
         docsInput.value = "";
+        refreshJobSheetDocsUI();
       }
     });
 
-    // Bookings list
+    // ===== Bookings list + board =====
     function renderBookings(filteredJobs){
       const now = Date.now();
       const items = [];
@@ -1185,7 +1313,6 @@
           const ref = job.ref?.trim() ? job.ref.trim() : "-";
           const estNo = job.estNo?.trim() ? job.estNo.trim() : "";
 
-          // chips (bookings highlighted)
           const chipsHtml = [];
           if(job.estVisitDT) chipsHtml.push(`<div class="chip bookingEst">Est visit: ${escapeHtml(ukDT(job.estVisitDT))}</div>`);
           if(job.worksDT) chipsHtml.push(`<div class="chip bookingWorks">Works: ${escapeHtml(ukDT(job.worksDT))}</div>`);
@@ -1239,7 +1366,7 @@
 
           el.innerHTML = `
             <div class="jobTop">
-              <div>
+              <div style="min-width:240px;max-width:100%">
                 <div class="jobTitle">
                   ${escapeHtml(title)}${estNo ? ` <span style="color:var(--muted);font-weight:800">• Est: ${escapeHtml(estNo)}</span>` : ""}
                   ${docsCount ? ` <span style="color:var(--muted);font-weight:800">• Docs: ${docsCount}</span>` : ""}
