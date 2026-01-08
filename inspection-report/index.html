@@ -820,12 +820,13 @@
 
   // PDF helpers
   function tickLine(doc, label, checked, x, y){
-    doc.setDrawColor(80);
-    doc.rect(x, y-4, 4, 4);
+    doc.setDrawColor(120);
+    doc.setLineWidth(0.35);
+    doc.rect(x, y-4, 4.3, 4.3);
     if(checked){
-      doc.setLineWidth(0.6);
-      doc.line(x+0.8, y-2.2, x+1.8, y-0.9);
-      doc.line(x+1.8, y-0.9, x+3.4, y-3.2);
+      doc.setLineWidth(0.7);
+      doc.line(x+0.8, y-2.2, x+1.9, y-0.9);
+      doc.line(x+1.9, y-0.9, x+3.7, y-3.3);
       doc.setLineWidth(0.35);
     }
     doc.setFont('helvetica','normal');
@@ -834,7 +835,7 @@
     doc.text(label, x+6, y-0.6);
   }
 
-  // Generate PDF
+  // Generate PDF (PRO version)
   pdfBtn.addEventListener('click', async ()=>{
     if(!dateCompletedISO.value){
       alert("Please choose a Date Completed.");
@@ -847,9 +848,10 @@
     state.finalised = new Date();
     setFinalisedUI();
 
-    const margin = 12;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
+    const margin = 12;
+    const usableW = pageW - margin*2;
 
     const data = {
       reportId: state.reportId,
@@ -870,108 +872,234 @@
       signature: signatureDataUrl()
     };
 
-    function box(x,y,w,h){
-      doc.setDrawColor(180);
+    // --- PDF style helpers (professional look) ---
+    function imgTypeFromDataUrl(d){
+      if(!d) return "JPEG";
+      return d.startsWith("data:image/png") ? "PNG" : "JPEG";
+    }
+
+    function fitImage(doc, dataUrl, x, y, maxW, maxH){
+      try{
+        const props = doc.getImageProperties(dataUrl);
+        const iw = props.width || 1;
+        const ih = props.height || 1;
+        const scale = Math.min(maxW/iw, maxH/ih);
+        const w = iw*scale;
+        const h = ih*scale;
+        const dx = x + (maxW - w)/2;
+        const dy = y + (maxH - h)/2;
+        doc.addImage(dataUrl, imgTypeFromDataUrl(dataUrl), dx, dy, w, h, undefined, 'FAST');
+        return {w,h};
+      }catch(e){
+        return null;
+      }
+    }
+
+    function box(x,y,w,h, r=2){
+      doc.setDrawColor(170);
       doc.setLineWidth(0.35);
-      doc.roundedRect(x,y,w,h,2,2);
-    }
-    function upperLabel(txt, x, y){
-      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
-      doc.text(txt.toUpperCase(), x, y);
-      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
+      doc.roundedRect(x,y,w,h,r,r);
     }
 
-    // Header
-    let y = 14;
+    function fillBar(x,y,w,h){
+      doc.setFillColor(245,245,245);
+      doc.setDrawColor(170);
+      doc.setLineWidth(0.35);
+      doc.roundedRect(x,y,w,h,2,2,'FD');
+    }
 
+    function sectionBar(title, y){
+      fillBar(margin, y, usableW, 8);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(35);
+      doc.text(title.toUpperCase(), margin+3, y+5.6);
+      return y + 10;
+    }
+
+    function labelValue(label, value, x, y){
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+      doc.text(label, x, y);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+      doc.text(value, x+34, y);
+    }
+
+    function ensureSpace(curY, needed){
+      if(curY + needed > pageH - 16){
+        doc.addPage();
+        return 14;
+      }
+      return curY;
+    }
+
+    function addNotesAuto(title, text, startY){
+      let y = sectionBar(title, startY);
+
+      const innerX = margin;
+      const innerW = usableW;
+      const pad = 4;
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(10);
+      doc.setTextColor(35);
+
+      const lines = doc.splitTextToSize(text, innerW - pad*2);
+
+      const lineH = 4.6;
+      const topPad = 7.5;
+      const bottomPad = 5.5;
+
+      // split across pages if needed
+      let idx = 0;
+      while(idx < lines.length){
+        y = ensureSpace(y, 22);
+
+        // available height on this page for the notes box
+        const maxBoxH = (pageH - 16) - y;
+        const maxLines = Math.max(1, Math.floor((maxBoxH - (topPad+bottomPad)) / lineH));
+        const chunk = lines.slice(idx, idx + maxLines);
+
+        const boxH = Math.max(22, (chunk.length * lineH) + topPad + bottomPad);
+        box(innerX, y, innerW, boxH, 2);
+
+        doc.text(chunk, innerX + pad, y + topPad);
+        y += boxH + 6;
+        idx += maxLines;
+
+        if(idx < lines.length){
+          doc.addPage();
+          y = 14;
+          y = sectionBar(title + " (cont.)", y);
+        }
+      }
+      return y;
+    }
+
+    // --- HEADER (tighter + pro) ---
+    let y = 12;
+
+    // logo area (wider, not squashed)
+    const logoBoxW = 36;
+    const logoBoxH = 16;
     if(state.logoDataUrl){
-      try{ doc.addImage(state.logoDataUrl, 'JPEG', margin, y-4, 18, 18); }catch(e){}
+      // draw logo inside a wide box, preserving aspect ratio
+      fitImage(doc, state.logoDataUrl, margin, y, logoBoxW, logoBoxH);
     }else{
-      doc.setDrawColor(180);
-      doc.rect(margin, y-4, 18, 18);
+      doc.setDrawColor(170);
+      doc.rect(margin, y, logoBoxW, logoBoxH);
       doc.setFontSize(9);
-      doc.text('LOGO', margin+4, y+6);
+      doc.setTextColor(90);
+      doc.text('LOGO', margin+10, y+10);
     }
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(20);
-    doc.text('FORD PROPERTY SERVICES', margin+22, y+4);
+    // Company + Title
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(25);
+    doc.text('FORD PROPERTY SERVICES', margin + logoBoxW + 6, y + 6);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(30);
-    doc.text('Inspection Report', margin+22, y+11);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(45);
+    doc.text('Inspection Report', margin + logoBoxW + 6, y + 12);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
-    doc.text('FINAL / COMPLETED', pageW - margin, y+4, {align:'right'});
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(`Report ID: ${data.reportId}`, pageW - margin, y+10, {align:'right'});
-    doc.text(`Finalised: ${data.finalised}`, pageW - margin, y+15, {align:'right'});
+    // Right header block
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(25);
+    doc.text('FINAL / COMPLETED', pageW - margin, y + 6, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(45);
+    doc.text(`Report ID: ${data.reportId}`, pageW - margin, y + 11.5, {align:'right'});
+    doc.text(`Finalised: ${data.finalised}`, pageW - margin, y + 16.5, {align:'right'});
 
     y += 20;
 
-    // Job details + invoice/estimate on right
-    upperLabel('Job Details', margin, y);
-    y += 4;
+    // --- JOB DETAILS (tighter, aligned) ---
+    y = sectionBar('Job Details', y);
 
-    const jobH = 64;
-    box(margin, y, pageW - margin*2, jobH);
+    const jobBoxH = 44;
+    box(margin, y, usableW, jobBoxH, 2);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
-    doc.text('Letting Agent', margin+4, y+10);
-    doc.text('Job Reference', margin+4, y+20);
-    doc.text('Property Address', margin+4, y+30);
-    doc.text('Date Completed', margin+4, y+40);
-    doc.text('Completed By', margin+110, y+10);
+    // Left column
+    labelValue('Letting Agent', data.lettingAgent, margin+4, y+10);
+    labelValue('Job Reference', data.jobRef, margin+4, y+18);
+    // address wraps
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Property Address', margin+4, y+26);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(doc.splitTextToSize(data.propertyAddress, 92), margin+38, y+26);
 
-    doc.text('Invoice', margin+110, y+24);
-    doc.text('Invoice Number', margin+110, y+34);
-    doc.text('Estimate', margin+110, y+44);
-    doc.text('Estimate Number', margin+110, y+54);
+    labelValue('Date Completed', data.dateCompleted, margin+4, y+36);
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(data.lettingAgent, margin+45, y+10);
-    doc.text(data.jobRef, margin+45, y+20);
-    doc.text(doc.splitTextToSize(data.propertyAddress, 88), margin+45, y+30);
-    doc.text(data.dateCompleted, margin+45, y+40);
+    // Right column: completed by + billing ticks
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Completed By', margin+118, y+10);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
     doc.text(data.completedBy, margin+150, y+10);
 
-    tickLine(doc, 'Required', data.invoiceRequired, margin+150, y+24);
-    doc.text(data.invoiceNumber, margin+150, y+34);
+    // Invoice + Estimate (compact)
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Invoice', margin+118, y+20);
+    tickLine(doc, 'Required', data.invoiceRequired, margin+150, y+20);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(`No: ${data.invoiceNumber}`, margin+118, y+28);
 
-    tickLine(doc, 'Required', data.estimateRequired, margin+150, y+44);
-    doc.text(data.estimateNumber, margin+150, y+54);
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Estimate', margin+118, y+36);
+    tickLine(doc, 'Required', data.estimateRequired, margin+150, y+36);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(`No: ${data.estimateNumber}`, margin+118, y+44);
 
-    y += jobH + 10;
+    y += jobBoxH + 6;
 
-    // Photo evidence
-    upperLabel('Photo Evidence', margin, y);
+    // --- PHOTO EVIDENCE (tick boxes, not text) ---
+    y = sectionBar('Photo Evidence', y);
+    const peH = 16;
+    box(margin, y, usableW, peH, 2);
+
+    // Two tick lines inside the evidence box
+    tickLine(doc, 'Before photos taken', data.beforeTaken, margin+6, y+10);
+    tickLine(doc, 'After photos taken', data.afterTaken, margin+92, y+10);
+
+    y += peH + 6;
+
+    // --- NOTES (auto size + page split) ---
+    y = addNotesAuto('Works / Inspection Notes', data.worksNotes, y);
+
+    // --- EXTRA ATTACHMENTS + SIGNATURE (more pro, less empty) ---
+    y = ensureSpace(y, 70);
+    y = sectionBar('Extra Attachments', y);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(data.extraAttachments ? 'Photo / Video files attached to email' : 'None', margin+3, y-1);
+    y += 6;
+
+    y = ensureSpace(y, 70);
+    y = sectionBar('Signature', y);
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(55);
+    doc.text('Signed on device  •  Sign-off', margin+3, y-1);
     y += 4;
-    box(margin, y, pageW - margin*2, 14);
 
-    const beforeMarkPdf = data.beforeTaken ? '✔' : '✘';
-    const afterMarkPdf  = data.afterTaken ? '✔' : '✘';
+    const sigH = 44;
+    box(margin, y, usableW, sigH, 2);
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(`Before photos taken: ${beforeMarkPdf}    After photos taken: ${afterMarkPdf}`, margin+4, y+9);
+    if(data.signature){
+      try{
+        // keep signature from looking tiny: scale to fit nicely
+        doc.addImage(data.signature, 'PNG', margin+6, y+7, 95, 30, undefined, 'FAST');
+      }catch(e){}
+    }else{
+      doc.setTextColor(120);
+      doc.text('No signature captured', margin+6, y+18);
+      doc.setTextColor(35);
+    }
 
-    y += 22;
+    doc.setTextColor(55);
+    doc.setFontSize(9.5);
+    doc.text(`Finalised: ${data.finalised}`, margin+3, y + sigH + 8);
+    doc.text(`Report ID: ${data.reportId}`, margin+3, y + sigH + 13);
 
-    // Notes
-    upperLabel('Works / Inspection Notes', margin, y);
-    y += 4;
-
-    const notesLines = doc.splitTextToSize(data.worksNotes, pageW - margin*2 - 8);
-    const notesH = Math.min(78, Math.max(30, notesLines.length * 5 + 10));
-    box(margin, y, pageW - margin*2, notesH);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(notesLines, margin+4, y+10);
-
-    // Photos pages
-    async function addPhotoPage(title, photos){
+    // --- PHOTOS (append after details/signature so first page looks complete) ---
+    async function addPhotoPages(title, photos){
+      if(!photos || !photos.length) return;
       doc.addPage();
       let py = 14;
-      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(20);
-      doc.text(title.toUpperCase(), margin, py);
-      py += 8;
+
+      py = sectionBar(title, py);
 
       const gap = 4;
       const boxW = (pageW - margin*2 - gap) / 2;
@@ -986,58 +1114,27 @@
         if(y0 + boxH + 12 > pageH){
           doc.addPage();
           py = 14;
-          doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(20);
-          doc.text((title + ' (cont.)').toUpperCase(), margin, py);
-          py += 8;
+          py = sectionBar(title + ' (cont.)', py);
           i--;
           continue;
         }
 
-        doc.setDrawColor(180);
-        doc.setLineWidth(0.35);
-        doc.roundedRect(x, y0, boxW, boxH, 2,2);
+        box(x, y0, boxW, boxH, 2);
 
         try{
           doc.addImage(photos[i].dataUrl, 'JPEG', x+2, y0+2, boxW-4, boxH-4, undefined, 'FAST');
         }catch(e){
-          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
+          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
           doc.text('Image error', x+5, y0+10);
+          doc.setTextColor(35);
         }
       }
     }
 
-    if(state.beforePhotos.length) await addPhotoPage('Before Photos (Up To 6)', state.beforePhotos);
-    if(state.afterPhotos.length) await addPhotoPage('After Photos (Up To 6)', state.afterPhotos);
+    await addPhotoPages('Before Photos', state.beforePhotos);
+    await addPhotoPages('After Photos', state.afterPhotos);
 
-    // Signature page
-    doc.addPage();
-    let sy = 14;
-
-    upperLabel('Extra Attachments', margin, sy);
-    sy += 6;
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(data.extraAttachments ? 'Photo / Video files attached to email' : 'None', margin, sy);
-    sy += 16;
-
-    upperLabel('Signature', margin, sy);
-    sy += 4;
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text('Signed on device   Sign-off', margin, sy+6);
-
-    box(margin, sy+10, pageW - margin*2, 55);
-    if(data.signature){
-      try{ doc.addImage(data.signature, 'PNG', margin+4, sy+14, 90, 40); }catch(e){}
-    }else{
-      doc.setTextColor(120);
-      doc.text('No signature captured', margin+4, sy+22);
-      doc.setTextColor(40);
-    }
-
-    doc.setTextColor(40);
-    doc.text(`Finalised: ${data.finalised}`, margin, sy+74);
-    doc.text(`Report ID: ${data.reportId}`, margin, sy+80);
-
-    // Footer
+    // Footer on every page
     const total = doc.getNumberOfPages();
     for(let p=1;p<=total;p++){
       doc.setPage(p);
@@ -1054,6 +1151,7 @@
 </script>
 </body>
 </html>
+
 <a href="../dashboard/" style="position:fixed;top:10px;right:10px;z-index:9999;font-weight:900;color:#9ecbff;text-decoration:none;border:1px solid rgba(255,255,255,.2);padding:8px 12px;border-radius:12px;background:#0b1220;">
   🏠 Dashboard
-</a>
+  </a>
