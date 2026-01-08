@@ -25,7 +25,7 @@
       --purple: rgba(168,85,247,.9);
     }
     *{box-sizing:border-box}
-    html, body{ overflow-x:hidden; } /* mobile: prevent sideways scroll */
+    html, body{ overflow-x:hidden; }
     body{
       margin:0;
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
@@ -120,7 +120,6 @@
     }
     a.mapBtn:hover{ filter:brightness(1.08); }
 
-    /* Mobile: let long buttons wrap (prevents horizontal overflow) */
     @media(max-width:520px){
       button, a.callBtn, a.mapBtn{
         white-space:normal;
@@ -181,7 +180,6 @@
     @media(min-width:980px){ .board{ grid-template-columns: repeat(4, 1fr); } }
     @media(min-width:1400px){ .board{ grid-template-columns: repeat(10, 1fr); } }
 
-    /* ✅ Collapsible columns are <details> */
     details.col{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
@@ -226,7 +224,7 @@
       justify-content:space-between;
       align-items:flex-start;
       gap:10px;
-      flex-wrap:wrap; /* mobile: prevent overflow */
+      flex-wrap:wrap;
     }
     .jobTitle{font-weight:950;margin:0;font-size:13px;line-height:1.2;}
     .meta{color:var(--muted);font-size:12px;margin-top:4px}
@@ -246,7 +244,6 @@
       color: var(--muted);
       font-size:12px;margin-top:8px;
     }
-
     .chip.bookingEst{
       color: var(--text);
       border-color: rgba(74,163,255,.45);
@@ -263,8 +260,6 @@
       display:none; align-items:center; justify-content:center;
       padding:16px; z-index:50;
     }
-
-    /* ✅ Sticky Save/Delete bar inside modal */
     .modal{
       width:min(900px, 100%);
       background: linear-gradient(180deg, rgba(15,27,51,.98), rgba(12,23,48,.98));
@@ -277,7 +272,6 @@
       display:flex;
       flex-direction:column;
     }
-
     .modalHead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
     .modalHead h2{margin:0;font-size:16px}
 
@@ -605,7 +599,7 @@
     const detailsDocs  = document.getElementById('detailsDocs');
     const detailsEdit  = document.getElementById('detailsEdit');
 
-    // ✅ Status dropdown
+    // Status dropdown
     STATUSES.forEach(s=>{
       const o = document.createElement('option');
       o.value = s.key;
@@ -653,13 +647,11 @@
     let jobs = [];
     let editingId = null;
 
-    // ✅ Column open state is in-memory only (so reload = collapsed)
-    const colState = {}; // statusKey -> boolean
-
-    // ✅ FIX: force collapsed on refresh / reopen (handles iOS/Android BFCache restore)
+    // Column open state is in-memory only (reload = collapsed)
+    const colState = {};
     let forceCollapseNextRender = true;
 
-    // ✅ Deep-link from calendar: ?job=JOB_ID opens details
+    // Deep-link: ?job=JOB_ID opens details
     const urlParams = new URLSearchParams(location.search);
     const pendingJobId = urlParams.get("job");
     let pendingHandled = false;
@@ -671,14 +663,11 @@
       if(!j) return;
       pendingHandled = true;
       openDetailsModal(pendingJobId);
-      // Optional: clean the URL so refresh doesn't keep reopening
       // history.replaceState({}, "", location.pathname);
     }
 
-    // ✅ Pageshow runs on normal load + back/forward cache restore
     window.addEventListener("pageshow", () => {
       forceCollapseNextRender = true;
-      // If browser restored <details open>, slam them shut immediately
       document.querySelectorAll("details.col[open]").forEach(d => d.open = false);
       renderAll();
     });
@@ -855,6 +844,7 @@
     // ===== Modal =====
     function openModal(){ modalBack.style.display = 'flex'; }
     function closeModalFn(){ modalBack.style.display = 'none'; }
+
     function clearModal(){
       editingId = null;
       modalTitle.textContent = "Add Job";
@@ -872,6 +862,7 @@
       refreshJobSheetDocsUI();
     }
     function openAdd(){ clearModal(); openModal(); }
+
     function openEdit(id){
       const job = jobs.find(j=>j.id===id);
       if(!job) return;
@@ -914,6 +905,44 @@
         const url = escapeHtml(d.url || "#");
         return `<a href="${url}" target="_blank" style="color:#9ecbff;text-decoration:none;font-weight:900">${name}</a>`;
       }).join(" • ") + (docs.length>3 ? ` • +${docs.length-3} more` : "");
+    }
+
+    // ✅ FIX: This function was missing (your buttons were calling it, so nothing happened).
+    // It ensures there is a saved job ID so documents can attach reliably.
+    function ensureJobSavedForDocs(){
+      // already editing an existing job
+      if(editingId && jobs.find(j=>j.id===editingId)) return editingId;
+
+      // otherwise create a "draft" job immediately and keep the modal open
+      const id = uid();
+      const draft = {
+        id,
+        agent: mAgent.value.trim(),
+        ref: mRef.value.trim(),
+        address: mAddress.value.trim(),
+        estNo: mEstNo.value.trim(),
+        status: mStatus.value || "req_est",
+        estVisitDT: mEstVisitDT.value || "",
+        worksDT: mWorksDT.value || "",
+        invRef: mInvRef.value.trim(),
+        phone: mPhone.value.trim(),
+        notes: mNotes.value.trim(),
+        docs: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      jobs.unshift(draft);
+      editingId = id;
+
+      // flip UI into edit mode but DO NOT close the modal
+      modalTitle.textContent = "Edit Job";
+      deleteBtn.style.display = "inline-block";
+      save();
+      renderAll();
+      refreshJobSheetDocsUI();
+
+      return id;
     }
 
     function upsertJob(){
@@ -1025,6 +1054,7 @@
 
     docsAddBtn.addEventListener("click", ()=>{
       if(!docsJobId) return;
+      // direct user gesture => safe to open picker
       docsInput.click();
     });
 
@@ -1119,6 +1149,7 @@
       const files = Array.from(e.target.files || []);
       if(files.length === 0) return;
 
+      // if we are in Add Job modal, attach to that job
       if(editingId) docsJobId = editingId;
       const job = jobs.find(j=>j.id===docsJobId);
       if(!job) return closeDocs();
@@ -1221,9 +1252,7 @@
         const col = document.createElement('details');
         col.className = 'col';
 
-        // ✅ FIX: always collapsed on first render after page show/refresh
         col.open = forceCollapseNextRender ? false : !!colState[status.key];
-
         col.addEventListener("toggle", ()=>{
           colState[status.key] = col.open;
         });
@@ -1300,7 +1329,6 @@
         boardEl.appendChild(col);
       });
 
-      // ✅ After first render on a fresh page open, allow in-session remembering again
       forceCollapseNextRender = false;
     }
 
@@ -1351,18 +1379,22 @@
     exportBtn.addEventListener('click', exportCsv);
     searchEl.addEventListener('input', renderAll);
 
+    // ✅ Add Job modal: documents buttons (now WORK because ensureJobSavedForDocs exists)
     mDocsOpen.addEventListener('click', ()=>{
-  const id = ensureJobSavedForDocs();
-  if(!id) return;
-  openDocs(id);
-});
+      const id = ensureJobSavedForDocs();
+      if(!id) return;
+      openDocs(id);
+    });
 
-mDocsAdd.addEventListener('click', ()=>{
-  const id = ensureJobSavedForDocs();
-  if(!id) return;
-  docsJobId = id;
-  docsInput.click(); // opens the file picker
-});
+    mDocsAdd.addEventListener('click', ()=>{
+      const id = ensureJobSavedForDocs();
+      if(!id) return;
+      docsJobId = id;
+
+      // direct click => should open picker on Android/iOS; add a tiny fallback for picky browsers
+      try { docsInput.click(); }
+      catch { setTimeout(()=> docsInput.click(), 0); }
+    });
 
     syncBoot();
   </script>
