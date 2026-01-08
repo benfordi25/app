@@ -656,6 +656,9 @@
     // ✅ Column open state is in-memory only (so reload = collapsed)
     const colState = {}; // statusKey -> boolean
 
+    // ✅ FIX: force collapsed on refresh / reopen (handles iOS/Android BFCache restore)
+    let forceCollapseNextRender = true;
+
     // ✅ Deep-link from calendar: ?job=JOB_ID opens details
     const urlParams = new URLSearchParams(location.search);
     const pendingJobId = urlParams.get("job");
@@ -671,6 +674,14 @@
       // Optional: clean the URL so refresh doesn't keep reopening
       // history.replaceState({}, "", location.pathname);
     }
+
+    // ✅ Pageshow runs on normal load + back/forward cache restore
+    window.addEventListener("pageshow", () => {
+      forceCollapseNextRender = true;
+      // If browser restored <details open>, slam them shut immediately
+      document.querySelectorAll("details.col[open]").forEach(d => d.open = false);
+      renderAll();
+    });
 
     function migrateJob(j){
       if(!j || typeof j !== "object") return j;
@@ -1210,8 +1221,8 @@
         const col = document.createElement('details');
         col.className = 'col';
 
-        // ✅ Default collapsed on fresh load, but remember while using the page
-        col.open = !!colState[status.key];
+        // ✅ FIX: always collapsed on first render after page show/refresh
+        col.open = forceCollapseNextRender ? false : !!colState[status.key];
 
         col.addEventListener("toggle", ()=>{
           colState[status.key] = col.open;
@@ -1288,6 +1299,9 @@
         col.appendChild(body);
         boardEl.appendChild(col);
       });
+
+      // ✅ After first render on a fresh page open, allow in-session remembering again
+      forceCollapseNextRender = false;
     }
 
     function renderAll(){
