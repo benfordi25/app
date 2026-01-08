@@ -1352,14 +1352,17 @@
     searchEl.addEventListener('input', renderAll);
 
     mDocsOpen.addEventListener('click', ()=>{
-      if(!editingId) return;
-      openDocs(editingId);
-    });
-    mDocsAdd.addEventListener('click', ()=>{
-      if(!editingId) return alert("Save the job first, then add documents.");
-      docsJobId = editingId;
-      docsInput.click();
-    });
+  const id = ensureJobSavedForDocs();
+  if(!id) return;
+  openDocs(id);
+});
+
+mDocsAdd.addEventListener('click', ()=>{
+  const id = ensureJobSavedForDocs();
+  if(!id) return;
+  docsJobId = id;
+  docsInput.click(); // opens the file picker
+});
 
     syncBoot();
   </script>
