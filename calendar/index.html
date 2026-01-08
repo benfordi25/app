@@ -276,7 +276,8 @@ textarea{min-height:110px; resize:vertical;}
     <div class="field">
       <label>Notes (optional)</label>
       <textarea id="manNotes" placeholder="Key details..."></textarea>
-      <div class="smallnote">Manual appointments do not link to Jobs Board.</div>
+      <div class="smallnote">Manual appointments sync to cloud and do not link to Jobs Board.</div>
+      <div class="smallnote" id="cloudStatus" style="margin-top:6px"></div>
     </div>
   </div>
 
@@ -288,65 +289,154 @@ textarea{min-height:110px; resize:vertical;}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 
 const app = initializeApp({
   apiKey:"AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
   authDomain:"fps-jobs-board.firebaseapp.com",
   projectId:"fps-jobs-board"
 });
-await signInAnonymously(getAuth(app));
+const auth = getAuth(app);
+await signInAnonymously(auth);
 const db = getFirestore(app);
 
-/* ===== Manual appointments (local only, no Jobs Board link) ===== */
-const MANUAL_KEY = "fps_calendar_manual_v1"; // { "YYYY-MM-DD": [ {id,time,address,notes} ] }
+/* ===== Manual appointments (CLOUD + local cache fallback) =====
+   Cloud lives in jobsBoard/shared under field: calendarManual
+   Shape: { "YYYY-MM-DD": [ {id,time,address,notes} ] }
+*/
+const MANUAL_CACHE_KEY = "fps_calendar_manual_cache_v1";
 
-function loadManual(){
+function loadManualCache(){
   try{
-    const raw = localStorage.getItem(MANUAL_KEY);
+    const raw = localStorage.getItem(MANUAL_CACHE_KEY);
     const obj = raw ? JSON.parse(raw) : {};
     return (obj && typeof obj === "object") ? obj : {};
   }catch{ return {}; }
 }
-function saveManual(obj){
-  localStorage.setItem(MANUAL_KEY, JSON.stringify(obj));
+function saveManualCache(obj){
+  localStorage.setItem(MANUAL_CACHE_KEY, JSON.stringify(obj || {}));
 }
 function uid(){
   return "man_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
 }
-let manual = loadManual();
+function normaliseManual(obj){
+  const out = {};
+  if(!obj || typeof obj !== "object") return out;
+  for(const [k,v] of Object.entries(obj)){
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) continue;
+    const arr = Array.isArray(v) ? v : [];
+    out[k] = arr
+      .filter(x => x && typeof x === "object")
+      .map(x => ({
+        id: String(x.id || uid()),
+        time: String(x.time || "").slice(0,5),
+        address: String(x.address || "").trim(),
+        notes: String(x.notes || "").trim()
+      }));
+    if(out[k].length === 0) delete out[k];
+  }
+  return out;
+}
+
+let manualCloud = normaliseManual(loadManualCache()); // start with cache until cloud loads
+let manualLoadedFromCloud = false;
+
+const cloudStatusEl = document.getElementById("cloudStatus");
+function setCloudStatus(msg){
+  if(!cloudStatusEl) return;
+  cloudStatusEl.textContent = msg || "";
+}
 
 /* ===== Jobs board bookings (from Firestore) ===== */
-let jobs=[];
-onSnapshot(doc(db,"jobsBoard","shared"),snap=>{
-  jobs=snap.data()?.jobs||[];
+let jobs = [];
+
+const sharedRef = doc(db, "jobsBoard", "shared");
+
+// Listener: jobs + (also) manual cloud field
+onSnapshot(sharedRef, (snap)=>{
+  const data = snap.data() || {};
+  jobs = Array.isArray(data.jobs) ? data.jobs : [];
+
+  const cloudManual = normaliseManual(data.calendarManual || {});
+  // First time we see cloud: migrate cache -> cloud if cloud empty and cache has content
+  if(!manualLoadedFromCloud){
+    manualLoadedFromCloud = true;
+
+    const cache = normaliseManual(loadManualCache());
+    const cloudIsEmpty = Object.keys(cloudManual).length === 0;
+    const cacheHas = Object.keys(cache).length > 0;
+
+    // Prefer cloud if it has anything
+    manualCloud = cloudIsEmpty ? cache : cloudManual;
+
+    // If cloud empty but cache has items, seed cloud once
+    if(cloudIsEmpty && cacheHas){
+      queueManualCloudSave("Seeding cloud from this device…");
+    } else {
+      setCloudStatus("Cloud sync ready.");
+    }
+  } else {
+    // After initial load: accept cloud updates
+    manualCloud = cloudManual;
+    saveManualCache(manualCloud);
+    setCloudStatus("Synced.");
+  }
+
+  render();
+}, (err)=>{
+  console.error("Firestore listener error:", err);
+  setCloudStatus("Cloud error — using local cache.");
   render();
 });
 
-const title=document.getElementById("title");
-const monthGrid=document.getElementById("monthGrid");
-const weekView=document.getElementById("weekView");
-const dayView=document.getElementById("dayView");
-const dow=document.getElementById("dow");
-const monthView=document.getElementById("monthView");
+// Writes ONLY the manual fields (merge:true so it won’t touch jobs)
+let manualSaveTimer = null;
+async function queueManualCloudSave(statusText = "Saving…"){
+  setCloudStatus(statusText);
+  saveManualCache(manualCloud);
+
+  if(manualSaveTimer) clearTimeout(manualSaveTimer);
+  manualSaveTimer = setTimeout(async ()=>{
+    try{
+      const u = auth.currentUser;
+      await setDoc(sharedRef, {
+        calendarManual: manualCloud,
+        calendarManualUpdatedAtMs: Date.now(),
+        calendarManualUpdatedBy: u?.uid || "anon"
+      }, { merge: true });
+      setCloudStatus("Saved to cloud.");
+    }catch(e){
+      console.error("Manual cloud save failed:", e);
+      setCloudStatus("Save failed — check internet / rules.");
+    }
+  }, 450);
+}
+
+/* ===== UI refs ===== */
+const title = document.getElementById("title");
+const monthGrid = document.getElementById("monthGrid");
+const weekView = document.getElementById("weekView");
+const dayView = document.getElementById("dayView");
+const dow = document.getElementById("dow");
+const monthView = document.getElementById("monthView");
 
 ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(d=>{
-  const el=document.createElement("div");
-  el.className="dow";el.textContent=d;dow.appendChild(el);
+  const el = document.createElement("div");
+  el.className="dow"; el.textContent=d; dow.appendChild(el);
 });
 
-let view=new Date(); view.setDate(1);
-let selected=new Date();
-let mode="month";
+let view = new Date(); view.setDate(1);
+let selected = new Date();
+let mode = "month";
 
-const pad2=n=>String(n).padStart(2,"0");
-const iso=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-const firstLine=a=>(a||"").split(",")[0].trim();
+const pad2 = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const firstLine = a => (a||"").split(",")[0].trim();
 
 /* Build all events for a date:
-   - jobs events have id + link
-   - manual events have id but NO jobs link
+   - jobs events have id + open Jobs Board with ?job=ID
+   - manual events have id but open manual editor
 */
 function eventsFor(dateISO){
   const out = [];
@@ -354,44 +444,31 @@ function eventsFor(dateISO){
   // Jobs board feed
   for(const j of jobs){
     if(j.estVisitDT?.startsWith(dateISO)){
-      out.push({
-        t: j.estVisitDT.slice(11,16),
-        a: firstLine(j.address),
-        id: j.id,
-        type: "est",
-        src: "job"
-      });
+      out.push({ t:j.estVisitDT.slice(11,16), a:firstLine(j.address), id:j.id, type:"est", src:"job" });
     }
     if(j.worksDT?.startsWith(dateISO)){
-      out.push({
-        t: j.worksDT.slice(11,16),
-        a: firstLine(j.address),
-        id: j.id,
-        type: "works",
-        src: "job"
-      });
+      out.push({ t:j.worksDT.slice(11,16), a:firstLine(j.address), id:j.id, type:"works", src:"job" });
     }
   }
 
-  // Manual events (local)
-  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+  // Manual events (cloud)
+  const arr = Array.isArray(manualCloud[dateISO]) ? manualCloud[dateISO] : [];
   for(const e of arr){
-    out.push({
-      t: (e.time || "00:00"),
-      a: (e.address || "").trim(),
-      id: e.id,
-      type: "manual",
-      src: "manual"
-    });
+    out.push({ t:(e.time || "00:00"), a:(e.address || "").trim(), id:e.id, type:"manual", src:"manual" });
   }
 
-  // Sort by time
   return out.sort((a,b)=> (a.t||"").localeCompare(b.t||""));
 }
 
 function setSelected(d){
   selected = new Date(d);
   view = new Date(selected.getFullYear(), selected.getMonth(), 1);
+}
+
+function openJobDetails(jobId){
+  // Calendar opens Jobs Board with a deep-link.
+  // If your Jobs Board supports ?job= it can auto-open details for that job.
+  location.href = `../jobs-board/?job=${encodeURIComponent(jobId)}`;
 }
 
 function render(){
@@ -402,14 +479,14 @@ function render(){
   weekView.innerHTML="";
   dayView.innerHTML="";
 
-  monthView.style.display=mode==="month"?"block":"none";
-  weekView.style.display=mode==="week"?"block":"none";
-  dayView.style.display=mode==="day"?"block":"none";
+  monthView.style.display = mode==="month" ? "block" : "none";
+  weekView.style.display  = mode==="week"  ? "block" : "none";
+  dayView.style.display   = mode==="day"   ? "block" : "none";
 
   const todayISO = iso(new Date());
 
   if(mode==="month"){
-    const y=view.getFullYear(),m=view.getMonth();
+    const y=view.getFullYear(), m=view.getMonth();
     const first=new Date(y,m,1);
     const offset=(first.getDay()+6)%7;
     const days=new Date(y,m+1,0).getDate();
@@ -422,7 +499,7 @@ function render(){
       monthGrid.appendChild(blank);
     }
 
-    for(let d=1;d<=days;d++){
+    for(let d=1; d<=days; d++){
       const date=new Date(y,m,d);
       const dISO = iso(date);
 
@@ -438,7 +515,7 @@ function render(){
         ev.onclick=(evt)=>{
           evt.stopPropagation();
           if(e.src === "job"){
-            location.href=`../jobs-board/?job=${e.id}`;
+            openJobDetails(e.id);
           }else{
             openManualDialog(dISO, e.id);
           }
@@ -490,7 +567,7 @@ function render(){
           ev.onclick=(evt)=>{
             evt.stopPropagation();
             if(e.src === "job"){
-              location.href=`../jobs-board/?job=${e.id}`;
+              openJobDetails(e.id);
             }else{
               openManualDialog(dISO, e.id);
             }
@@ -536,7 +613,7 @@ function render(){
         li.textContent=`${e.t} • ${e.a || "(No address)"}`;
         li.onclick=()=>{
           if(e.src === "job"){
-            location.href=`../jobs-board/?job=${e.id}`;
+            openJobDetails(e.id);
           }else{
             openManualDialog(dISO, e.id);
           }
@@ -592,7 +669,7 @@ const newManualBtn = document.getElementById("newManualBtn");
 let editingManualId = null;
 
 function openManualDialog(dateISO, manualId=null){
-  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+  const arr = Array.isArray(manualCloud[dateISO]) ? manualCloud[dateISO] : [];
   const existing = manualId ? arr.find(x=>x.id===manualId) : null;
 
   editingManualId = manualId || null;
@@ -630,8 +707,8 @@ manSave.onclick = ()=>{
     return;
   }
 
-  manual = loadManual(); // re-load in case
-  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+  // Update in-memory cloud object
+  const arr = Array.isArray(manualCloud[dateISO]) ? manualCloud[dateISO].slice() : [];
 
   if(editingManualId){
     const i = arr.findIndex(x=>x.id===editingManualId);
@@ -644,8 +721,11 @@ manSave.onclick = ()=>{
     arr.push({ id: uid(), time, address, notes });
   }
 
-  manual[dateISO] = arr;
-  saveManual(manual);
+  manualCloud[dateISO] = arr;
+  // Drop empty days
+  manualCloud = normaliseManual(manualCloud);
+
+  queueManualCloudSave("Saving to cloud…");
 
   // Keep UI on that date
   setSelected(new Date(dateISO));
@@ -659,13 +739,15 @@ manDelete.onclick = ()=>{
 
   if(!confirm("Delete this manual appointment?")) return;
 
-  manual = loadManual();
-  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
-  manual[dateISO] = arr.filter(x=>x.id !== editingManualId);
+  const arr = Array.isArray(manualCloud[dateISO]) ? manualCloud[dateISO].slice() : [];
+  const next = arr.filter(x=>x.id !== editingManualId);
 
-  if(manual[dateISO].length === 0) delete manual[dateISO];
+  if(next.length) manualCloud[dateISO] = next;
+  else delete manualCloud[dateISO];
 
-  saveManual(manual);
+  manualCloud = normaliseManual(manualCloud);
+
+  queueManualCloudSave("Deleting…");
   manualDlg.close();
   render();
 };
