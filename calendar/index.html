@@ -17,9 +17,10 @@
   --shadow:0 10px 30px rgba(0,0,0,.35);
   --blue:#4aa3ff;
   --green:#22c55e;
+  --purple:#a855f7;
 }
 *{box-sizing:border-box}
-html,body{overflow-x:hidden;} /* hard stop sideways scroll */
+html,body{overflow-x:hidden;}
 body{
   margin:0;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
@@ -49,6 +50,9 @@ header{
   max-width:100%;
   white-space:nowrap;
 }
+.btn.primary{border-color:rgba(74,163,255,.35);background:rgba(74,163,255,.12)}
+.btn.ok{border-color:rgba(34,197,94,.30);background:rgba(34,197,94,.10)}
+.btn.danger{border-color:rgba(239,68,68,.28);background:rgba(239,68,68,.10)}
 main{max-width:1100px;margin:0 auto;padding:16px}
 .card{
   background:linear-gradient(180deg,var(--card),var(--card2));
@@ -64,7 +68,6 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 }
 .toolbar > div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 
-/* ✅ Month grid: force no overflow on phones */
 .grid{
   display:grid;
   grid-template-columns:repeat(7, minmax(0, 1fr));
@@ -78,7 +81,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
   min-height:90px;
   padding:8px;
   cursor:pointer;
-  min-width:0; /* critical for grid children */
+  min-width:0;
 }
 .day.today{border-color:var(--blue);background:rgba(74,163,255,.10)}
 .dayNum{font-weight:950;margin-bottom:4px}
@@ -98,25 +101,23 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 }
 .event.est{border-left:4px solid var(--blue)}
 .event.works{border-left:4px solid var(--green)}
+.event.manual{border-left:4px solid var(--purple)}
 .muted{color:var(--muted);font-size:12px}
 
-/* ===== WEEK VIEW FIX =====
-   Phones: stack days vertically (no sideways scroll)
-   Larger screens: 7 columns */
+/* Week view: mobile stacks vertically */
 .week{
   display:grid;
-  grid-template-columns:1fr;       /* mobile default */
+  grid-template-columns:1fr;
   gap:10px;
 }
 @media(min-width:860px){
   .week{ grid-template-columns:repeat(7,1fr); }
 }
-
 .weekCol{
   border:1px solid rgba(255,255,255,.12);
   border-radius:16px;
   padding:10px;
-  min-width:0; /* prevents overflow inside grid items */
+  min-width:0;
 }
 .weekCol.today{border-color:var(--blue);background:rgba(74,163,255,.06)}
 .weekHead{
@@ -146,7 +147,6 @@ main{max-width:1100px;margin:0 auto;padding:16px}
   min-width:0;
 }
 
-/* ✅ Phone tweaks for month view fit */
 @media(max-width:520px){
   .wrap{padding:12px 12px}
   main{padding:12px}
@@ -156,6 +156,54 @@ main{max-width:1100px;margin:0 auto;padding:16px}
   .event{font-size:11px;padding:5px 6px;border-radius:11px}
   .btn{padding:8px 10px}
 }
+
+/* Dialog */
+dialog{
+  width:min(720px, 96vw);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:18px;
+  padding:0;
+  background: rgba(11,18,32,.95);
+  color:var(--text);
+  box-shadow: var(--shadow);
+}
+dialog::backdrop{ background: rgba(0,0,0,.55); }
+.dlgHead{
+  padding:14px 14px 10px;
+  border-bottom:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+.dlgHead strong{ font-size:14px; }
+.dlgBody{ padding:14px; display:grid; gap:10px; }
+.field{display:grid; gap:6px;}
+label{font-size:12px;color:var(--muted);}
+input, textarea{
+  width:100%;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color:var(--text);
+  border-radius:14px;
+  padding:10px 12px;
+  outline:none;
+}
+textarea{min-height:110px; resize:vertical;}
+.dlgActions{
+  padding:14px;
+  border-top:1px solid var(--line);
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+}
+.two{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:10px;
+}
+@media(min-width:700px){
+  .two{grid-template-columns: 1fr 1fr;}
+}
+.smallnote{color:var(--muted);font-size:12px}
 </style>
 </head>
 
@@ -167,7 +215,10 @@ main{max-width:1100px;margin:0 auto;padding:16px}
         <strong>Ford Property Services</strong><br>
         <span class="muted">Calendar</span>
       </div>
-      <a class="btn" href="../jobs-board/">Jobs Board</a>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ok" id="newManualBtn" type="button">+ Manual</button>
+        <a class="btn" href="../jobs-board/">Jobs Board</a>
+      </div>
     </div>
   </div>
 </header>
@@ -198,6 +249,43 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 </div>
 </main>
 
+<!-- Manual appointment dialog -->
+<dialog id="manualDlg">
+  <div class="dlgHead">
+    <strong id="manualDlgTitle">Manual Appointment</strong>
+    <button class="btn" id="manualClose" type="button">✕</button>
+  </div>
+
+  <div class="dlgBody">
+    <div class="two">
+      <div class="field">
+        <label>Date</label>
+        <input id="manDate" type="date" />
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <input id="manTime" type="time" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Address (first line shown)</label>
+      <input id="manAddr" type="text" placeholder="e.g. 12 High Street" />
+    </div>
+
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="manNotes" placeholder="Key details..."></textarea>
+      <div class="smallnote">Manual appointments do not link to Jobs Board.</div>
+    </div>
+  </div>
+
+  <div class="dlgActions">
+    <button class="btn danger" id="manDelete" type="button" style="display:none">Delete</button>
+    <button class="btn ok" id="manSave" type="button">Save</button>
+  </div>
+</dialog>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
@@ -211,6 +299,25 @@ const app = initializeApp({
 await signInAnonymously(getAuth(app));
 const db = getFirestore(app);
 
+/* ===== Manual appointments (local only, no Jobs Board link) ===== */
+const MANUAL_KEY = "fps_calendar_manual_v1"; // { "YYYY-MM-DD": [ {id,time,address,notes} ] }
+
+function loadManual(){
+  try{
+    const raw = localStorage.getItem(MANUAL_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return (obj && typeof obj === "object") ? obj : {};
+  }catch{ return {}; }
+}
+function saveManual(obj){
+  localStorage.setItem(MANUAL_KEY, JSON.stringify(obj));
+}
+function uid(){
+  return "man_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+}
+let manual = loadManual();
+
+/* ===== Jobs board bookings (from Firestore) ===== */
 let jobs=[];
 onSnapshot(doc(db,"jobsBoard","shared"),snap=>{
   jobs=snap.data()?.jobs||[];
@@ -237,24 +344,57 @@ const pad2=n=>String(n).padStart(2,"0");
 const iso=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const firstLine=a=>(a||"").split(",")[0].trim();
 
+/* Build all events for a date:
+   - jobs events have id + link
+   - manual events have id but NO jobs link
+*/
 function eventsFor(dateISO){
-  return jobs.flatMap(j=>{
-    const out=[];
-    if(j.estVisitDT?.startsWith(dateISO))
-      out.push({t:j.estVisitDT.slice(11,16),a:firstLine(j.address),id:j.id,type:"est"});
-    if(j.worksDT?.startsWith(dateISO))
-      out.push({t:j.worksDT.slice(11,16),a:firstLine(j.address),id:j.id,type:"works"});
-    return out;
-  }).sort((a,b)=>a.t.localeCompare(b.t));
+  const out = [];
+
+  // Jobs board feed
+  for(const j of jobs){
+    if(j.estVisitDT?.startsWith(dateISO)){
+      out.push({
+        t: j.estVisitDT.slice(11,16),
+        a: firstLine(j.address),
+        id: j.id,
+        type: "est",
+        src: "job"
+      });
+    }
+    if(j.worksDT?.startsWith(dateISO)){
+      out.push({
+        t: j.worksDT.slice(11,16),
+        a: firstLine(j.address),
+        id: j.id,
+        type: "works",
+        src: "job"
+      });
+    }
+  }
+
+  // Manual events (local)
+  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+  for(const e of arr){
+    out.push({
+      t: (e.time || "00:00"),
+      a: (e.address || "").trim(),
+      id: e.id,
+      type: "manual",
+      src: "manual"
+    });
+  }
+
+  // Sort by time
+  return out.sort((a,b)=> (a.t||"").localeCompare(b.t||""));
 }
 
 function setSelected(d){
   selected = new Date(d);
-  view = new Date(selected.getFullYear(), selected.getMonth(), 1); // keep month header in sync
+  view = new Date(selected.getFullYear(), selected.getMonth(), 1);
 }
 
 function render(){
-  // ✅ Title now matches what you're actually viewing
   const titleDate = (mode==="month") ? view : selected;
   title.textContent = titleDate.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
 
@@ -265,6 +405,8 @@ function render(){
   monthView.style.display=mode==="month"?"block":"none";
   weekView.style.display=mode==="week"?"block":"none";
   dayView.style.display=mode==="day"?"block":"none";
+
+  const todayISO = iso(new Date());
 
   if(mode==="month"){
     const y=view.getFullYear(),m=view.getMonth();
@@ -282,15 +424,25 @@ function render(){
 
     for(let d=1;d<=days;d++){
       const date=new Date(y,m,d);
+      const dISO = iso(date);
+
       const box=document.createElement("div");
-      box.className="day"+(iso(date)===iso(new Date())?" today":"");
+      box.className="day"+(dISO===todayISO?" today":"");
       box.innerHTML=`<div class="dayNum">${d}</div>`;
 
-      eventsFor(iso(date)).forEach(e=>{
+      eventsFor(dISO).forEach(e=>{
         const ev=document.createElement("div");
         ev.className=`event ${e.type}`;
         ev.textContent=`${e.t} • ${e.a || "(No address)"}`;
-        ev.onclick=(evt)=>{ evt.stopPropagation(); location.href=`../jobs-board/?job=${e.id}`; };
+
+        ev.onclick=(evt)=>{
+          evt.stopPropagation();
+          if(e.src === "job"){
+            location.href=`../jobs-board/?job=${e.id}`;
+          }else{
+            openManualDialog(dISO, e.id);
+          }
+        };
         box.appendChild(ev);
       });
 
@@ -299,6 +451,7 @@ function render(){
         mode="day";
         render();
       };
+
       monthGrid.appendChild(box);
     }
   }
@@ -307,7 +460,6 @@ function render(){
     const base=new Date(selected);
     const start=new Date(base);
     start.setDate(base.getDate()-((base.getDay()+6)%7)); // Monday start
-
     weekView.className="week";
 
     for(let i=0;i<7;i++){
@@ -316,7 +468,7 @@ function render(){
       const evs=eventsFor(dISO);
 
       const col=document.createElement("div");
-      col.className="weekCol"+(dISO===iso(new Date())?" today":"");
+      col.className="weekCol"+(dISO===todayISO?" today":"");
 
       col.innerHTML = `
         <div class="weekHead">
@@ -335,7 +487,14 @@ function render(){
           const ev=document.createElement("div");
           ev.className=`event ${e.type}`;
           ev.textContent=`${e.t} • ${e.a || "(No address)"}`;
-          ev.onclick=()=>location.href=`../jobs-board/?job=${e.id}`;
+          ev.onclick=(evt)=>{
+            evt.stopPropagation();
+            if(e.src === "job"){
+              location.href=`../jobs-board/?job=${e.id}`;
+            }else{
+              openManualDialog(dISO, e.id);
+            }
+          };
           col.appendChild(ev);
         });
       }
@@ -352,13 +511,11 @@ function render(){
   }
 
   if(mode==="day"){
-    const list=document.createElement("div");
-    list.className="list";
     const dISO = iso(selected);
     const evs=eventsFor(dISO);
 
     const head=document.createElement("div");
-    head.className="weekCol"+(dISO===iso(new Date())?" today":"");
+    head.className="weekCol"+(dISO===todayISO?" today":"");
     head.innerHTML = `
       <div class="weekHead">
         <div>${selected.toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</div>
@@ -367,6 +524,9 @@ function render(){
     `;
     dayView.appendChild(head);
 
+    const list=document.createElement("div");
+    list.className="list";
+
     if(!evs.length){
       list.innerHTML=`<div class="muted">No appointments</div>`;
     }else{
@@ -374,7 +534,13 @@ function render(){
         const li=document.createElement("div");
         li.className="listItem";
         li.textContent=`${e.t} • ${e.a || "(No address)"}`;
-        li.onclick=()=>location.href=`../jobs-board/?job=${e.id}`;
+        li.onclick=()=>{
+          if(e.src === "job"){
+            location.href=`../jobs-board/?job=${e.id}`;
+          }else{
+            openManualDialog(dISO, e.id);
+          }
+        };
         list.appendChild(li);
       });
     }
@@ -382,7 +548,7 @@ function render(){
   }
 }
 
-/* ✅ Prev/Next now behaves properly for Month/Week/Day (no weird title issues) */
+/* ===== Prev/Next + Today ===== */
 document.getElementById("prev").onclick=()=>{
   if(mode==="month"){
     view.setMonth(view.getMonth()-1);
@@ -403,17 +569,106 @@ document.getElementById("next").onclick=()=>{
   }
   render();
 };
-
 document.getElementById("todayBtn").onclick=()=>{
-  const t=new Date();
-  setSelected(t);
-  // keep your current mode (month/week/day) but jump to today correctly
+  setSelected(new Date());
   render();
 };
-
 document.getElementById("monthBtn").onclick=()=>{ mode="month"; render(); };
 document.getElementById("weekBtn").onclick=()=>{ mode="week"; render(); };
 document.getElementById("dayBtn").onclick=()=>{ mode="day"; render(); };
+
+/* ===== Manual dialog logic ===== */
+const manualDlg = document.getElementById("manualDlg");
+const manualDlgTitle = document.getElementById("manualDlgTitle");
+const manualClose = document.getElementById("manualClose");
+const manDate = document.getElementById("manDate");
+const manTime = document.getElementById("manTime");
+const manAddr = document.getElementById("manAddr");
+const manNotes = document.getElementById("manNotes");
+const manDelete = document.getElementById("manDelete");
+const manSave = document.getElementById("manSave");
+const newManualBtn = document.getElementById("newManualBtn");
+
+let editingManualId = null;
+
+function openManualDialog(dateISO, manualId=null){
+  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+  const existing = manualId ? arr.find(x=>x.id===manualId) : null;
+
+  editingManualId = manualId || null;
+
+  manualDlgTitle.textContent = existing ? "Edit Manual Appointment" : "New Manual Appointment";
+  manDate.value = dateISO;
+  manTime.value = existing?.time || "";
+  manAddr.value = existing?.address || "";
+  manNotes.value = existing?.notes || "";
+
+  manDelete.style.display = existing ? "inline-flex" : "none";
+
+  manualDlg.showModal();
+}
+
+manualClose.onclick = ()=> manualDlg.close();
+
+newManualBtn.onclick = ()=>{
+  const dISO = iso(new Date());
+  setSelected(new Date());
+  openManualDialog(dISO, null);
+};
+
+manSave.onclick = ()=>{
+  const dateISO = (manDate.value || "").trim();
+  if(!dateISO) return;
+
+  const time = (manTime.value || "").trim();
+  const address = (manAddr.value || "").trim();
+  const notes = (manNotes.value || "").trim();
+
+  // Require at least something meaningful
+  if(!time && !address && !notes){
+    manualDlg.close();
+    return;
+  }
+
+  manual = loadManual(); // re-load in case
+  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+
+  if(editingManualId){
+    const i = arr.findIndex(x=>x.id===editingManualId);
+    if(i>=0){
+      arr[i] = { ...arr[i], time, address, notes };
+    }else{
+      arr.push({ id: editingManualId, time, address, notes });
+    }
+  }else{
+    arr.push({ id: uid(), time, address, notes });
+  }
+
+  manual[dateISO] = arr;
+  saveManual(manual);
+
+  // Keep UI on that date
+  setSelected(new Date(dateISO));
+  manualDlg.close();
+  render();
+};
+
+manDelete.onclick = ()=>{
+  const dateISO = (manDate.value || "").trim();
+  if(!dateISO || !editingManualId) return;
+
+  if(!confirm("Delete this manual appointment?")) return;
+
+  manual = loadManual();
+  const arr = Array.isArray(manual[dateISO]) ? manual[dateISO] : [];
+  manual[dateISO] = arr.filter(x=>x.id !== editingManualId);
+
+  if(manual[dateISO].length === 0) delete manual[dateISO];
+
+  saveManual(manual);
+  manualDlg.close();
+  render();
+};
 
 render();
 </script>
