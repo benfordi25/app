@@ -188,9 +188,26 @@
       padding:10px;
       min-height:170px;
     }
-    .colHead{display:flex; align-items:center; justify-content:space-between; gap:10px;margin-bottom:10px;}
+
+    /* ✅ Collapsible columns */
+    .colHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+      cursor:pointer;
+      user-select:none;
+      padding:8px;
+      border-radius:12px;
+    }
+    .colHead:hover{ background: rgba(255,255,255,.04); }
+
     .colTitle{font-weight:950; letter-spacing:.3px; font-size:12px; text-transform:uppercase}
     .count{color:var(--muted); font-size:12px}
+    .colChevron{ color:var(--muted); font-weight:950; }
+
+    .col.isCollapsed .colBody{ display:none; }
 
     .job{
       border:1px solid rgba(255,255,255,.12);
@@ -204,7 +221,7 @@
       justify-content:space-between;
       align-items:flex-start;
       gap:10px;
-      flex-wrap:wrap; /* mobile: prevent overflow */
+      flex-wrap:wrap;
     }
     .jobTitle{font-weight:950;margin:0;font-size:13px;line-height:1.2;}
     .meta{color:var(--muted);font-size:12px;margin-top:4px}
@@ -242,7 +259,7 @@
       padding:16px; z-index:50;
     }
 
-    /* ✅ CHANGED: modal becomes a flex column with max-height */
+    /* ✅ modal becomes a flex column with max-height */
     .modal{
       width:min(900px, 100%);
       background: linear-gradient(180deg, rgba(15,27,51,.98), rgba(12,23,48,.98));
@@ -259,7 +276,7 @@
     .modalHead{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
     .modalHead h2{margin:0;font-size:16px}
 
-    /* ✅ CHANGED: grid becomes the scroll area */
+    /* ✅ grid becomes the scroll area */
     .grid2{
       display:grid;
       grid-template-columns:1fr;
@@ -271,7 +288,7 @@
     }
     @media(min-width:720px){ .grid2{grid-template-columns:1fr 1fr} }
 
-    /* ✅ CHANGED: sticky action bar */
+    /* ✅ sticky action bar */
     .modalActions{
       display:flex;
       gap:10px;
@@ -397,7 +414,7 @@
           <textarea id="mNotes" placeholder="Access info, parts needed, tenant details, etc."></textarea>
         </div>
 
-        <!-- NEW: Job Sheet Documents controls -->
+        <!-- Job Sheet Documents controls -->
         <div style="grid-column:1/-1">
           <label>Documents</label>
           <div class="row">
@@ -461,7 +478,7 @@
     </div>
   </div>
 
-  <!-- NEW: Details (read-only) screen -->
+  <!-- Details (read-only) screen -->
   <div class="modalBack" id="detailsBack">
     <div class="modal" style="width:min(760px, 100%)">
       <div class="modalHead">
@@ -638,6 +655,15 @@
     const detailsEdit  = document.getElementById('detailsEdit');
     let detailsJobId = null;
 
+    // Collapsed state (default collapsed = true)
+    const COLLAPSE_KEY = "fps_jobs_board_collapsed_v1";
+    function loadCollapsed(){
+      try{ return JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "{}"); }catch{ return {}; }
+    }
+    function saveCollapsed(obj){
+      localStorage.setItem(COLLAPSE_KEY, JSON.stringify(obj));
+    }
+
     // Status dropdown
     STATUSES.forEach(s=>{
       const o = document.createElement('option');
@@ -682,7 +708,7 @@
     });
 
     // ===== Data =====
-    const STORAGE_KEY = "fps_jobs_board_workflow_v9"; // bumped
+    const STORAGE_KEY = "fps_jobs_board_workflow_v9";
     let jobs = [];
     let editingId = null;
 
@@ -840,6 +866,21 @@
       }catch(e){
         console.error("[cloud] boot check failed:", e);
       }
+
+      // ✅ Deep link from Calendar: ?job=JOB_ID => open details modal
+      try{
+        const params = new URLSearchParams(location.search);
+        const jobId = params.get("job");
+        if(jobId){
+          // wait a tick in case render happens first
+          setTimeout(()=>{
+            openDetailsModal(jobId);
+            params.delete("job");
+            const qs = params.toString();
+            history.replaceState(null,"", location.pathname + (qs ? ("?"+qs) : ""));
+          }, 50);
+        }
+      }catch{}
     }
 
     window.__queueCloudSave = queueCloudSave;
@@ -1312,16 +1353,18 @@
             <div class="small">Letting Agent: ${escapeHtml(agent)} • Assigned Agent: ${escapeHtml(ref)}</div>
           </div>
           <div class="row">
-            <button type="button">Open</button>
+            <button type="button">Details</button>
           </div>
         `;
-        el.querySelector("button").addEventListener("click", ()=> openEdit(it.job.id));
+        el.querySelector("button").addEventListener("click", ()=> openDetailsModal(it.job.id));
         bookingsListEl.appendChild(el);
       });
     }
 
     function renderBoard(filteredJobs){
       boardEl.innerHTML = "";
+
+      const collapsedState = loadCollapsed();
 
       STATUSES.forEach(status=>{
         const col = document.createElement('div');
@@ -1331,8 +1374,36 @@
 
         const head = document.createElement('div');
         head.className = 'colHead';
-        head.innerHTML = `<div class="colTitle">${status.label}</div><div class="count">${list.length}</div>`;
+        head.innerHTML = `
+          <div class="colTitle">${status.label}</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="count">${list.length}</div>
+            <div class="colChevron">▸</div>
+          </div>
+        `;
         col.appendChild(head);
+
+        const body = document.createElement("div");
+        body.className = "colBody";
+        col.appendChild(body);
+
+        // ✅ Default collapsed on all devices (YES)
+        const isCollapsed = (collapsedState[status.key] !== undefined) ? !!collapsedState[status.key] : true;
+
+        function setCollapsed(on){
+          col.classList.toggle("isCollapsed", !!on);
+          const chev = head.querySelector(".colChevron");
+          if(chev) chev.textContent = on ? "▸" : "▾";
+          collapsedState[status.key] = !!on;
+          saveCollapsed(collapsedState);
+        }
+
+        setCollapsed(isCollapsed);
+
+        // ✅ Click the STATUS TITLE BAR (header) to toggle (YES)
+        head.addEventListener("click", ()=>{
+          setCollapsed(!col.classList.contains("isCollapsed"));
+        });
 
         list.forEach(job=>{
           const el = document.createElement('div');
@@ -1412,37 +1483,17 @@
           el.querySelectorAll('[data-act]').forEach(b=>{
             const act = b.getAttribute('data-act');
             if(act === "edit") return;
-            b.addEventListener('click', ()=> doAction(job, act));
+            b.addEventListener('click', (evt)=>{
+              evt.stopPropagation();
+              doAction(job, act);
+            });
           });
 
-          col.appendChild(el);
+          body.appendChild(el);
         });
 
         boardEl.appendChild(col);
       });
-    }
-
-    // ===== Deep link: open job details when arriving with ?job=JOB_ID =====
-    const urlParams = new URLSearchParams(location.search);
-    let pendingJobId = urlParams.get("job");
-    let openedDeepLink = false;
-
-    function tryOpenDeepLink(){
-      if(openedDeepLink) return;
-      if(!pendingJobId) return;
-
-      const job = jobs.find(j => j.id === pendingJobId);
-      if(!job) return; // jobs not loaded yet
-
-      openedDeepLink = true;
-      openDetailsModal(pendingJobId);
-
-      // Clean URL so refresh doesn't reopen
-      try{
-        const clean = new URL(location.href);
-        clean.searchParams.delete("job");
-        history.replaceState({}, "", clean.toString());
-      }catch{}
     }
 
     function renderAll(){
@@ -1451,7 +1502,6 @@
       totalCountEl.textContent = String(filtered.length);
       renderBookings(filtered);
       renderBoard(filtered);
-      tryOpenDeepLink();
     }
 
     function csvEscape(v){
