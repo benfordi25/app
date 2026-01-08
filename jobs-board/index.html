@@ -1163,7 +1163,6 @@
           docsList.appendChild(el);
         });
 
-      // If job sheet is open and this is that job, refresh mini list
       refreshJobSheetDocsUI();
     }
 
@@ -1194,7 +1193,6 @@
       const files = Array.from(e.target.files || []);
       if(files.length === 0) return;
 
-      // If user clicked Add Photo/PDF from job sheet, force job id to editingId
       if(editingId) docsJobId = editingId;
 
       const job = jobs.find(j=>j.id===docsJobId);
@@ -1372,7 +1370,6 @@
                   ${docsCount ? ` <span style="color:var(--muted);font-weight:800">• Docs: ${docsCount}</span>` : ""}
                 </div>
                 <div class="meta">Letting Agent: ${escapeHtml(agent)} • Assigned Agent: ${escapeHtml(ref)}</div>
-                ${job.notes ? `<div class="meta" style="margin-top:6px">${escapeHtml(job.notes).slice(0,160)}${job.notes.length>160?'…':''}</div>` : ""}
                 ${chipsHtml.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${chipsHtml.join("")}</div>` : ""}
               </div>
               <div class="jobBtns">${btns.join("")}</div>
@@ -1401,7 +1398,6 @@
       renderBoard(filtered);
     }
 
-    // CSV export
     function csvEscape(v){
       const s = String(v ?? "");
       if(/[",\n]/.test(s)) return `"${s.replace(/"/g,'""')}"`;
@@ -1433,7 +1429,6 @@
       URL.revokeObjectURL(url);
     }
 
-    // Wire
     addBtn.addEventListener('click', openAdd);
     closeModal.addEventListener('click', closeModalFn);
     modalBack.addEventListener('click', (e)=>{ if(e.target === modalBack) closeModalFn(); });
@@ -1442,7 +1437,6 @@
     exportBtn.addEventListener('click', exportCsv);
     searchEl.addEventListener('input', renderAll);
 
-    // Boot sync
     syncBoot();
   </script>
 </body>
