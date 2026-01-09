@@ -893,10 +893,8 @@
 
     field(col1X, r3, 'Date', data.dateCompleted);
 
-    // Right column
     field(col2X, r0, 'Completed', data.completedBy);
 
-    // Invoice + Estimate aligned block
     const cbX = col2X + labelW;
     const reqX = cbX + 6;
     const noLabelX = col2X;
@@ -958,42 +956,45 @@
     const eaLines = doc.splitTextToSize(eaText, usableW - 8);
     doc.text(eaLines, margin + 4, y + 8);
 
-    y += eaH + 5;
+    y += eaH + 6;
 
-    // ===== PHOTOS (NEW: packs Before + After together, no wasted pages) =====
-    function newPhotoPageIfNeeded(py, needH){
-      if(py + needH > pageH - 16){
-        doc.addPage();
-        return 14;
+    // ===== PHOTOS (NOW: directly after Extra Attachments, same spacing style) =====
+    function drawEmptyPhotoBox(yPos){
+      const h = 22;
+      yPos = ensureSpace(yPos, h + 10);
+      box(margin, yPos, usableW, h, 2);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(60);
+      doc.text('-', margin + 4, yPos + 10);
+      doc.setTextColor(35);
+      return yPos + h + 6;
+    }
+
+    function drawPhotoGridFlow(title, photos, startY){
+      // section bar right where we are (no forced new page)
+      let yPos = ensureSpace(startY, 14);
+      yPos = sectionBar(title, yPos);
+
+      if(!photos || !photos.length){
+        return drawEmptyPhotoBox(yPos);
       }
-      return py;
-    }
 
-    function photoSectionTitle(title, py){
-      py = newPhotoPageIfNeeded(py, 14);
-      py = sectionBar(title, py);
-      return py;
-    }
-
-    function drawPhotoGrid(photos, py){
-      // returns new py after grid
       const gap = 4;
       const boxW = (pageW - margin*2 - gap) / 2;
-      const boxH = 78;
+      const boxH = 70; // slightly shorter so it fits neatly after the sections
+      let baseY = yPos;
 
       for(let i=0;i<photos.length;i++){
         const col = i % 2;
         const row = Math.floor(i / 2);
-        let y0 = py + row*(boxH + gap);
-        let x = margin + col*(boxW + gap);
+        const x = margin + col*(boxW + gap);
+        let y0 = baseY + row*(boxH + gap);
 
-        // if next box won't fit, new page and reset row calc
+        // if this row doesn't fit on the page, new page and repeat bar as (cont.)
         if(y0 + boxH > pageH - 16){
           doc.addPage();
-          py = 14;
-          // restart on new page at same photo index
-          i--;
-          // add a little spacing at top so first row isn't tight
+          baseY = 14;
+          baseY = sectionBar(title + ' (cont.)', baseY);
+          i--; // retry this image on new page
           continue;
         }
 
@@ -1007,31 +1008,13 @@
         }
       }
 
-      // advance py to below last row used
       const usedRows = Math.ceil(photos.length / 2);
-      return py + usedRows*(boxH + gap) + 2;
+      return baseY + usedRows*(boxH + gap) + 6;
     }
 
-    // Only create photo area if there are any photos at all
-    const hasBefore = state.beforePhotos.length > 0;
-    const hasAfter  = state.afterPhotos.length > 0;
-
-    if(hasBefore || hasAfter){
-      doc.addPage();
-      let py = 14;
-
-      if(hasBefore){
-        py = photoSectionTitle('Before Photos', py);
-        py = drawPhotoGrid(state.beforePhotos, py);
-      }
-
-      if(hasAfter){
-        // keep After right under Before if there's space, otherwise it flows to next page automatically
-        py = newPhotoPageIfNeeded(py, 20);
-        py = photoSectionTitle('After Photos', py);
-        py = drawPhotoGrid(state.afterPhotos, py);
-      }
-    }
+    // Always show the sections, spaced like your other grey bars.
+    y = drawPhotoGridFlow('Before Photos', state.beforePhotos, y);
+    y = drawPhotoGridFlow('After Photos', state.afterPhotos, y);
 
     // Footer on every page
     const total = doc.getNumberOfPages();
@@ -1044,7 +1027,7 @@
       doc.text(`Page ${p} of ${total}`, pageW - margin, pageH - 8, {align:'right'});
     }
 
-    const safeName = `${data.reportId}.pdf`.replace(/[^\w\-\.]/g,'_');
+    const safeName = `${data.reportId}.pdf`.replace(/[^\w\\-\\.]/g,'_');
     doc.save(safeName);
   });
 </script>
