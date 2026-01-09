@@ -283,7 +283,6 @@
       </div>
     </div>
 
-    <!-- Billing -->
     <div>
       <div class="sectionTitle">Billing</div>
       <div class="billingBar">
@@ -343,7 +342,6 @@
       </div>
     </div>
 
-    <!-- Evidence -->
     <div>
       <div class="sectionTitle">Photo Evidence</div>
       <div class="evidence">
@@ -361,10 +359,9 @@
       <textarea id="worksNotes" placeholder="Type works completed / completion notes here..."></textarea>
     </div>
 
-    <!-- AFTER photos -->
     <div class="photoBox">
       <div class="photoTop">
-        <div class="title">AFTER PHOTOS (UP TO 20_toggle)</div>
+        <div class="title">AFTER PHOTOS (UP TO 20)</div>
         <div class="pill"><strong>Count:</strong> <span id="afterCount">0</span>/20</div>
       </div>
       <div class="btnRow">
@@ -391,12 +388,10 @@
 <footer>Ford Property Services • Works Completion Report</footer>
 
 <script>
-  // PWA Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
   }
 
-  // Helpers
   function pad2(n){ return String(n).padStart(2,'0'); }
   function ukDate(d){ return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`; }
   function ukFromISO(iso){
@@ -409,7 +404,6 @@
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
-
   function makeReportId(){
     const d = new Date();
     const dd = pad2(d.getDate());
@@ -449,10 +443,8 @@
     });
   }
 
-  // State
   const state = { reportId: makeReportId(), finalised: null, afterPhotos: [], logoDataUrl: null };
 
-  // Elements
   const reportIdText = document.getElementById('reportIdText');
   const finalisedText = document.getElementById('finalisedText');
   const rhReportId = document.getElementById('rhReportId');
@@ -493,10 +485,8 @@
   const pdfBtn = document.getElementById('pdfBtn');
   const saveLocalBtn = document.getElementById('saveLocalBtn');
 
-  // Defaults
   dateCompletedISO.value = todayISO();
 
-  // UI
   function setFinalisedUI(){
     const t = state.finalised ? ukDate(state.finalised) : "—";
     finalisedText.textContent = t;
@@ -559,7 +549,6 @@
   dateCompletedISO.addEventListener('input', setDateCompletedUI);
   afterTick.addEventListener('change', updateEvidenceMarks);
 
-  // Logo upload
   logoBox.addEventListener('click', ()=> logoInput.click());
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
@@ -569,7 +558,6 @@
     localStorage.setItem('fps_logo_v1', dataUrl);
   });
 
-  // Photos
   const MAX_AFTER = 20;
 
   function renderThumbs(list, container, onRemove){
@@ -616,7 +604,6 @@
   afterGalleryInput.addEventListener('change', async (e)=>{ await addAfterPhotos(e.target.files); afterGalleryInput.value=''; });
   afterCameraInput.addEventListener('change', async (e)=>{ await addAfterPhotos(e.target.files); afterCameraInput.value=''; });
 
-  // Draft save
   function collectDraft(){
     return {
       state: {
@@ -645,7 +632,6 @@
     alert('Draft saved on this device.');
   });
 
-  // New report reset
   newBtn.addEventListener('click', async ()=>{
     if(!confirm('Start a new report? This clears fields + photos (logo stays).')) return;
 
@@ -676,7 +662,6 @@
     }
   });
 
-  // ===== PDF STYLE (MATCHES INSPECTION PDF) =====
   function tickBox(doc, checked, x, y){
     const bx = x;
     const by = y - 3.8;
@@ -699,7 +684,6 @@
     }
   }
 
-  // Generate PDF
   pdfBtn.addEventListener('click', async ()=>{
     if(!dateCompletedISO.value){
       alert("Please choose a Date Completed.");
@@ -961,14 +945,15 @@
     const eaLines = doc.splitTextToSize(eaText, usableW - 8);
     doc.text(eaLines, margin + 4, y + 8);
 
-    // PHOTOS: FIXED (no overlap + auto split pages)
+    // PHOTOS: fixed inner width so boxes never touch outer border
     function drawPhotoSectionNewPage(title, photos){
-      const SAFE_BOTTOM = 18; // keep clear of footer + viewer edge
+      const SAFE_BOTTOM = 18;
       const TOP_START = 14;
       const containerPad = 4;
       const gap = 4;
 
-      const boxW = (pageW - margin*2 - gap) / 2;
+      const innerW = usableW - (containerPad*2);
+      const boxW = (innerW - gap) / 2;
       const boxH = 78;
 
       let i = 0;
@@ -1016,7 +1001,6 @@
     const canAfter = afterTick.checked && state.afterPhotos.length > 0;
     if(canAfter) drawPhotoSectionNewPage('After Photos', state.afterPhotos);
 
-    // Footer
     const total = doc.getNumberOfPages();
     for(let p=1;p<=total;p++){
       doc.setPage(p);
