@@ -279,7 +279,6 @@
       </div>
     </div>
 
-    <!-- Billing strip near top -->
     <div>
       <div class="sectionTitle">Billing</div>
       <div class="billingBar">
@@ -514,7 +513,7 @@
 
   // UI
   function setFinalisedUI(){
-    const t = state.finalised ? ukDate(state.finalised) : "—"; // date-only (no timestamps)
+    const t = state.finalised ? ukDate(state.finalised) : "—";
     finalisedText.textContent = t;
     rhFinalised.textContent = t;
   }
@@ -551,7 +550,6 @@
   }
 
   async function loadLockedLogoFallback(){
-    // Always available if you upload: icons/fps-logo.png
     const defaultLogoPath = 'icons/fps-logo.png';
     try{
       const res = await fetch(defaultLogoPath, {cache:'no-store'});
@@ -565,7 +563,6 @@
     }
   }
 
-  // Auto-load logo: 1) saved override, else 2) locked repo logo
   (async ()=>{
     const savedLogo = localStorage.getItem('fps_logo_v1');
     if(savedLogo){
@@ -581,7 +578,7 @@
   beforeTick.addEventListener('change', updateEvidenceMarks);
   afterTick.addEventListener('change', updateEvidenceMarks);
 
-  // Logo upload (tap logo square)
+  // Logo upload
   logoBox.addEventListener('click', ()=> logoInput.click());
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
@@ -668,7 +665,6 @@
     renderThumbs(state.beforePhotos, beforeThumbs, ()=>{});
     renderThumbs(state.afterPhotos, afterThumbs, ()=>{});
 
-    // If the logo disappeared due to storage clearing, reload the locked fallback
     if(!state.logoDataUrl){
       await loadLockedLogoFallback();
     }
@@ -676,7 +672,6 @@
 
   // PDF helpers
   function tickBox(doc, checked, x, y){
-    // y is baseline-ish; we draw the box slightly above it
     const bx = x;
     const by = y - 3.8;
     const s  = 4.2;
@@ -686,13 +681,11 @@
     doc.rect(bx, by, s, s);
 
     if(checked){
-      // tick
       doc.setLineWidth(0.75);
       doc.line(bx+0.8, by+1.8, bx+1.9, by+3.0);
       doc.line(bx+1.9, by+3.0, bx+3.7, by+0.7);
       doc.setLineWidth(0.35);
     }else{
-      // cross (X) when not ticked
       doc.setLineWidth(0.6);
       doc.line(bx+0.8, by+0.8, bx+s-0.8, by+s-0.8);
       doc.line(bx+s-0.8, by+0.8, bx+0.8, by+s-0.8);
@@ -700,7 +693,7 @@
     }
   }
 
-  // Generate PDF (aligned + no signature)
+  // Generate PDF
   pdfBtn.addEventListener('click', async ()=>{
     if(!dateCompletedISO.value){
       alert("Please choose a Date Completed.");
@@ -720,7 +713,7 @@
 
     const data = {
       reportId: state.reportId,
-      finalised: ukDate(state.finalised), // date-only (no timestamps)
+      finalised: ukDate(state.finalised),
       lettingAgent: (lettingAgent.value || "").trim() || "-",
       propertyAddress: (propertyAddress.value || "").trim() || "-",
       dateCompleted: ukFromISO(dateCompletedISO.value),
@@ -735,7 +728,6 @@
       extraAttachments: !!extraAttachments.checked
     };
 
-    // PDF style helpers
     function imgTypeFromDataUrl(d){
       if(!d) return "JPEG";
       return d.startsWith("data:image/png") ? "PNG" : "JPEG";
@@ -859,7 +851,7 @@
 
     y += 20;
 
-    // JOB DETAILS (Job Ref removed)
+    // JOB DETAILS
     y = sectionBar('Job Details', y);
 
     const jobBoxH = 42;
@@ -874,7 +866,6 @@
     const labelW = 30;
     const rowH = 6;
 
-    // Address lines (cap to 2 lines for stable layout)
     doc.setFont('helvetica','normal'); doc.setFontSize(10);
     const addrLinesAll = doc.splitTextToSize(data.propertyAddress, colW - labelW - 6);
     const addrLines = addrLinesAll.slice(0,2);
@@ -895,7 +886,6 @@
 
     field(col1X, r0, 'Letting Agent', data.lettingAgent);
 
-    // Address label + lines
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('Address', col1X, r1);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
@@ -907,29 +897,41 @@
     // Right column
     field(col2X, r0, 'Completed', data.completedBy);
 
-    // Invoice (row1+row2)
+    // ✅ Invoice + Estimate aligned as one neat block
+    const cbX = col2X + labelW;     // checkbox X
+    const reqX = cbX + 6;           // "Required" text X
+    const noLabelX = col2X;         // "No:" label X
+    const noValueX = col2X + labelW; // value aligned under checkbox column
+
+    // Invoice line 1
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('Invoice', col2X, r1);
-    tickBox(doc, data.invoiceRequired, col2X + labelW, r1);
+    tickBox(doc, data.invoiceRequired, cbX, r1);
     doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
-    doc.text('Required', col2X + labelW + 6, r1);
+    doc.text('Required', reqX, r1);
 
+    // Invoice line 2
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('No:', noLabelX, r2);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(`No: ${data.invoiceNumber}`, col2X, r2);
+    doc.text(`${data.invoiceNumber}`, noValueX, r2);
 
-    // Estimate (row3+row4)
+    // Estimate line 1
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('Estimate', col2X, r3);
-    tickBox(doc, data.estimateRequired, col2X + labelW, r3);
+    tickBox(doc, data.estimateRequired, cbX, r3);
     doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
-    doc.text('Required', col2X + labelW + 6, r3);
+    doc.text('Required', reqX, r3);
 
+    // Estimate line 2
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('No:', noLabelX, r4);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(`No: ${data.estimateNumber}`, col2X, r4);
+    doc.text(`${data.estimateNumber}`, noValueX, r4);
 
     y += jobBoxH + 5;
 
-    // PHOTO EVIDENCE (unticked shows X)
+    // PHOTO EVIDENCE
     y = sectionBar('Photo Evidence', y);
     const peH = 12;
     box(margin, y, usableW, peH, 2);
@@ -946,7 +948,7 @@
     // NOTES
     y = addNotesAuto('Works / Inspection Notes', data.worksNotes, y);
 
-    // EXTRA ATTACHMENTS (fixed: always boxed, clean spacing)
+    // EXTRA ATTACHMENTS (boxed)
     y = ensureSpace(y, 28);
     y = sectionBar('Extra Attachments', y);
 
