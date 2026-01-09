@@ -44,7 +44,6 @@
     .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
     .brand{display:flex; align-items:center; gap:12px;}
 
-    /* LOGO: crisp + not squashed */
     .logo{
       width:56px;height:56px;border-radius:14px;
       background: rgba(255,255,255,.92);
@@ -108,7 +107,6 @@
       outline:none;
     }
     textarea{min-height:110px;resize:vertical}
-    .divider{height:1px;background:var(--line);margin:12px 0}
 
     .sectionTitle{
       font-weight:900; letter-spacing:.4px; font-size:12px;
@@ -285,7 +283,7 @@
       </div>
     </div>
 
-    <!-- Billing strip near top -->
+    <!-- Billing -->
     <div>
       <div class="sectionTitle">Billing</div>
       <div class="billingBar">
@@ -345,7 +343,7 @@
       </div>
     </div>
 
-    <!-- Photo evidence (AFTER ONLY) -->
+    <!-- Evidence -->
     <div>
       <div class="sectionTitle">Photo Evidence</div>
       <div class="evidence">
@@ -363,10 +361,10 @@
       <textarea id="worksNotes" placeholder="Type works completed / completion notes here..."></textarea>
     </div>
 
-    <!-- AFTER photos up to 20 -->
+    <!-- AFTER photos -->
     <div class="photoBox">
       <div class="photoTop">
-        <div class="title">AFTER PHOTOS (UP TO 20)</div>
+        <div class="title">AFTER PHOTOS (UP TO 20_toggle)</div>
         <div class="pill"><strong>Count:</strong> <span id="afterCount">0</span>/20</div>
       </div>
       <div class="btnRow">
@@ -500,7 +498,7 @@
 
   // UI
   function setFinalisedUI(){
-    const t = state.finalised ? ukDate(state.finalised) : "—"; // date-only, matches Inspection
+    const t = state.finalised ? ukDate(state.finalised) : "—";
     finalisedText.textContent = t;
     rhFinalised.textContent = t;
   }
@@ -561,7 +559,7 @@
   dateCompletedISO.addEventListener('input', setDateCompletedUI);
   afterTick.addEventListener('change', updateEvidenceMarks);
 
-  // Logo upload (still allowed, but fallback keeps a locked one if not set)
+  // Logo upload
   logoBox.addEventListener('click', ()=> logoInput.click());
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
@@ -701,6 +699,7 @@
     }
   }
 
+  // Generate PDF
   pdfBtn.addEventListener('click', async ()=>{
     if(!dateCompletedISO.value){
       alert("Please choose a Date Completed.");
@@ -720,7 +719,7 @@
 
     const data = {
       reportId: state.reportId,
-      finalised: ukDate(state.finalised), // date only (Inspection style)
+      finalised: ukDate(state.finalised),
       lettingAgent: (lettingAgent.value || "").trim() || "-",
       jobRef: (jobRef.value || "").trim() || "-",
       propertyAddress: (propertyAddress.value || "").trim() || "-",
@@ -828,7 +827,7 @@
       return y;
     }
 
-    // HEADER (Inspection style)
+    // HEADER
     let y = 12;
 
     const logoBoxW = 36;
@@ -858,7 +857,7 @@
 
     y += 20;
 
-    // JOB DETAILS (Inspection style box)
+    // JOB DETAILS
     y = sectionBar('Job Details', y);
 
     const jobBoxH = 48;
@@ -884,7 +883,6 @@
     const r2 = r1 + rowH;
     const r3 = r2 + rowH;
     const r4 = r3 + rowH;
-    const r5 = r4 + rowH;
 
     function field(colX, rowY, label, value){
       doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
@@ -906,7 +904,6 @@
 
     field(col2X, r0, 'Completed', data.completedBy);
 
-    // Invoice / estimate ticks on right (same style)
     const cbX = col2X + labelW;
     const reqX = cbX + 6;
     const noLabelX = col2X;
@@ -936,7 +933,7 @@
 
     y += jobBoxH + 5;
 
-    // PHOTO EVIDENCE (after only)
+    // PHOTO EVIDENCE
     y = sectionBar('Photo Evidence', y);
     const peH = 12;
     box(margin, y, usableW, peH, 2);
@@ -947,7 +944,7 @@
 
     y += peH + 5;
 
-    // NOTES (auto box)
+    // NOTES
     y = addNotesAuto('Works / Completion Notes', data.worksNotes, y);
 
     // EXTRA ATTACHMENTS
@@ -964,46 +961,62 @@
     const eaLines = doc.splitTextToSize(eaText, usableW - 8);
     doc.text(eaLines, margin + 4, y + 8);
 
-    // PHOTOS (new page, same grid style as Inspection)
+    // PHOTOS: FIXED (no overlap + auto split pages)
     function drawPhotoSectionNewPage(title, photos){
-      doc.addPage();
-      let py = 14;
-
-      py = sectionBar(title, py);
-
+      const SAFE_BOTTOM = 18; // keep clear of footer + viewer edge
+      const TOP_START = 14;
+      const containerPad = 4;
       const gap = 4;
+
       const boxW = (pageW - margin*2 - gap) / 2;
       const boxH = 78;
 
-      const rows = Math.ceil(photos.length / 2);
-      const innerH = rows * boxH + (rows - 1) * gap;
-      const containerPad = 4;
-      const containerH = innerH + containerPad*2;
+      let i = 0;
+      while(i < photos.length){
+        doc.addPage();
+        let py = TOP_START;
 
-      box(margin, py, usableW, containerH, 2);
+        py = sectionBar(title + (i>0 ? " (cont.)" : ""), py);
 
-      for(let i=0;i<photos.length;i++){
-        const col = i % 2;
-        const row = Math.floor(i / 2);
+        const maxAvailableH = (pageH - SAFE_BOTTOM) - py;
+        const maxInnerH = Math.max(0, maxAvailableH - (containerPad*2));
 
-        const x = margin + containerPad + col*(boxW + gap);
-        const y0 = py + containerPad + row*(boxH + gap);
+        const rowsThatFit = Math.max(1, Math.floor((maxInnerH + gap) / (boxH + gap)));
+        const photosThatFit = rowsThatFit * 2;
 
-        box(x, y0, boxW, boxH, 2);
-        try{
-          doc.addImage(photos[i].dataUrl, 'JPEG', x+2, y0+2, boxW-4, boxH-4, undefined, 'FAST');
-        }catch(e){
-          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
-          doc.text('Image error', x+5, y0+10);
-          doc.setTextColor(35);
+        const chunk = photos.slice(i, i + photosThatFit);
+        const rows = Math.ceil(chunk.length / 2);
+
+        const innerH = rows * boxH + (rows - 1) * gap;
+        const containerH = innerH + containerPad*2;
+
+        box(margin, py, usableW, containerH, 2);
+
+        for(let j=0;j<chunk.length;j++){
+          const col = j % 2;
+          const row = Math.floor(j / 2);
+
+          const x = margin + containerPad + col*(boxW + gap);
+          const y0 = py + containerPad + row*(boxH + gap);
+
+          box(x, y0, boxW, boxH, 2);
+          try{
+            doc.addImage(chunk[j].dataUrl, 'JPEG', x+2, y0+2, boxW-4, boxH-4, undefined, 'FAST');
+          }catch(e){
+            doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
+            doc.text('Image error', x+5, y0+10);
+            doc.setTextColor(35);
+          }
         }
+
+        i += chunk.length;
       }
     }
 
     const canAfter = afterTick.checked && state.afterPhotos.length > 0;
     if(canAfter) drawPhotoSectionNewPage('After Photos', state.afterPhotos);
 
-    // Footer on every page
+    // Footer
     const total = doc.getNumberOfPages();
     for(let p=1;p<=total;p++){
       doc.setPage(p);
