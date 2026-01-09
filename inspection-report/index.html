@@ -316,11 +316,6 @@
           <input id="lettingAgent" placeholder="e.g., Romans" />
         </div>
 
-        <div class="kv">
-          <div class="k">Job Reference</div>
-          <input id="jobRef" placeholder="Optional" />
-        </div>
-
         <div class="kv" style="grid-column:1/-1;">
           <div class="k">Property Address</div>
           <input id="propertyAddress" placeholder="Full address" />
@@ -412,7 +407,6 @@
   // Helpers
   function pad2(n){ return String(n).padStart(2,'0'); }
   function ukDate(d){ return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`; }
-  function ukDateTime(d){ return `${ukDate(d)}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
   function ukFromISO(iso){
     if(!iso) return "";
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -486,7 +480,6 @@
   const afterThumbs = document.getElementById('afterThumbs');
 
   const lettingAgent = document.getElementById('lettingAgent');
-  const jobRef = document.getElementById('jobRef');
   const propertyAddress = document.getElementById('propertyAddress');
   const dateCompletedISO = document.getElementById('dateCompletedISO');
 
@@ -521,7 +514,7 @@
 
   // UI
   function setFinalisedUI(){
-    const t = state.finalised ? ukDateTime(state.finalised) : "—";
+    const t = state.finalised ? ukDate(state.finalised) : "—"; // date-only (no timestamps)
     finalisedText.textContent = t;
     rhFinalised.textContent = t;
   }
@@ -657,7 +650,6 @@
     state.afterPhotos = [];
 
     lettingAgent.value = "";
-    jobRef.value = "";
     propertyAddress.value = "";
     dateCompletedISO.value = todayISO();
 
@@ -684,13 +676,26 @@
 
   // PDF helpers
   function tickBox(doc, checked, x, y){
+    // y is baseline-ish; we draw the box slightly above it
+    const bx = x;
+    const by = y - 3.8;
+    const s  = 4.2;
+
     doc.setDrawColor(120);
     doc.setLineWidth(0.35);
-    doc.rect(x, y-3.8, 4.2, 4.2);
+    doc.rect(bx, by, s, s);
+
     if(checked){
+      // tick
       doc.setLineWidth(0.75);
-      doc.line(x+0.8, y-2.0, x+1.9, y-0.8);
-      doc.line(x+1.9, y-0.8, x+3.7, y-3.3);
+      doc.line(bx+0.8, by+1.8, bx+1.9, by+3.0);
+      doc.line(bx+1.9, by+3.0, bx+3.7, by+0.7);
+      doc.setLineWidth(0.35);
+    }else{
+      // cross (X) when not ticked
+      doc.setLineWidth(0.6);
+      doc.line(bx+0.8, by+0.8, bx+s-0.8, by+s-0.8);
+      doc.line(bx+s-0.8, by+0.8, bx+0.8, by+s-0.8);
       doc.setLineWidth(0.35);
     }
   }
@@ -715,9 +720,8 @@
 
     const data = {
       reportId: state.reportId,
-      finalised: ukDateTime(state.finalised),
+      finalised: ukDate(state.finalised), // date-only (no timestamps)
       lettingAgent: (lettingAgent.value || "").trim() || "-",
-      jobRef: (jobRef.value || "").trim() || "-",
       propertyAddress: (propertyAddress.value || "").trim() || "-",
       dateCompleted: ukFromISO(dateCompletedISO.value),
       invoiceRequired: !!invoiceRequired.checked,
@@ -825,7 +829,7 @@
       return y;
     }
 
-    // HEADER (tight + wide logo)
+    // HEADER
     let y = 12;
 
     const logoBoxW = 36;
@@ -855,10 +859,9 @@
 
     y += 20;
 
-    // JOB DETAILS (fixed grid so nothing drifts)
+    // JOB DETAILS (Job Ref removed)
     y = sectionBar('Job Details', y);
 
-    // Two-column grid
     const jobBoxH = 42;
     box(margin, y, usableW, jobBoxH, 2);
 
@@ -891,18 +894,17 @@
     }
 
     field(col1X, r0, 'Letting Agent', data.lettingAgent);
-    field(col1X, r1, 'Job Ref', data.jobRef);
 
     // Address label + lines
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
-    doc.text('Address', col1X, r2);
+    doc.text('Address', col1X, r1);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    if(addrLines[0]) doc.text(addrLines[0], col1X + labelW, r2);
-    if(addrLines[1]) doc.text(addrLines[1] + (addrTooLong ? "…" : ""), col1X + labelW, r3);
+    if(addrLines[0]) doc.text(addrLines[0], col1X + labelW, r1);
+    if(addrLines[1]) doc.text(addrLines[1] + (addrTooLong ? "…" : ""), col1X + labelW, r2);
 
-    field(col1X, r4, 'Date', data.dateCompleted);
+    field(col1X, r3, 'Date', data.dateCompleted);
 
-    // Right column: Completed By + Invoice + Estimate (aligned to the same rows)
+    // Right column
     field(col2X, r0, 'Completed', data.completedBy);
 
     // Invoice (row1+row2)
@@ -927,12 +929,11 @@
 
     y += jobBoxH + 5;
 
-    // PHOTO EVIDENCE (compact)
+    // PHOTO EVIDENCE (unticked shows X)
     y = sectionBar('Photo Evidence', y);
     const peH = 12;
     box(margin, y, usableW, peH, 2);
 
-    // two inline ticks
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
     tickBox(doc, data.beforeTaken, margin+6, y+7.7);
     doc.text('Before photos taken', margin+12, y+7.7);
@@ -942,16 +943,27 @@
 
     y += peH + 5;
 
-    // NOTES (auto size + page split)
+    // NOTES
     y = addNotesAuto('Works / Inspection Notes', data.worksNotes, y);
 
-    // EXTRA ATTACHMENTS (final section on page 1, no signature)
-    y = ensureSpace(y, 20);
+    // EXTRA ATTACHMENTS (fixed: always boxed, clean spacing)
+    y = ensureSpace(y, 28);
     y = sectionBar('Extra Attachments', y);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
-    doc.text(data.extraAttachments ? 'Photo / Video files attached to email' : 'None', margin+3, y-1);
 
-    // PHOTOS (start after page 1 content)
+    const eaH = 18;
+    box(margin, y, usableW, eaH, 2);
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(35);
+
+    const eaText = data.extraAttachments ? 'Photo / Video files attached to email' : '-';
+    const eaLines = doc.splitTextToSize(eaText, usableW - 8);
+    doc.text(eaLines, margin + 4, y + 8);
+
+    y += eaH + 5;
+
+    // PHOTOS
     async function addPhotoPages(title, photos){
       if(!photos || !photos.length) return;
       doc.addPage();
