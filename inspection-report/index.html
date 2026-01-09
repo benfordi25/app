@@ -107,7 +107,6 @@
       outline:none;
     }
     textarea{min-height:110px;resize:vertical}
-    .divider{height:1px;background:var(--line);margin:12px 0}
 
     .sectionTitle{
       font-weight:900; letter-spacing:.4px; font-size:12px;
@@ -121,7 +120,7 @@
       padding:12px;
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
+      border-radius: 14px;
     }
     .rhLeft .bigTitle{font-size:18px;font-weight:950;margin:0}
     .rhRight{
@@ -144,7 +143,7 @@
     .kv{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
+      border-radius: 14px;
       padding:10px;
     }
     .kv .k{color:var(--muted);font-size:12px}
@@ -162,7 +161,7 @@
     .billingBar{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
+      border-radius: 14px;
       padding:10px;
       display:grid;
       grid-template-columns: 1fr;
@@ -183,7 +182,7 @@
     .evidence{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(255,255,255,.04);
-      border-radius: var(--radius2);
+      border-radius: 14px;
       padding:10px;
       display:flex; justify-content:space-between;
       gap:10px; flex-wrap:wrap; align-items:center;
@@ -195,7 +194,7 @@
     @media(min-width:720px){ .photoCols{grid-template-columns:1fr 1fr} }
     .photoBox{
       border:1px dashed rgba(255,255,255,.22);
-      border-radius: var(--radius2);
+      border-radius: 14px;
       padding:10px;
       background: rgba(255,255,255,.04);
     }
@@ -897,33 +896,29 @@
     // Right column
     field(col2X, r0, 'Completed', data.completedBy);
 
-    // ✅ Invoice + Estimate aligned as one neat block
-    const cbX = col2X + labelW;     // checkbox X
-    const reqX = cbX + 6;           // "Required" text X
-    const noLabelX = col2X;         // "No:" label X
-    const noValueX = col2X + labelW; // value aligned under checkbox column
+    // Invoice + Estimate aligned block
+    const cbX = col2X + labelW;
+    const reqX = cbX + 6;
+    const noLabelX = col2X;
+    const noValueX = col2X + labelW;
 
-    // Invoice line 1
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('Invoice', col2X, r1);
     tickBox(doc, data.invoiceRequired, cbX, r1);
     doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
     doc.text('Required', reqX, r1);
 
-    // Invoice line 2
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('No:', noLabelX, r2);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
     doc.text(`${data.invoiceNumber}`, noValueX, r2);
 
-    // Estimate line 1
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('Estimate', col2X, r3);
     tickBox(doc, data.estimateRequired, cbX, r3);
     doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
     doc.text('Required', reqX, r3);
 
-    // Estimate line 2
     doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
     doc.text('No:', noLabelX, r4);
     doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
@@ -948,7 +943,7 @@
     // NOTES
     y = addNotesAuto('Works / Inspection Notes', data.worksNotes, y);
 
-    // EXTRA ATTACHMENTS (boxed)
+    // EXTRA ATTACHMENTS
     y = ensureSpace(y, 28);
     y = sectionBar('Extra Attachments', y);
 
@@ -965,14 +960,23 @@
 
     y += eaH + 5;
 
-    // PHOTOS
-    async function addPhotoPages(title, photos){
-      if(!photos || !photos.length) return;
-      doc.addPage();
-      let py = 14;
+    // ===== PHOTOS (NEW: packs Before + After together, no wasted pages) =====
+    function newPhotoPageIfNeeded(py, needH){
+      if(py + needH > pageH - 16){
+        doc.addPage();
+        return 14;
+      }
+      return py;
+    }
 
+    function photoSectionTitle(title, py){
+      py = newPhotoPageIfNeeded(py, 14);
       py = sectionBar(title, py);
+      return py;
+    }
 
+    function drawPhotoGrid(photos, py){
+      // returns new py after grid
       const gap = 4;
       const boxW = (pageW - margin*2 - gap) / 2;
       const boxH = 78;
@@ -980,19 +984,20 @@
       for(let i=0;i<photos.length;i++){
         const col = i % 2;
         const row = Math.floor(i / 2);
-        const x = margin + col*(boxW + gap);
-        const y0 = py + row*(boxH + gap);
+        let y0 = py + row*(boxH + gap);
+        let x = margin + col*(boxW + gap);
 
-        if(y0 + boxH + 12 > pageH){
+        // if next box won't fit, new page and reset row calc
+        if(y0 + boxH > pageH - 16){
           doc.addPage();
           py = 14;
-          py = sectionBar(title + ' (cont.)', py);
+          // restart on new page at same photo index
           i--;
+          // add a little spacing at top so first row isn't tight
           continue;
         }
 
         box(x, y0, boxW, boxH, 2);
-
         try{
           doc.addImage(photos[i].dataUrl, 'JPEG', x+2, y0+2, boxW-4, boxH-4, undefined, 'FAST');
         }catch(e){
@@ -1001,10 +1006,32 @@
           doc.setTextColor(35);
         }
       }
+
+      // advance py to below last row used
+      const usedRows = Math.ceil(photos.length / 2);
+      return py + usedRows*(boxH + gap) + 2;
     }
 
-    await addPhotoPages('Before Photos', state.beforePhotos);
-    await addPhotoPages('After Photos', state.afterPhotos);
+    // Only create photo area if there are any photos at all
+    const hasBefore = state.beforePhotos.length > 0;
+    const hasAfter  = state.afterPhotos.length > 0;
+
+    if(hasBefore || hasAfter){
+      doc.addPage();
+      let py = 14;
+
+      if(hasBefore){
+        py = photoSectionTitle('Before Photos', py);
+        py = drawPhotoGrid(state.beforePhotos, py);
+      }
+
+      if(hasAfter){
+        // keep After right under Before if there's space, otherwise it flows to next page automatically
+        py = newPhotoPageIfNeeded(py, 20);
+        py = photoSectionTitle('After Photos', py);
+        py = drawPhotoGrid(state.afterPhotos, py);
+      }
+    }
 
     // Footer on every page
     const total = doc.getNumberOfPages();
