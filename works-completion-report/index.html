@@ -405,7 +405,7 @@
     if(!iso) return "";
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
     if(!m) return "";
-    return `${m[3]}/${m[2]}/${m[1]}`; // DD/MM/YYYY
+    return `${m[3]}/${m[2]}/${m[1]}`;
   }
   function todayISO(){
     const d = new Date();
@@ -442,7 +442,14 @@
     return dataUrl;
   }
 
-  const MAX_AFTER = 20;
+  function blobToDataURL(blob){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> resolve(String(r.result || ""));
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
 
   // State
   const state = { reportId: makeReportId(), finalised: null, afterPhotos: [], logoDataUrl: null };
@@ -491,18 +498,9 @@
   // Defaults
   dateCompletedISO.value = todayISO();
 
-  // Shared logo storage
-  const savedLogo = localStorage.getItem('fps_logo_v1');
-  if(savedLogo){
-    state.logoDataUrl = savedLogo;
-    logoImg.src = state.logoDataUrl;
-    logoImg.style.display = 'block';
-    logoFallback.style.display = 'none';
-  }
-
   // UI
   function setFinalisedUI(){
-    const t = state.finalised ? ukDate(state.finalised) : "—"; // DATE ONLY (no time)
+    const t = state.finalised ? ukDate(state.finalised) : "—"; // date-only, matches Inspection
     finalisedText.textContent = t;
     rhFinalised.textContent = t;
   }
@@ -522,23 +520,60 @@
     afterEmptyHint.style.display = state.afterPhotos.length ? "none" : "block";
   }
 
+  function setLogo(src){
+    state.logoDataUrl = src || null;
+    if(src){
+      logoImg.src = src;
+      logoImg.style.display = 'block';
+      logoFallback.style.display = 'none';
+    }else{
+      logoImg.removeAttribute('src');
+      logoImg.style.display = 'none';
+      logoFallback.style.display = 'block';
+    }
+  }
+
+  async function loadLockedLogoFallback(){
+    const defaultLogoPath = 'icons/fps-logo.png';
+    try{
+      const res = await fetch(defaultLogoPath, {cache:'no-store'});
+      if(!res.ok) return false;
+      const blob = await res.blob();
+      const dataUrl = await blobToDataURL(blob);
+      setLogo(dataUrl);
+      return true;
+    }catch(e){
+      return false;
+    }
+  }
+
+  (async ()=>{
+    const savedLogo = localStorage.getItem('fps_logo_v1');
+    if(savedLogo){
+      setLogo(savedLogo);
+    }else{
+      const ok = await loadLockedLogoFallback();
+      if(!ok) setLogo(null);
+    }
+  })();
+
   setReportIdUI(); setFinalisedUI(); setDateCompletedUI(); updateEvidenceMarks(); updatePhotoCounts();
   dateCompletedISO.addEventListener('input', setDateCompletedUI);
   afterTick.addEventListener('change', updateEvidenceMarks);
 
-  // Logo upload
+  // Logo upload (still allowed, but fallback keeps a locked one if not set)
   logoBox.addEventListener('click', ()=> logoInput.click());
   logoInput.addEventListener('change', async (e)=>{
     const file = e.target.files && e.target.files[0];
     if(!file) return;
-    state.logoDataUrl = await fileToDataURL(file, 900, 0.90);
-    logoImg.src = state.logoDataUrl;
-    logoImg.style.display = 'block';
-    logoFallback.style.display = 'none';
-    localStorage.setItem('fps_logo_v1', state.logoDataUrl);
+    const dataUrl = await fileToDataURL(file, 900, 0.90);
+    setLogo(dataUrl);
+    localStorage.setItem('fps_logo_v1', dataUrl);
   });
 
   // Photos
+  const MAX_AFTER = 20;
+
   function renderThumbs(list, container, onRemove){
     container.innerHTML = '';
     list.forEach((p, i)=>{
@@ -555,10 +590,12 @@
       container.appendChild(t);
     });
   }
+
   function autoTickFromPhotos(){
     afterTick.checked = state.afterPhotos.length > 0;
     updateEvidenceMarks();
   }
+
   async function addAfterPhotos(files){
     const arr = Array.from(files || []);
     for(const f of arr){
@@ -581,7 +618,7 @@
   afterGalleryInput.addEventListener('change', async (e)=>{ await addAfterPhotos(e.target.files); afterGalleryInput.value=''; });
   afterCameraInput.addEventListener('change', async (e)=>{ await addAfterPhotos(e.target.files); afterCameraInput.value=''; });
 
-  // Draft save (NO signature now)
+  // Draft save
   function collectDraft(){
     return {
       state: {
@@ -606,12 +643,12 @@
   }
 
   saveLocalBtn.addEventListener('click', ()=>{
-    localStorage.setItem('fps_works_completion_report_v1', JSON.stringify(collectDraft()));
+    localStorage.setItem('fps_works_completion_report_v2', JSON.stringify(collectDraft()));
     alert('Draft saved on this device.');
   });
 
   // New report reset
-  newBtn.addEventListener('click', ()=>{
+  newBtn.addEventListener('click', async ()=>{
     if(!confirm('Start a new report? This clears fields + photos (logo stays).')) return;
 
     state.reportId = makeReportId();
@@ -635,25 +672,35 @@
     setReportIdUI(); setFinalisedUI(); setDateCompletedUI();
     updateEvidenceMarks(); updatePhotoCounts();
     renderThumbs(state.afterPhotos, afterThumbs, ()=>{});
+
+    if(!state.logoDataUrl){
+      await loadLockedLogoFallback();
+    }
   });
 
-  // PDF helpers
-  function tickLine(doc, label, checked, x, y){
-    doc.setDrawColor(80);
-    doc.rect(x, y-4, 4, 4);
+  // ===== PDF STYLE (MATCHES INSPECTION PDF) =====
+  function tickBox(doc, checked, x, y){
+    const bx = x;
+    const by = y - 3.8;
+    const s  = 4.2;
+
+    doc.setDrawColor(120);
+    doc.setLineWidth(0.35);
+    doc.rect(bx, by, s, s);
+
     if(checked){
+      doc.setLineWidth(0.75);
+      doc.line(bx+0.8, by+1.8, bx+1.9, by+3.0);
+      doc.line(bx+1.9, by+3.0, bx+3.7, by+0.7);
+      doc.setLineWidth(0.35);
+    }else{
       doc.setLineWidth(0.6);
-      doc.line(x+0.8, y-2.2, x+1.8, y-0.9);
-      doc.line(x+1.8, y-0.9, x+3.4, y-3.2);
+      doc.line(bx+0.8, by+0.8, bx+s-0.8, by+s-0.8);
+      doc.line(bx+s-0.8, by+0.8, bx+0.8, by+s-0.8);
       doc.setLineWidth(0.35);
     }
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10);
-    doc.setTextColor(40);
-    doc.text(label, x+6, y-0.6);
   }
 
-  // Generate PDF
   pdfBtn.addEventListener('click', async ()=>{
     if(!dateCompletedISO.value){
       alert("Please choose a Date Completed.");
@@ -666,13 +713,14 @@
     state.finalised = new Date();
     setFinalisedUI();
 
-    const margin = 12;
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
+    const margin = 12;
+    const usableW = pageW - margin*2;
 
     const data = {
       reportId: state.reportId,
-      finalised: ukDate(state.finalised), // DATE ONLY (no time)
+      finalised: ukDate(state.finalised), // date only (Inspection style)
       lettingAgent: (lettingAgent.value || "").trim() || "-",
       jobRef: (jobRef.value || "").trim() || "-",
       propertyAddress: (propertyAddress.value || "").trim() || "-",
@@ -687,151 +735,275 @@
       extraAttachments: !!extraAttachments.checked
     };
 
-    function box(x,y,w,h){
-      doc.setDrawColor(180);
-      doc.setLineWidth(0.35);
-      doc.roundedRect(x,y,w,h,2,2);
-    }
-    function upperLabel(txt, x, y){
-      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
-      doc.text(txt.toUpperCase(), x, y);
-      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
+    function imgTypeFromDataUrl(d){
+      if(!d) return "JPEG";
+      return d.startsWith("data:image/png") ? "PNG" : "JPEG";
     }
 
-    // Header
-    let y = 14;
+    function fitImage(doc, dataUrl, x, y, maxW, maxH){
+      try{
+        const props = doc.getImageProperties(dataUrl);
+        const iw = props.width || 1;
+        const ih = props.height || 1;
+        const scale = Math.min(maxW/iw, maxH/ih);
+        const w = iw*scale;
+        const h = ih*scale;
+        const dx = x + (maxW - w)/2;
+        const dy = y + (maxH - h)/2;
+        doc.addImage(dataUrl, imgTypeFromDataUrl(dataUrl), dx, dy, w, h, undefined, 'FAST');
+        return {w,h};
+      }catch(e){
+        return null;
+      }
+    }
+
+    function box(x,y,w,h, r=2){
+      doc.setDrawColor(170);
+      doc.setLineWidth(0.35);
+      doc.roundedRect(x,y,w,h,r,r);
+    }
+
+    function fillBar(x,y,w,h){
+      doc.setFillColor(245,245,245);
+      doc.setDrawColor(170);
+      doc.setLineWidth(0.35);
+      doc.roundedRect(x,y,w,h,2,2,'FD');
+    }
+
+    function sectionBar(title, y){
+      fillBar(margin, y, usableW, 7.5);
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(10);
+      doc.setTextColor(35);
+      doc.text(title.toUpperCase(), margin+3, y+5.3);
+      return y + 9.5;
+    }
+
+    function ensureSpace(curY, needed){
+      if(curY + needed > pageH - 16){
+        doc.addPage();
+        return 14;
+      }
+      return curY;
+    }
+
+    function addNotesAuto(title, text, startY){
+      let y = sectionBar(title, startY);
+
+      const innerX = margin;
+      const innerW = usableW;
+      const pad = 4;
+
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(10);
+      doc.setTextColor(35);
+
+      const lines = doc.splitTextToSize(text, innerW - pad*2);
+
+      const lineH = 4.6;
+      const topPad = 7.0;
+      const bottomPad = 5.0;
+
+      let idx = 0;
+      while(idx < lines.length){
+        y = ensureSpace(y, 20);
+
+        const maxBoxH = (pageH - 16) - y;
+        const maxLines = Math.max(1, Math.floor((maxBoxH - (topPad+bottomPad)) / lineH));
+        const chunk = lines.slice(idx, idx + maxLines);
+
+        const boxH = Math.max(20, (chunk.length * lineH) + topPad + bottomPad);
+        box(innerX, y, innerW, boxH, 2);
+
+        doc.text(chunk, innerX + pad, y + topPad);
+        y += boxH + 5;
+        idx += maxLines;
+
+        if(idx < lines.length){
+          doc.addPage();
+          y = 14;
+          y = sectionBar(title + " (cont.)", y);
+        }
+      }
+      return y;
+    }
+
+    // HEADER (Inspection style)
+    let y = 12;
+
+    const logoBoxW = 36;
+    const logoBoxH = 16;
 
     if(state.logoDataUrl){
-      try{ doc.addImage(state.logoDataUrl, 'JPEG', margin, y-4, 18, 18); }catch(e){}
+      fitImage(doc, state.logoDataUrl, margin, y, logoBoxW, logoBoxH);
     }else{
-      doc.setDrawColor(180);
-      doc.rect(margin, y-4, 18, 18);
+      doc.setDrawColor(170);
+      doc.rect(margin, y, logoBoxW, logoBoxH);
       doc.setFontSize(9);
-      doc.text('LOGO', margin+4, y+6);
+      doc.setTextColor(90);
+      doc.text('LOGO', margin+10, y+10);
     }
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(20);
-    doc.text('FORD PROPERTY SERVICES', margin+22, y+4);
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(25);
+    doc.text('FORD PROPERTY SERVICES', margin + logoBoxW + 6, y + 6);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(30);
-    doc.text('Works Completion Report', margin+22, y+11);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(45);
+    doc.text('Works Completion Report', margin + logoBoxW + 6, y + 12);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(20);
-    doc.text('FINAL / COMPLETED', pageW - margin, y+4, {align:'right'});
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(`Report ID: ${data.reportId}`, pageW - margin, y+10, {align:'right'});
-    doc.text(`Finalised: ${data.finalised}`, pageW - margin, y+15, {align:'right'});
-
-    y += 20;
-
-    // Job details + invoice/estimate on right
-    upperLabel('Job Details', margin, y);
-    y += 4;
-
-    const jobH = 64;
-    box(margin, y, pageW - margin*2, jobH);
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(20);
-    doc.text('Letting Agent', margin+4, y+10);
-    doc.text('Job Reference', margin+4, y+20);
-    doc.text('Property Address', margin+4, y+30);
-    doc.text('Date Completed', margin+4, y+40);
-    doc.text('Completed By', margin+110, y+10);
-
-    doc.text('Invoice', margin+110, y+24);
-    doc.text('Invoice Number', margin+110, y+34);
-    doc.text('Estimate', margin+110, y+44);
-    doc.text('Estimate Number', margin+110, y+54);
-
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(data.lettingAgent, margin+45, y+10);
-    doc.text(data.jobRef, margin+45, y+20);
-    doc.text(doc.splitTextToSize(data.propertyAddress, 88), margin+45, y+30);
-    doc.text(data.dateCompleted, margin+45, y+40);
-    doc.text(data.completedBy, margin+150, y+10);
-
-    tickLine(doc, 'Required', data.invoiceRequired, margin+150, y+24);
-    doc.text(data.invoiceNumber, margin+150, y+34);
-
-    tickLine(doc, 'Required', data.estimateRequired, margin+150, y+44);
-    doc.text(data.estimateNumber, margin+150, y+54);
-
-    y += jobH + 10;
-
-    // Photo evidence (after only)
-    upperLabel('Photo Evidence', margin, y);
-    y += 4;
-    box(margin, y, pageW - margin*2, 14);
-
-    const afterMarkPdf  = data.afterTaken ? '✔' : '✘';
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(`After photos taken: ${afterMarkPdf}`, margin+4, y+9);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(25);
+    doc.text('FINAL / COMPLETED', pageW - margin, y + 6, {align:'right'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(45);
+    doc.text(`Report ID: ${data.reportId}`, pageW - margin, y + 11.5, {align:'right'});
+    doc.text(`Finalised: ${data.finalised}`, pageW - margin, y + 16.5, {align:'right'});
 
     y += 20;
 
-    // Notes
-    upperLabel('Works / Completion Notes', margin, y);
-    y += 4;
+    // JOB DETAILS (Inspection style box)
+    y = sectionBar('Job Details', y);
 
-    const notesLines = doc.splitTextToSize(data.worksNotes, pageW - margin*2 - 8);
-    const notesH = Math.min(78, Math.max(30, notesLines.length * 5 + 10));
-    box(margin, y, pageW - margin*2, notesH);
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(notesLines, margin+4, y+10);
+    const jobBoxH = 48;
+    box(margin, y, usableW, jobBoxH, 2);
 
-    y += notesH + 10;
+    const colGap = 6;
+    const colW = (usableW - colGap) / 2;
 
-    // Extra attachments (moved into main PDF – no signature page now)
-    upperLabel('Extra Attachments', margin, y);
-    y += 6;
-    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
-    doc.text(data.extraAttachments ? 'Photo / Video files attached to email' : 'None', margin, y);
+    const col1X = margin + 4;
+    const col2X = margin + colW + colGap + 4;
 
-    // AFTER photos pages (supports up to 20 across multiple pages)
-    async function addPhotoPages(title, photos){
+    const labelW = 32;
+    const rowH = 6;
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+
+    const addrLinesAll = doc.splitTextToSize(data.propertyAddress, colW - labelW - 6);
+    const addrLines = addrLinesAll.slice(0,2);
+    const addrTooLong = addrLinesAll.length > 2;
+
+    const r0 = y + 10;
+    const r1 = r0 + rowH;
+    const r2 = r1 + rowH;
+    const r3 = r2 + rowH;
+    const r4 = r3 + rowH;
+    const r5 = r4 + rowH;
+
+    function field(colX, rowY, label, value){
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+      doc.text(label, colX, rowY);
+      doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+      doc.text(value, colX + labelW, rowY);
+    }
+
+    field(col1X, r0, 'Letting Agent', data.lettingAgent);
+    field(col1X, r1, 'Job Ref', data.jobRef);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Address', col1X, r2);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    if(addrLines[0]) doc.text(addrLines[0], col1X + labelW, r2);
+    if(addrLines[1]) doc.text(addrLines[1] + (addrTooLong ? "…" : ""), col1X + labelW, r3);
+
+    field(col1X, r4, 'Date', data.dateCompleted);
+
+    field(col2X, r0, 'Completed', data.completedBy);
+
+    // Invoice / estimate ticks on right (same style)
+    const cbX = col2X + labelW;
+    const reqX = cbX + 6;
+    const noLabelX = col2X;
+    const noValueX = col2X + labelW;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Invoice', col2X, r1);
+    tickBox(doc, data.invoiceRequired, cbX, r1);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
+    doc.text('Required', reqX, r1);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('No:', noLabelX, r2);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(`${data.invoiceNumber}`, noValueX, r2);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('Estimate', col2X, r3);
+    tickBox(doc, data.estimateRequired, cbX, r3);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(35);
+    doc.text('Required', reqX, r3);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(45);
+    doc.text('No:', noLabelX, r4);
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    doc.text(`${data.estimateNumber}`, noValueX, r4);
+
+    y += jobBoxH + 5;
+
+    // PHOTO EVIDENCE (after only)
+    y = sectionBar('Photo Evidence', y);
+    const peH = 12;
+    box(margin, y, usableW, peH, 2);
+
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(35);
+    tickBox(doc, data.afterTaken, margin+6, y+7.7);
+    doc.text('After photos taken', margin+12, y+7.7);
+
+    y += peH + 5;
+
+    // NOTES (auto box)
+    y = addNotesAuto('Works / Completion Notes', data.worksNotes, y);
+
+    // EXTRA ATTACHMENTS
+    y = ensureSpace(y, 28);
+    y = sectionBar('Extra Attachments', y);
+
+    const eaH = 18;
+    box(margin, y, usableW, eaH, 2);
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(35);
+    const eaText = data.extraAttachments ? 'Photo / Video files attached to email' : '-';
+    const eaLines = doc.splitTextToSize(eaText, usableW - 8);
+    doc.text(eaLines, margin + 4, y + 8);
+
+    // PHOTOS (new page, same grid style as Inspection)
+    function drawPhotoSectionNewPage(title, photos){
       doc.addPage();
       let py = 14;
-      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(20);
-      doc.text(title.toUpperCase(), margin, py);
-      py += 8;
+
+      py = sectionBar(title, py);
 
       const gap = 4;
       const boxW = (pageW - margin*2 - gap) / 2;
       const boxH = 78;
 
+      const rows = Math.ceil(photos.length / 2);
+      const innerH = rows * boxH + (rows - 1) * gap;
+      const containerPad = 4;
+      const containerH = innerH + containerPad*2;
+
+      box(margin, py, usableW, containerH, 2);
+
       for(let i=0;i<photos.length;i++){
         const col = i % 2;
         const row = Math.floor(i / 2);
-        const x = margin + col*(boxW + gap);
-        const y0 = py + row*(boxH + gap);
 
-        if(y0 + boxH + 12 > pageH){
-          doc.addPage();
-          py = 14;
-          doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(20);
-          doc.text((title + ' (cont.)').toUpperCase(), margin, py);
-          py += 8;
-          i--;
-          continue;
-        }
+        const x = margin + containerPad + col*(boxW + gap);
+        const y0 = py + containerPad + row*(boxH + gap);
 
-        doc.setDrawColor(180);
-        doc.setLineWidth(0.35);
-        doc.roundedRect(x, y0, boxW, boxH, 2,2);
-
+        box(x, y0, boxW, boxH, 2);
         try{
           doc.addImage(photos[i].dataUrl, 'JPEG', x+2, y0+2, boxW-4, boxH-4, undefined, 'FAST');
         }catch(e){
-          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(40);
+          doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
           doc.text('Image error', x+5, y0+10);
+          doc.setTextColor(35);
         }
       }
     }
 
-    if(state.afterPhotos.length) await addPhotoPages('After Photos (Up To 20)', state.afterPhotos);
+    const canAfter = afterTick.checked && state.afterPhotos.length > 0;
+    if(canAfter) drawPhotoSectionNewPage('After Photos', state.afterPhotos);
 
-    // Footer
+    // Footer on every page
     const total = doc.getNumberOfPages();
     for(let p=1;p<=total;p++){
       doc.setPage(p);
@@ -842,7 +1014,7 @@
       doc.text(`Page ${p} of ${total}`, pageW - margin, pageH - 8, {align:'right'});
     }
 
-    const safeName = `${data.reportId}.pdf`.replace(/[^\w\\-\\.]/g,'_');
+    const safeName = `${data.reportId}.pdf`.replace(/[^\w\-\.]/g,'_');
     doc.save(safeName);
   });
 </script>
