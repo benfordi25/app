@@ -434,6 +434,75 @@ const pad2 = n => String(n).padStart(2,"0");
 const iso = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const firstLine = a => (a||"").split(",")[0].trim();
 
+/* =========================
+   ✅ MULTI-DAY WORKS SUPPORT
+   ========================= */
+
+// "YYYY-MM-DDTHH:MM" -> {dateISO, timeHHMM}
+function splitDT(dtLocal){
+  const s = String(dtLocal || "");
+  if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return { dateISO:"", time:"" };
+  return { dateISO: s.slice(0,10), time: s.slice(11,16) };
+}
+
+// Add N days to a "YYYY-MM-DD" (safe in local time)
+function addDaysISO(dateISO, n){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return "";
+  const d = new Date(dateISO + "T00:00");
+  d.setDate(d.getDate() + (Number(n)||0));
+  return iso(d);
+}
+
+// Inclusive date keys from start..end (YYYY-MM-DD)
+function dateKeysBetween(startISO, endISO){
+  if(!startISO) return [];
+  if(!endISO) return [startISO];
+
+  const a = new Date(startISO + "T00:00");
+  const b = new Date(endISO + "T00:00");
+  if(!Number.isFinite(a.getTime())) return [];
+  if(!Number.isFinite(b.getTime())) return [startISO];
+
+  const start = a <= b ? a : b;
+  const end = a <= b ? b : a;
+
+  const out = [];
+  for(let d = new Date(start); d <= end; d.setDate(d.getDate()+1)){
+    out.push(iso(d));
+  }
+  return out;
+}
+
+// Minutes for sorting; continuation items go last
+function minutesFromHHMM(t){
+  const m = /^(\d{2}):(\d{2})$/.exec(String(t||""));
+  if(!m) return 9999;
+  return (Number(m[1])||0)*60 + (Number(m[2])||0);
+}
+
+// Determine which dates a WORKS booking should appear on
+function worksDateKeys(job){
+  const { dateISO:startISO } = splitDT(job.worksDT);
+  if(!startISO) return [];
+
+  // Prefer explicit end if present
+  const endDT = job.worksEndDT || job.worksEnd || "";
+  const endISO = splitDT(endDT).dateISO;
+
+  if(endISO){
+    return dateKeysBetween(startISO, endISO);
+  }
+
+  // Fallback: use worksDays (1.5 => show 2 days)
+  const daysRaw = Number(job.worksDays || job.worksDurationDays || job.days || 0);
+  const span = Math.max(1, Math.ceil(daysRaw || 1)); // default 1
+  const out = [];
+  for(let i=0;i<span;i++){
+    out.push(addDaysISO(startISO, i));
+  }
+  return out;
+}
+
 /* Build all events for a date:
    - jobs events have id + open Jobs Board with ?job=ID
    - manual events have id but open manual editor
@@ -443,21 +512,54 @@ function eventsFor(dateISO){
 
   // Jobs board feed
   for(const j of jobs){
+    // Estimate (single day)
     if(j.estVisitDT?.startsWith(dateISO)){
-      out.push({ t:j.estVisitDT.slice(11,16), a:firstLine(j.address), id:j.id, type:"est", src:"job" });
+      const t = j.estVisitDT.slice(11,16);
+      out.push({
+        t,
+        sortKey: minutesFromHHMM(t),
+        a: firstLine(j.address),
+        id: j.id,
+        type:"est",
+        src:"job"
+      });
     }
-    if(j.worksDT?.startsWith(dateISO)){
-      out.push({ t:j.worksDT.slice(11,16), a:firstLine(j.address), id:j.id, type:"works", src:"job" });
+
+    // Works (multi-day)
+    if(j.worksDT){
+      const { dateISO:startISO, time:startTime } = splitDT(j.worksDT);
+      const keys = worksDateKeys(j);
+
+      if(keys.includes(dateISO)){
+        const isStartDay = (dateISO === startISO);
+        const displayTime = isStartDay ? startTime : "—"; // shows on day 2/3 etc
+        out.push({
+          t: displayTime,
+          sortKey: isStartDay ? minutesFromHHMM(startTime) : 9000, // continuation goes last
+          a: firstLine(j.address),
+          id: j.id,
+          type:"works",
+          src:"job"
+        });
+      }
     }
   }
 
   // Manual events (cloud)
   const arr = Array.isArray(manualCloud[dateISO]) ? manualCloud[dateISO] : [];
   for(const e of arr){
-    out.push({ t:(e.time || "00:00"), a:(e.address || "").trim(), id:e.id, type:"manual", src:"manual" });
+    const t = (e.time || "00:00");
+    out.push({
+      t,
+      sortKey: minutesFromHHMM(t),
+      a:(e.address || "").trim(),
+      id:e.id,
+      type:"manual",
+      src:"manual"
+    });
   }
 
-  return out.sort((a,b)=> (a.t||"").localeCompare(b.t||""));
+  return out.sort((a,b)=> (a.sortKey - b.sortKey) || String(a.t||"").localeCompare(String(b.t||"")));
 }
 
 function setSelected(d){
@@ -467,7 +569,6 @@ function setSelected(d){
 
 function openJobDetails(jobId){
   // Calendar opens Jobs Board with a deep-link.
-  // If your Jobs Board supports ?job= it can auto-open details for that job.
   location.href = `../jobs-board/?job=${encodeURIComponent(jobId)}`;
 }
 
