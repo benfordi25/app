@@ -86,7 +86,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 .day.today{border-color:var(--blue);background:rgba(74,163,255,.10)}
 .dayNum{font-weight:950;margin-bottom:4px}
 
-/* ✅ Horizontal event chip like before */
+/* Base event chip (month + day list + week) */
 .event{
   margin-top:6px;
   padding:6px 8px;
@@ -105,10 +105,46 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 .event.works{border-left:4px solid var(--green)}  /* 🟢 Works booked (incl. Estimate Accepted) */
 .event.manual{border-left:4px solid var(--purple)}
 
+/* ✅ Carry-on placeholder (day 2/3 of multi-day works) */
+.event.carry{
+  border-left:4px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.03);
+  border:1px dashed rgba(255,255,255,.16);
+  color:rgba(231,238,252,.70);
+  cursor:pointer;
+}
+
+/* ✅ Week view: 2-line chip with centered duration under address */
+.weekEvent{
+  white-space:normal !important;
+  overflow:visible !important;
+  text-overflow:clip !important;
+}
+.weekEventTop{
+  display:block;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.weekEventDur{
+  display:block;
+  text-align:center;
+  margin-top:4px;
+  font-size:11px;
+  color:var(--muted);
+  font-weight:900;
+}
+.weekEventDur.carryDur{ opacity:.75; }
+
+/* ✅ Month view: keep single-line chips */
+.monthEvent{}
+
+/* ✅ Day list: show single line (you tap for details anyway) */
+.dayListEvent{}
+
 .muted{color:var(--muted);font-size:12px}
 
-/* ✅ Full-month "Week" view: 7 columns always.
-   On mobile: horizontal scroll instead of squashing columns. */
+/* ✅ Full-month Week view (42 days), horizontal scroll on mobile */
 .weekWrap{
   overflow-x:auto;
   -webkit-overflow-scrolling:touch;
@@ -116,13 +152,13 @@ main{max-width:1100px;margin:0 auto;padding:16px}
 }
 .weekMonthGrid{
   display:grid;
-  grid-template-columns:repeat(7, minmax(220px, 1fr)); /* mobile: scrollable columns */
+  grid-template-columns:repeat(7, minmax(220px, 1fr));
   gap:10px;
   min-width:calc(7 * 220px + 6 * 10px);
 }
 @media(min-width:860px){
   .weekMonthGrid{
-    grid-template-columns:repeat(7, minmax(0, 1fr)); /* desktop: fit normally */
+    grid-template-columns:repeat(7, minmax(0, 1fr));
     min-width:0;
   }
 }
@@ -168,6 +204,7 @@ main{max-width:1100px;margin:0 auto;padding:16px}
   .grid{gap:6px}
   .day{min-height:78px;padding:6px;border-radius:14px}
   .event{font-size:11px;padding:5px 6px;border-radius:11px}
+  .weekEventDur{font-size:10.5px}
   .btn{padding:8px 10px}
 }
 
@@ -439,22 +476,21 @@ const iso = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())
 const firstLine = a => (a||"").split(",")[0].trim();
 
 /* ===== WORKS rules ===== */
-// "YYYY-MM-DDTHH:MM" -> {dateISO, timeHHMM}
 function splitDT(dtLocal){
   const s = String(dtLocal || "");
   if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return { dateISO:"", time:"" };
   return { dateISO: s.slice(0,10), time: s.slice(11,16) };
 }
+function addDaysISO(dateISO, n){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return "";
+  const d = new Date(dateISO + "T00:00");
+  d.setDate(d.getDate() + (Number(n)||0));
+  return iso(d);
+}
 function minutesFromHHMM(t){
   const m = /^(\d{2}):(\d{2})$/.exec(String(t||""));
   if(!m) return 9999;
   return (Number(m[1])||0)*60 + (Number(m[2])||0);
-}
-// Works appears only on booked day
-function worksDateKeys(job){
-  const { dateISO:startISO } = splitDT(job.worksDT);
-  if(!startISO) return [];
-  return [startISO];
 }
 function getWorksDays(job){
   const daysRaw = Number(job.worksDays || job.worksDurationDays || job.days || 0);
@@ -463,8 +499,20 @@ function getWorksDays(job){
 }
 function worksDaysLabel(job){
   const d = getWorksDays(job);
+  // ✅ if half-day requested: show "0.5 day" or "1.5 days" etc
   const pretty = Number.isInteger(d) ? String(d) : String(d);
   return `${pretty} day${d===1 ? "" : "s"}`;
+}
+function worksSpanDays(job){
+  // how many calendar days should it occupy visually?
+  // 0.5 -> 1 day (no carry)
+  // 1   -> 1 day
+  // 1.5 -> 2 days (carry to next day)
+  // 2   -> 2 days
+  // 2.5 -> 3 days etc
+  const d = getWorksDays(job);
+  if(d <= 1) return 1;
+  return Math.ceil(d);
 }
 function isEstimateAccepted(job){
   const s = String(job?.status || job?.stage || "").toLowerCase().trim();
@@ -490,24 +538,46 @@ function eventsFor(dateISO){
         dur: "",
         id: j.id,
         type:"est",
-        src:"job"
+        src:"job",
+        carry:false
       });
     }
 
-    // 🟢 Works booked
+    // 🟢 Works booked (including Estimate Accepted if worksDT exists)
     if(j.worksDT){
       const { dateISO:startISO, time:startTime } = splitDT(j.worksDT);
-      const keys = worksDateKeys(j);
+      if(!startISO) continue;
+
+      const span = worksSpanDays(j); // number of calendar days it visually spans
+      const keys = [];
+      for(let i=0;i<span;i++) keys.push(addDaysISO(startISO, i));
+
       if(keys.includes(dateISO)){
-        out.push({
-          t: startTime,
-          sortKey: minutesFromHHMM(startTime),
-          a: firstLine(j.address),
-          dur: worksDaysLabel(j),
-          id: j.id,
-          type:"works",
-          src:"job"
-        });
+        const isStartDay = (dateISO === startISO);
+        if(isStartDay){
+          out.push({
+            t: startTime,
+            sortKey: minutesFromHHMM(startTime),
+            a: firstLine(j.address),
+            dur: worksDaysLabel(j),
+            id: j.id,
+            type:"works",
+            src:"job",
+            carry:false
+          });
+        }else{
+          // ✅ Carry-on placeholder in grey on day 2/3...
+          out.push({
+            t: "Carry on",
+            sortKey: 9000,
+            a: firstLine(j.address),
+            dur: worksDaysLabel(j),
+            id: j.id,
+            type:"carry",
+            src:"job",
+            carry:true
+          });
+        }
       }
     } else if(isEstimateAccepted(j) && j.estVisitDT?.startsWith(dateISO)) {
       // accepted but worksDT not set yet -> show as works on estimate date
@@ -519,7 +589,8 @@ function eventsFor(dateISO){
         dur: worksDaysLabel(j),
         id: j.id,
         type:"works",
-        src:"job"
+        src:"job",
+        carry:false
       });
     }
   }
@@ -535,7 +606,8 @@ function eventsFor(dateISO){
       dur:"",
       id:e.id,
       type:"manual",
-      src:"manual"
+      src:"manual",
+      carry:false
     });
   }
 
@@ -552,17 +624,14 @@ function openJobDetails(jobId){
 }
 
 /* Helpers for full-month week mode (42-day range) */
-function getMonthRange42(y, m){ // m = 0..11
+function getMonthRange42(y, m){
   const first = new Date(y,m,1);
   const start = new Date(first);
   start.setDate(first.getDate() - ((first.getDay()+6)%7)); // Monday on/before 1st
-  const end = new Date(start);
-  end.setDate(start.getDate() + 41); // 42 days inclusive
-  return { start, end };
+  return { start };
 }
 
 function render(){
-  // Title: month based on view in month/week, selected in day
   const titleDate = (mode==="day") ? selected : view;
   title.textContent = titleDate.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
 
@@ -600,8 +669,10 @@ function render(){
 
       eventsFor(dISO).forEach(e=>{
         const ev=document.createElement("div");
-        ev.className=`event ${e.type}`;
-        const suffix = e.dur ? ` • ${e.dur}` : "";
+        ev.className=`event monthEvent ${e.type}${e.carry?" carry":""}`;
+
+        // Month view: single line to keep tidy
+        const suffix = (e.dur && !e.carry) ? ` • ${e.dur}` : (e.dur && e.carry ? ` • ${e.dur}` : "");
         ev.textContent = `${e.t || "—"} • ${e.a || "(No address)"}${suffix}`;
 
         ev.onclick=(evt)=>{
@@ -623,7 +694,6 @@ function render(){
   }
 
   if(mode==="week"){
-    // ✅ FULL MONTH RANGE but horizontal like before (7 columns)
     const y=view.getFullYear(), m=view.getMonth();
     const { start } = getMonthRange42(y, m);
 
@@ -663,9 +733,21 @@ function render(){
       }else{
         evs.forEach(e=>{
           const ev=document.createElement("div");
-          ev.className=`event ${e.type}`;
-          const suffix = e.dur ? ` • ${e.dur}` : "";
-          ev.textContent = `${e.t || "—"} • ${e.a || "(No address)"}${suffix}`;
+          ev.className=`event weekEvent ${e.type}${e.carry?" carry":""}`;
+
+          const top = document.createElement("span");
+          top.className = "weekEventTop";
+          // line 1: time + address
+          top.textContent = `${e.t || "—"} • ${e.a || "(No address)"}`;
+          ev.appendChild(top);
+
+          // line 2: duration centered under address
+          if(e.dur){
+            const dur = document.createElement("span");
+            dur.className = "weekEventDur" + (e.carry ? " carryDur" : "");
+            dur.textContent = e.dur; // ✅ includes 0.5 day / 1.5 days
+            ev.appendChild(dur);
+          }
 
           ev.onclick=(evt)=>{
             evt.stopPropagation();
