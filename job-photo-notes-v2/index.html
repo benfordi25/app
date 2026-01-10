@@ -95,7 +95,14 @@
       border-radius: var(--r2);
       overflow:hidden;
     }
-    .itemTop{display:flex;gap:10px;padding:12px;align-items:flex-start}
+
+    /* Top row inside each photo item */
+    .itemTop{
+      display:flex;
+      gap:10px;
+      padding:12px;
+      align-items:flex-start;
+    }
     .thumb{
       width:92px;height:92px;border-radius:14px;
       border:1px solid rgba(255,255,255,.14);
@@ -104,10 +111,36 @@
       flex:0 0 auto;
     }
     .meta{flex:1;min-width:0}
+    .metaHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:6px;
+    }
+    .metaLeft{min-width:0}
     .meta .t{margin:0;font-weight:900;font-size:14px}
-    .meta .s{margin:4px 0 8px;font-size:12px;color:var(--muted)}
-    .itemBtns{display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 12px}
+    .meta .s{margin:4px 0 0;font-size:12px;color:var(--muted)}
+    .dangerTop{
+      padding:8px 10px;
+      border-radius:12px;
+      font-size:13px;
+      border-color: rgba(239,68,68,.55);
+      background: rgba(239,68,68,.10);
+      white-space:nowrap;
+    }
+
+    .itemBtns{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:0 12px 12px;
+    }
     .small{padding:9px 12px;border-radius:12px;font-size:13px}
+    .ghost{
+      border-color: rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+    }
   </style>
 </head>
 
@@ -155,7 +188,7 @@
         <button id="btnGallery" class="primary" type="button">🖼️ Gallery</button>
         <button id="btnPdf" class="good" type="button">🧾 Generate PDF</button>
         <button id="btnShare" class="primary" type="button" disabled>📤 Share PDF (WhatsApp)</button>
-        <button id="btnClear" class="bad" type="button">🗑️ Clear</button>
+        <button id="btnClear" class="bad" type="button">🗑️ Clear All</button>
       </div>
 
       <div class="hint" id="status">Ready.</div>
@@ -179,7 +212,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // ---- SW/cache clear (doesn't wipe your stored notes/photos) ----
   async function killServiceWorkersAndCachesOnce(){
     try{
       if ('serviceWorker' in navigator) {
@@ -276,7 +308,8 @@
   // -------- end GPS helpers --------
 
   const STORE = "fps_photo_notes_v2_store";
-  const VERSION_STAMP = "v2.0.5-objecturl-import";
+  const VERSION_STAMP = "v2.0.6-clear-notes-move-delete";
+
   function setStatus(msg){ $("status").textContent = msg; }
   function setDebug(msg){ $("debug").textContent = msg || ""; }
 
@@ -405,15 +438,24 @@
         <div class="itemTop">
           <img class="thumb" src="${p.img}" alt="Photo ${idx+1}">
           <div class="meta">
-            <p class="t">Photo ${idx+1}</p>
-            <p class="s">${ukDate(p.ts)} ${ukTime(p.ts)}</p>
+            <div class="metaHead">
+              <div class="metaLeft">
+                <p class="t">Photo ${idx+1}</p>
+                <p class="s">${ukDate(p.ts)} ${ukTime(p.ts)}</p>
+              </div>
+              <!-- ✅ Delete Photo moved to top-right -->
+              <button class="dangerTop" type="button" data-del="${p.id}">🗑️ Delete Photo</button>
+            </div>
             <textarea placeholder="Notes…">${p.note || ""}</textarea>
           </div>
         </div>
+
         <div class="itemBtns">
           <button class="small primary" type="button" ${dictationSupported ? "" : "disabled"} data-dict="${p.id}">🎙️ Dictate</button>
-          <button class="small" type="button" disabled data-stop="${p.id}">⏹️ Stop</button>
-          <button class="small bad" type="button" data-del="${p.id}">🗑️ Delete</button>
+          <button class="small ghost" type="button" disabled data-stop="${p.id}">⏹️ Stop</button>
+
+          <!-- ✅ NEW: Clear notes only -->
+          <button class="small" type="button" data-clearnote="${p.id}">🧽 Clear Notes</button>
         </div>
       `;
 
@@ -425,12 +467,25 @@
         $("btnShare").disabled = true;
       });
 
+      // Delete photo (now top-right)
       item.querySelector(`[data-del="${p.id}"]`).onclick = () => {
+        if(!confirm("Delete this photo?")) return;
         state.photos = state.photos.filter(x => x.id !== p.id);
         save();
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
         render();
+      };
+
+      // Clear notes only
+      item.querySelector(`[data-clearnote="${p.id}"]`).onclick = () => {
+        if(!confirm("Clear notes for this photo only?")) return;
+        p.note = "";
+        ta.value = "";
+        save();
+        pdfBlob = pdfFile = null;
+        $("btnShare").disabled = true;
+        setStatus("Notes cleared for that photo.");
       };
 
       const btnDict = item.querySelector(`[data-dict="${p.id}"]`);
@@ -689,7 +744,7 @@
   };
 
   $("btnClear").onclick = () => {
-    if (!confirm("Clear all photos and notes for this report?")) return;
+    if (!confirm("Clear ALL photos and notes for this report?")) return;
     state.photos = [];
     save();
     pdfBlob = pdfFile = null;
