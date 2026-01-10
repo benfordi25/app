@@ -963,12 +963,17 @@
       py = sectionBar(title, py);
 
       const gap = 4;
-      const boxW = (pageW - margin*2 - gap) / 2;
       const boxH = 78;
+
+      // IMPORTANT FIX:
+      // Use INNER container width (usableW minus padding) to size the 2 columns,
+      // otherwise column 2 spills past the outer border and overlaps it.
+      const containerPad = 4;
+      const innerW = usableW - (containerPad * 2);
+      const boxW = (innerW - gap) / 2;
 
       const rows = Math.ceil(photos.length / 2);
       const innerH = rows * boxH + (rows - 1) * gap;
-      const containerPad = 4;
       const containerH = innerH + containerPad*2;
 
       box(margin, py, usableW, containerH, 2);
