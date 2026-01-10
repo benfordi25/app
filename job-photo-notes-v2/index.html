@@ -313,7 +313,7 @@
   // -------- end GPS helpers --------
 
   const STORE = "fps_photo_notes_v2_store";
-  const VERSION_STAMP = "v2.0.7-hold-delete-subject";
+  const VERSION_STAMP = "v2.0.8-bullet-dictation";
 
   function setStatus(msg){ $("status").textContent = msg; }
   function setDebug(msg){ $("debug").textContent = msg || ""; }
@@ -331,7 +331,6 @@
   function load(){
     const raw = localStorage.getItem(STORE);
     if (raw) { try { state = JSON.parse(raw); } catch {} }
-    // Backward compatible: ensure subject exists
     state.photos = (state.photos || []).map(p => ({ subject: p.subject || "", ...p }));
 
     $("address").value = state.address || "";
@@ -426,6 +425,39 @@
   const dictationSupported = !!SpeechRecognition;
   $("speechPill").textContent = dictationSupported ? "Dictation: supported" : "Dictation: not supported";
 
+  // --- Bullet helpers ---
+  const BULLET = "• ";
+  function ensureEndsWithNewline(text){
+    if(!text) return "";
+    return text.endsWith("\n") ? text : (text + "\n");
+  }
+  function prepareBulletPrefix(currentText){
+    const t = (currentText || "");
+    const trimmed = t.trimEnd();
+    if(!trimmed) return BULLET;
+
+    // If last non-space line is already just a bullet prefix, don't add another
+    const lines = trimmed.split("\n");
+    const last = lines[lines.length - 1].trim();
+    if(last === "•" || last === "•") return ""; // safe guard (rare)
+    if(last === BULLET.trim()) return "";
+
+    return ensureEndsWithNewline(t) + BULLET;
+  }
+  function appendDictationAsBullet(textAreaValue, dictatedText){
+    const base = prepareBulletPrefix(textAreaValue);
+    // if base already includes existing content, base is full text; if just BULLET, it's just prefix
+    if(base.startsWith(BULLET) && !(textAreaValue||"").trim()) {
+      return BULLET + (dictatedText || "").trim();
+    }
+    if(base === "") {
+      // already had bullet ready
+      return (textAreaValue || "").replace(/\s*$/, "") + " " + (dictatedText||"").trim();
+    }
+    return base + (dictatedText || "").trim();
+  }
+  // --- end bullet helpers ---
+
   function render(){
     $("countPill").textContent = `${state.photos.length} photo${state.photos.length===1?"":"s"}`;
     const list = $("list");
@@ -452,7 +484,6 @@
                 <p class="s">${ukDate(p.ts)} ${ukTime(p.ts)}</p>
               </div>
 
-              <!-- ✅ HOLD TO DELETE (2s) -->
               <button class="dangerTop" type="button" data-del="${p.id}">
                 🗑️ Hold 2s
                 <span class="holdBar" aria-hidden="true"><span class="holdFill" data-fill="${p.id}"></span></span>
@@ -478,7 +509,6 @@
         save();
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
-        // update title line live without full rerender:
         const titleEl = item.querySelector(".t");
         titleEl.textContent = `Photo ${idx+1}${p.subject ? " • " + p.subject : ""}`;
       });
@@ -491,7 +521,6 @@
         $("btnShare").disabled = true;
       });
 
-      // Clear notes only
       item.querySelector(`[data-clearnote="${p.id}"]`).onclick = () => {
         if(!confirm("Clear notes for this photo only?")) return;
         p.note = "";
@@ -529,7 +558,6 @@
             holdTimer = null;
             fill.style.width = "100%";
 
-            // do delete
             state.photos = state.photos.filter(x => x.id !== p.id);
             save();
             pdfBlob = pdfFile = null;
@@ -540,13 +568,12 @@
         }, 30);
       };
 
-      // pointer events cover touch + mouse
       delBtn.addEventListener("pointerdown", (ev) => { ev.preventDefault(); startHold(); });
       delBtn.addEventListener("pointerup", cancelHold);
       delBtn.addEventListener("pointerleave", cancelHold);
       delBtn.addEventListener("pointercancel", cancelHold);
 
-      // Dictation
+      // Dictation (bullet-per-session)
       const btnDict = item.querySelector(`[data-dict="${p.id}"]`);
       const btnStop = item.querySelector(`[data-stop="${p.id}"]`);
 
@@ -559,11 +586,17 @@
 
           btnDict.disabled = true;
           btnStop.disabled = false;
-          setStatus("Listening… speak your note.");
 
-          const existing = (ta.value || "").trim();
+          // Start a new bullet immediately (so user sees it)
+          const base = prepareBulletPrefix(ta.value);
+          if(base){
+            ta.value = base;
+            p.note = ta.value;
+            save();
+          }
+          setStatus("Listening… speak your bullet point.");
+
           let finalText = "";
-
           btnStop.onclick = () => { try{ rec.stop(); }catch{} };
 
           rec.onresult = (e) => {
@@ -573,8 +606,20 @@
               if (e.results[i].isFinal) finalText += t;
               else interim += t;
             }
-            const combined = (existing ? existing + " " : "") + (finalText + interim).trim();
-            ta.value = combined.trim();
+            const spoken = (finalText + interim).trim();
+            if(!spoken) return;
+
+            // Put spoken words after the current bullet prefix (and keep updating live)
+            const current = ta.value || "";
+            // If current ends with just "• " (or has bullet at end), append spoken
+            // otherwise, replace everything after last bullet prefix for live update
+            const lastBulletIdx = current.lastIndexOf(BULLET);
+            if(lastBulletIdx !== -1){
+              const before = current.slice(0, lastBulletIdx + BULLET.length);
+              ta.value = before + spoken;
+            }else{
+              ta.value = appendDictationAsBullet(current, spoken);
+            }
             p.note = ta.value;
             save();
           };
@@ -589,6 +634,11 @@
             setStatus("Ready.");
             btnDict.disabled = false;
             btnStop.disabled = true;
+
+            // When dictation ends, ensure the bullet line is clean (no trailing spaces)
+            ta.value = (ta.value || "").replace(/[ \t]+$/g, "");
+            p.note = ta.value;
+            save();
           };
 
           try { rec.start(); } catch {
@@ -603,7 +653,6 @@
     });
   }
 
-  // Simple escaping helpers (for safe attribute/text injection)
   function escapeHtml(str){
     return String(str||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
@@ -611,7 +660,6 @@
     return escapeHtml(str).replace(/"/g, "&quot;");
   }
 
-  // ✅ Reliable import: objectURL -> Image -> canvas -> JPEG dataURL
   function looksLikeImage(file){
     const name = (file?.name || "").toLowerCase();
     const extOk = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
@@ -693,7 +741,6 @@
   $("cameraInput").addEventListener("change", handleFiles);
   $("galleryInput").addEventListener("change", handleFiles);
 
-  // PDF / share / clear
   $("btnPdf").onclick = async () => {
     if (!state.address.trim()) { alert("Add the property address first."); return; }
     if (!state.photos.length) { alert("Add at least one photo first."); return; }
