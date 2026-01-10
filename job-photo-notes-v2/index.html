@@ -246,6 +246,7 @@
         <button id="btnGallery" class="primary" type="button">🖼️ Gallery</button>
         <button id="btnPdf" class="good" type="button">🧾 Generate PDF</button>
         <button id="btnShare" class="primary" type="button" disabled>📤 Share PDF (WhatsApp)</button>
+        <button id="btnDownload" class="primary" type="button" disabled>⬇️ Download PDF</button>
         <button id="btnClear" class="bad" type="button">🗑️ Clear All</button>
       </div>
 
@@ -390,7 +391,7 @@
   }
 
   const STORE = "fps_photo_notes_v2_store";
-  const VERSION_STAMP = "v2.2.0-clean-pdf-no-timestamps";
+  const VERSION_STAMP = "v2.3.0-keep-block-together-download";
 
   function setStatus(msg){ $("status").textContent = msg; }
   function setDebug(msg){ $("debug").textContent = msg || ""; }
@@ -558,6 +559,7 @@
         save();
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
+        $("btnDownload").disabled = true;
         setStatus("Photo deleted.");
         if(navigator.vibrate) navigator.vibrate(90);
         render();
@@ -646,10 +648,11 @@
     save();
     pdfBlob = pdfFile = null;
     $("btnShare").disabled = true;
+    $("btnDownload").disabled = true;
     render();
 
     if (added) setStatus(`Photos added: ${added}${skipped ? ` (skipped ${skipped})` : ""}.`);
-    else setStatus("No photos added. (Some phones save HEIC; switch Camera settings to JPEG if needed.)");
+    else setStatus("No photos added. (If your phone uses HEIC, switch Camera settings to JPEG.)");
     e.target.value = "";
   }
 
@@ -712,6 +715,7 @@
         save();
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
+        $("btnDownload").disabled = true;
         item.querySelector(".t").textContent = `Photo ${idx+1}${p.subject ? " • " + p.subject : ""}`;
       });
 
@@ -721,6 +725,7 @@
         save();
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
+        $("btnDownload").disabled = true;
       });
 
       item.querySelector(`[data-clearnote="${p.id}"]`).onclick = () => {
@@ -730,6 +735,7 @@
         save();
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
+        $("btnDownload").disabled = true;
         setStatus("Notes cleared for that photo.");
       };
 
@@ -805,7 +811,7 @@
     });
   }
 
-  // ---------- CLEAN PROFESSIONAL PDF (NO TIMESTAMPS) ----------
+  // ---------- PDF helpers ----------
   function addPageNumbers(doc){
     const pageCount = doc.getNumberOfPages();
     for(let i=1;i<=pageCount;i++){
@@ -819,6 +825,22 @@
     }
   }
 
+  function downloadLastPdf(){
+    if(!pdfBlob){ alert("Generate the PDF first."); return; }
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = pdfName || "photo-notes.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    setStatus("PDF downloaded.");
+  }
+
+  $("btnDownload").onclick = downloadLastPdf;
+
+  // ---------- CLEAN PROFESSIONAL PDF (NO TIMESTAMPS, KEEP PHOTO+NOTES TOGETHER) ----------
   $("btnPdf").onclick = async () => {
     if (!state.address.trim()) { alert("Add the property address first."); return; }
     if (!state.photos.length) { alert("Add at least one photo first."); return; }
@@ -833,7 +855,6 @@
     const margin = 12;
     const contentW = pageW - margin*2;
 
-    // Style
     const border = 210;
     const dark = 20;
     const mid = 110;
@@ -848,7 +869,6 @@
       doc.setLineWidth(0.3);
       doc.line(margin, y, pageW - margin, y);
     }
-
     function card(x, y, w, h){
       doc.setDrawColor(border);
       doc.setLineWidth(0.3);
@@ -862,6 +882,14 @@
         img.onerror = reject;
         img.src = dataURL;
       });
+    }
+
+    function ensureSpace(neededHeight, y){
+      if (y + neededHeight > pageH - 12) {
+        doc.addPage();
+        return 18;
+      }
+      return y;
     }
 
     // Header
@@ -903,41 +931,47 @@
 
     y += infoH + 10;
 
-    // Photos
+    // Photos: keep each block together
     for (let i=0; i<state.photos.length; i++){
       const p = state.photos[i];
       const subjectLine = (p.subject || "").trim();
 
-      // Title
-      if (y > pageH - 40) { doc.addPage(); y = 18; }
+      const note = (p.note || "").trim() || "—";
+      const noteLines = doc.splitTextToSize(note, contentW - 8);
+      const noteBoxH = Math.max(14, (noteLines.length * 5) + 8);
 
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(11);
-      doc.setTextColor(dark);
-      doc.text(`Photo ${i+1}${subjectLine ? " — " + subjectLine : ""}`, margin, y);
-
-      y += 5;
-
-      // Image box
-      const maxImgH = 85;
+      // Determine image draw size (same logic we will use for actual drawing)
       const img = await dataURLToImage(p.img);
       const imgWpx = img.naturalWidth || img.width;
       const imgHpx = img.naturalHeight || img.height;
 
+      const titleH = 10;        // title + gap
+      const imgMaxH = 85;
       let drawW = contentW;
       let drawH = (imgHpx / imgWpx) * drawW;
-      if (drawH > maxImgH) { drawH = maxImgH; drawW = (imgWpx / imgHpx) * drawH; }
+      if (drawH > imgMaxH) { drawH = imgMaxH; drawW = (imgWpx / imgHpx) * drawH; }
+
+      const imgCardH = drawH + 6;
+      const notesH = 4 + noteBoxH + 6; // "Notes" label + box + gap
+      const blockH = titleH + imgCardH + notesH + 8;
+
+      // If block doesn't fit, move to next page BEFORE drawing it
+      y = ensureSpace(blockH, y);
+
+      // Title
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(11);
+      doc.setTextColor(dark);
+      doc.text(`Photo ${i+1}${subjectLine ? " — " + subjectLine : ""}`, margin, y);
+      y += 5;
+
+      // Image card
       const xImg = margin + (contentW - drawW)/2;
-
-      if (y + drawH + 18 > pageH - 12) { doc.addPage(); y = 18; }
-
-      card(margin, y, contentW, drawH + 6);
+      card(margin, y, contentW, imgCardH);
       doc.addImage(p.img, "JPEG", xImg, y+3, drawW, drawH);
+      y += imgCardH + 6;
 
-      y += drawH + 12;
-
-      // Notes box
-      const note = (p.note || "").trim() || "—";
+      // Notes label + box (kept together with this photo block)
       doc.setFont("helvetica","bold");
       doc.setFontSize(10);
       doc.setTextColor(dark);
@@ -948,18 +982,12 @@
       doc.setFontSize(10);
       doc.setTextColor(dark);
 
-      const lines = doc.splitTextToSize(note, contentW - 8);
-      const boxH = Math.max(14, (lines.length * 5) + 8);
+      card(margin, y, contentW, noteBoxH);
+      doc.text(noteLines, margin+4, y+6);
 
-      if (y + boxH > pageH - 12) { doc.addPage(); y = 18; }
-
-      card(margin, y, contentW, boxH);
-      doc.text(lines, margin+4, y+6);
-
-      y += boxH + 12;
+      y += noteBoxH + 12;
     }
 
-    // Footer page numbers
     addPageNumbers(doc);
 
     pdfBlob = doc.output("blob");
@@ -968,7 +996,8 @@
     pdfFile = new File([pdfBlob], pdfName, { type:"application/pdf" });
 
     $("btnShare").disabled = false;
-    setStatus("PDF generated. Tap Share PDF and choose WhatsApp.");
+    $("btnDownload").disabled = false;
+    setStatus("PDF generated. Tap Share or Download.");
   };
 
   $("btnShare").onclick = async () => {
@@ -980,16 +1009,8 @@
         return;
       }catch(e){}
     }
-    const url = URL.createObjectURL(pdfBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = pdfName || "photo-notes.pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-    alert("Your browser can’t share files directly. The PDF was downloaded—attach it in WhatsApp.");
-    setStatus("PDF downloaded.");
+    downloadLastPdf();
+    alert("If Share isn’t supported on this device, the PDF downloads—attach it in WhatsApp.");
   };
 
   $("btnClear").onclick = () => {
@@ -998,6 +1019,7 @@
     save();
     pdfBlob = pdfFile = null;
     $("btnShare").disabled = true;
+    $("btnDownload").disabled = true;
     setStatus("Cleared.");
     render();
   };
