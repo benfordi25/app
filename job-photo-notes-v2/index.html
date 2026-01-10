@@ -158,9 +158,8 @@
         <button id="btnClear" class="bad" type="button">🗑️ Clear</button>
       </div>
 
-      <div class="hint" id="status">
-        Add photos, dictate notes per photo, then generate and share a PDF.
-      </div>
+      <div class="hint" id="status">Ready.</div>
+      <div class="hint" id="debug"></div>
 
       <input id="cameraInput" type="file" accept="image/*" capture="environment" multiple hidden>
       <input id="galleryInput" type="file" accept="image/*" multiple hidden>
@@ -180,6 +179,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
+  // ---- SW/cache clear (doesn't wipe your stored notes/photos) ----
   async function killServiceWorkersAndCachesOnce(){
     try{
       if ('serviceWorker' in navigator) {
@@ -200,18 +200,16 @@
     if(!res.ok) throw new Error("Reverse geocode failed");
     return await res.json();
   }
-  function setGpsHint(msg){ const el = $("gpsHint"); if(el) el.textContent = msg || ""; }
-  function setHouseHint(msg){ const el = $("houseHint"); if(el) el.textContent = msg || ""; }
+  function setGpsHint(msg){ $("gpsHint").textContent = msg || ""; }
+  function setHouseHint(msg){ $("houseHint").textContent = msg || ""; }
   function pickTown(a){ return a.town || a.city || a.village || a.suburb || a.county || ""; }
   function buildAddress(houseNumber, road, town, postcode){
     const line1 = [houseNumber, road].filter(Boolean).join(" ").trim();
     return [line1, town, postcode].filter(Boolean).join(", ").trim();
   }
-
   async function fetchNearbyFullAddresses({road, town, postcode, lat, lon}){
     const d = 0.01;
     const left = lon - d, right = lon + d, top = lat + d, bottom = lat - d;
-
     const params = new URLSearchParams({
       format: "jsonv2",
       addressdetails: "1",
@@ -223,7 +221,6 @@
       viewbox: `${left},${top},${right},${bottom}`,
       bounded: "1"
     });
-
     const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
     const res = await fetch(url, { headers: { "Accept":"application/json", "Accept-Language":"en-GB" } });
     if(!res.ok) throw new Error("Nearby address search failed");
@@ -231,7 +228,6 @@
 
     const seen = new Set();
     const list = [];
-
     for(const r of results){
       const a = r.address || {};
       const hn = (a.house_number || "").trim();
@@ -250,34 +246,27 @@
 
       list.push({ label: full, house: hn, road: rRoad || road, town: t, postcode: pc });
     }
-
     list.sort((A,B)=>{
       const na = parseInt(A.house,10), nb = parseInt(B.house,10);
       if(!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
       return A.label.localeCompare(B.label, "en-GB", {numeric:true, sensitivity:"base"});
     });
-
     return list.slice(0, 40);
   }
-
   function showAddressPicker(addresses, preselectLabel){
     const wrap = $("houseWrap");
     const sel = $("houseSelect");
-    if(!wrap || !sel) return;
-
     sel.innerHTML = "";
     const opt0 = document.createElement("option");
     opt0.value = "";
     opt0.textContent = "Select the correct address…";
     sel.appendChild(opt0);
-
     addresses.forEach((a) => {
       const opt = document.createElement("option");
       opt.value = a.label;
       opt.textContent = a.label;
       sel.appendChild(opt);
     });
-
     wrap.style.display = addresses.length ? "block" : "none";
     if(preselectLabel){
       const found = addresses.find(x => x.label.toLowerCase() === preselectLabel.toLowerCase());
@@ -287,8 +276,9 @@
   // -------- end GPS helpers --------
 
   const STORE = "fps_photo_notes_v2_store";
-  const VERSION_STAMP = "v2.0.4-fix-multi-delete";
+  const VERSION_STAMP = "v2.0.5-objecturl-import";
   function setStatus(msg){ $("status").textContent = msg; }
+  function setDebug(msg){ $("debug").textContent = msg || ""; }
 
   function todayISO(){ return new Date().toISOString().slice(0,10); }
   function ukDate(d){ return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"}); }
@@ -371,7 +361,6 @@
               house: picked?.house || hn || null
             };
             save();
-
             setHouseHint("Selected address applied.");
           };
         } else {
@@ -500,81 +489,93 @@
     });
   }
 
-  async function fileToDataURL(file){
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(r.result);
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
-  }
-
-  // ✅ Camera + Gallery handlers
-  $("btnCamera").onclick = () => $("cameraInput").click();
-  $("btnGallery").onclick = () => $("galleryInput").click();
-
+  // ✅ Reliable import: objectURL -> Image -> canvas -> JPEG dataURL
   function looksLikeImage(file){
     const name = (file?.name || "").toLowerCase();
     const extOk = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
     const typeOk = (file?.type || "").startsWith("image/");
-    // Some Android pickers give empty type — allow by extension
     return typeOk || extOk;
   }
+
+  function loadImageFromObjectURL(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image load failed")); };
+      img.src = url;
+    });
+  }
+
+  function compressToJpegDataURL(img, maxW=1600, maxH=1600, quality=0.85){
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const scale = Math.min(1, maxW / w, maxH / h);
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+
+    const c = document.createElement("canvas");
+    c.width = cw; c.height = ch;
+    const ctx = c.getContext("2d", { alpha:false });
+    ctx.drawImage(img, 0, 0, cw, ch);
+    return c.toDataURL("image/jpeg", quality);
+  }
+
+  $("btnCamera").onclick = () => $("cameraInput").click();
+  $("btnGallery").onclick = () => $("galleryInput").click();
 
   async function handleFiles(e){
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
     setStatus(`Adding ${files.length} photo(s)…`);
-    let added = 0;
-    let skipped = 0;
+    setDebug(`Picker returned ${files.length} file(s).`);
 
-    try{
-      for (const f of files) {
-        if (!f) continue;
+    let added = 0, skipped = 0;
 
-        if (!looksLikeImage(f)) { skipped++; continue; }
+    for (const f of files) {
+      try{
+        if (!f || !looksLikeImage(f)) { skipped++; continue; }
 
-        try{
-          const dataURL = await fileToDataURL(f);
-          // If the data URL isn't image/*, skip it (prevents crashes)
-          if (typeof dataURL !== "string" || !dataURL.startsWith("data:image/")) { skipped++; continue; }
+        const img = await loadImageFromObjectURL(f);
+        const dataURL = compressToJpegDataURL(img, 1600, 1600, 0.85);
 
-          state.photos.push({
-            id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
-            img: dataURL,
-            note: "",
-            ts: new Date().toISOString()
-          });
-          added++;
-        }catch(err){
-          console.warn("Photo read failed:", err);
-          skipped++;
-        }
+        if (!dataURL.startsWith("data:image/")) { skipped++; continue; }
+
+        state.photos.push({
+          id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
+          img: dataURL,
+          note: "",
+          ts: new Date().toISOString()
+        });
+        added++;
+      }catch(err){
+        console.warn("Import fail:", err);
+        skipped++;
       }
-    }finally{
-      save();
-      pdfBlob = pdfFile = null;
-      $("btnShare").disabled = true;
-      render();
-
-      if (added > 0) setStatus(`Photos added: ${added}${skipped ? ` (skipped ${skipped})` : ""}.`);
-      else setStatus("No supported images were added. (If your phone uses HEIC, switch camera format to JPEG.)");
-
-      // IMPORTANT: reset input so selecting same photo again still triggers change
-      e.target.value = "";
     }
+
+    save();
+    pdfBlob = pdfFile = null;
+    $("btnShare").disabled = true;
+
+    render();
+
+    if (added) setStatus(`Photos added: ${added}${skipped ? ` (skipped ${skipped})` : ""}.`);
+    else setStatus("No photos added. (Some phones save HEIC; switch Camera settings to JPEG if needed.)");
+
+    e.target.value = "";
   }
 
   $("cameraInput").addEventListener("change", handleFiles);
   $("galleryInput").addEventListener("change", handleFiles);
 
+  // PDF / share / clear (unchanged)
   $("btnPdf").onclick = async () => {
     if (!state.address.trim()) { alert("Add the property address first."); return; }
     if (!state.photos.length) { alert("Add at least one photo first."); return; }
 
     setStatus("Generating PDF…");
-
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:"p", unit:"mm", format:"a4" });
 
@@ -587,7 +588,7 @@
     doc.text("PHOTO NOTES REPORT", margin, 16);
 
     doc.setFont("helvetica","normal"); doc.setFontSize(10);
-    doc.text(`Date: ${ukDate(state.date)}   App: ${VERSION_STAMP}`, margin, 22);
+    doc.text(`Date: ${new Date(state.date).toLocaleDateString("en-GB")}   App: ${VERSION_STAMP}`, margin, 22);
 
     doc.setFont("helvetica","bold"); doc.text("Property Address:", margin, 30);
     doc.setFont("helvetica","normal"); doc.text(state.address, margin, 36, { maxWidth: contentW });
@@ -618,7 +619,6 @@
 
     for (let i=0; i<state.photos.length; i++){
       const p = state.photos[i];
-
       if (y > pageH - 30) { doc.addPage(); y = 18; }
 
       doc.setFont("helvetica","bold"); doc.setFontSize(11);
