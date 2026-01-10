@@ -1140,6 +1140,25 @@
       }
     }
 
+    // ✅ NEW: set invoice ref from button on "Works Completed – Invoice Required"
+    function setInvoiceRef(jobId){
+      const job = jobs.find(j=>j.id===jobId);
+      if(!job) return;
+
+      const current = (job.invRef || "").trim();
+      const v = prompt("Enter invoice number / reference:", current);
+      if(v === null) return; // cancelled
+
+      job.invRef = String(v).trim();
+      job.updatedAt = new Date().toISOString();
+      save();
+      renderAll();
+
+      if(detailsBack.style.display==="flex" && detailsJobId===jobId){
+        openDetailsModal(jobId);
+      }
+    }
+
     // ===== Details =====
     function closeDetails(){
       detailsBack.style.display = "none";
@@ -1769,6 +1788,8 @@
           }
 
           if(job.status === "works_done_invoice_required"){
+            // ✅ NEW: Invoice number button
+            btns.push(`<button type="button" class="warn" data-act="invoiceNo">Invoice No</button>`);
             btns.push(`<button type="button" class="ok" data-act="move" data-to="invoice_sent_complete">Invoiced</button>`);
           }
 
@@ -1812,6 +1833,10 @@
 
           const bookBtn = el.querySelector('[data-act="book"]');
           if(bookBtn) bookBtn.addEventListener('click', ()=> openBookNow(job.id));
+
+          // ✅ NEW: invoice number button handler
+          const invBtn = el.querySelector('[data-act="invoiceNo"]');
+          if(invBtn) invBtn.addEventListener("click", ()=> setInvoiceRef(job.id));
 
           el.querySelectorAll('[data-act="move"]').forEach(b=>{
             b.addEventListener("click", ()=>{
