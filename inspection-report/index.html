@@ -230,7 +230,6 @@
     .photoTop .title{font-weight:950;letter-spacing:.2px}
     .btnRow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
-    /* Thumbs grid gets denser to handle up to 20 nicely */
     .thumbs{
       display:grid; grid-template-columns: repeat(4, 1fr);
       gap:8px; margin-top:10px;
@@ -280,10 +279,7 @@
       <div class="actions">
         <span class="pill"><strong>Report ID:</strong> <span id="reportIdText"></span></span>
         <span class="pill"><strong>Finalised:</strong> <span id="finalisedText">—</span></span>
-
-        <!-- NEW: Save Draft -->
         <button id="saveDraftBtn" type="button">Save Draft</button>
-
         <button id="newBtn" class="danger" type="button">New Report</button>
         <button id="pdfBtn" class="primary" type="button">Generate PDF</button>
       </div>
@@ -455,7 +451,6 @@
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
   }
-
   function makeReportId(){
     const d = new Date();
     const dd = pad2(d.getDate());
@@ -672,9 +667,7 @@
       if(d.reportId) state.reportId = d.reportId;
       state.finalised = d.finalised ? new Date(d.finalised) : null;
 
-      if(d.logoDataUrl){
-        setLogo(d.logoDataUrl);
-      }
+      if(d.logoDataUrl) setLogo(d.logoDataUrl);
 
       lettingAgent.value = d.lettingAgent || "";
       propertyAddress.value = d.propertyAddress || "";
@@ -704,63 +697,7 @@
     try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
   }
 
-  // ===== INIT (logo + draft) =====
-  (async ()=>{
-    const savedLogo = localStorage.getItem('fps_logo_v1');
-    if(savedLogo){
-      setLogo(savedLogo);
-    }else{
-      const ok = await loadLockedLogoFallback();
-      if(!ok) setLogo(null);
-    }
-
-    // Load draft after logo (draft may contain logoDataUrl anyway)
-    const hadDraft = loadDraft();
-    setReportIdUI(); setFinalisedUI(); setDateCompletedUI(); updateEvidenceMarks(); updatePhotoCounts();
-
-    // Render thumbs (after draft load)
-    renderThumbs(state.beforePhotos, beforeThumbs, (i)=> removeBefore(i));
-    renderThumbs(state.afterPhotos, afterThumbs, (i)=> removeAfter(i));
-
-    // If no draft existed, do a first autosave so reportId persists
-    if(!hadDraft){
-      saveDraft(false);
-    }else{
-      showToast('Draft loaded');
-    }
-  })();
-
-  setReportIdUI(); setFinalisedUI(); setDateCompletedUI(); updateEvidenceMarks(); updatePhotoCounts();
-  dateCompletedISO.addEventListener('input', ()=>{ setDateCompletedUI(); scheduleAutoSave(); });
-
-  beforeTick.addEventListener('change', ()=>{ updateEvidenceMarks(); scheduleAutoSave(); });
-  afterTick.addEventListener('change', ()=>{ updateEvidenceMarks(); scheduleAutoSave(); });
-
-  invoiceRequired.addEventListener('change', scheduleAutoSave);
-  estimateRequired.addEventListener('change', scheduleAutoSave);
-  extraAttachments.addEventListener('change', scheduleAutoSave);
-
-  lettingAgent.addEventListener('input', scheduleAutoSave);
-  propertyAddress.addEventListener('input', scheduleAutoSave);
-  invoiceNumber.addEventListener('input', scheduleAutoSave);
-  estimateNumber.addEventListener('input', scheduleAutoSave);
-  worksNotes.addEventListener('input', scheduleAutoSave);
-
-  saveDraftBtn.addEventListener('click', ()=> saveDraft(true));
-
-  // Logo upload
-  logoBox.addEventListener('click', ()=> logoInput.click());
-  logoInput.addEventListener('change', async (e)=>{
-    const file = e.target.files && e.target.files[0];
-    if(!file) return;
-    const dataUrl = await fileToDataURL(file, 900, 0.90);
-    setLogo(dataUrl);
-    localStorage.setItem('fps_logo_v1', dataUrl);
-    saveDraft(false);
-    showToast('Logo saved');
-  });
-
-  // Photos
+  // ===== Photos UI =====
   function renderThumbs(list, container, onRemove){
     container.innerHTML = '';
     list.forEach((p, i)=>{
@@ -778,17 +715,16 @@
     });
   }
 
-  function updateAllPhotoUI(){
-    updatePhotoCounts();
-    updateEvidenceMarks();
-    renderThumbs(state.beforePhotos, beforeThumbs, (i)=> removeBefore(i));
-    renderThumbs(state.afterPhotos, afterThumbs, (i)=> removeAfter(i));
-  }
-
   function autoTickFromPhotos(){
     beforeTick.checked = state.beforePhotos.length > 0;
     afterTick.checked  = state.afterPhotos.length > 0;
     updateEvidenceMarks();
+  }
+
+  function updateAllPhotoUI(){
+    updatePhotoCounts();
+    renderThumbs(state.beforePhotos, beforeThumbs, (i)=> removeBefore(i));
+    renderThumbs(state.afterPhotos, afterThumbs, (i)=> removeAfter(i));
   }
 
   function removeBefore(i){
@@ -817,20 +753,69 @@
     scheduleAutoSave();
   }
 
-  const beforeGalleryBtn = document.getElementById('beforeGalleryBtn');
-  const beforeCameraBtn  = document.getElementById('beforeCameraBtn');
-  const afterGalleryBtn  = document.getElementById('afterGalleryBtn');
-  const afterCameraBtn   = document.getElementById('afterCameraBtn');
+  // ===== Init =====
+  (async ()=>{
+    const savedLogo = localStorage.getItem('fps_logo_v1');
+    if(savedLogo){
+      setLogo(savedLogo);
+    }else{
+      const ok = await loadLockedLogoFallback();
+      if(!ok) setLogo(null);
+    }
 
+    const hadDraft = loadDraft();
+    setReportIdUI();
+    setFinalisedUI();
+    setDateCompletedUI();
+    updateEvidenceMarks();
+    updateAllPhotoUI();
+
+    if(!hadDraft){
+      saveDraft(false);
+    }else{
+      showToast('Draft loaded');
+    }
+  })();
+
+  // ===== Autosave triggers =====
+  dateCompletedISO.addEventListener('input', ()=>{ setDateCompletedUI(); scheduleAutoSave(); });
+  beforeTick.addEventListener('change', ()=>{ updateEvidenceMarks(); scheduleAutoSave(); });
+  afterTick.addEventListener('change',  ()=>{ updateEvidenceMarks(); scheduleAutoSave(); });
+
+  invoiceRequired.addEventListener('change', scheduleAutoSave);
+  estimateRequired.addEventListener('change', scheduleAutoSave);
+  extraAttachments.addEventListener('change', scheduleAutoSave);
+
+  lettingAgent.addEventListener('input', scheduleAutoSave);
+  propertyAddress.addEventListener('input', scheduleAutoSave);
+  invoiceNumber.addEventListener('input', scheduleAutoSave);
+  estimateNumber.addEventListener('input', scheduleAutoSave);
+  worksNotes.addEventListener('input', scheduleAutoSave);
+
+  saveDraftBtn.addEventListener('click', ()=> saveDraft(true));
+
+  // Logo upload
+  logoBox.addEventListener('click', ()=> logoInput.click());
+  logoInput.addEventListener('change', async (e)=>{
+    const file = e.target.files && e.target.files[0];
+    if(!file) return;
+    const dataUrl = await fileToDataURL(file, 900, 0.90);
+    setLogo(dataUrl);
+    localStorage.setItem('fps_logo_v1', dataUrl);
+    saveDraft(false);
+    showToast('Logo saved');
+  });
+
+  // Photo buttons
   beforeGalleryBtn.addEventListener('click', ()=> beforeGalleryInput.click());
-  beforeCameraBtn.addEventListener('click', ()=> beforeCameraInput.click());
-  afterGalleryBtn.addEventListener('click', ()=> afterGalleryInput.click());
-  afterCameraBtn.addEventListener('click', ()=> afterCameraInput.click());
+  beforeCameraBtn.addEventListener('click',  ()=> beforeCameraInput.click());
+  afterGalleryBtn.addEventListener('click',  ()=> afterGalleryInput.click());
+  afterCameraBtn.addEventListener('click',   ()=> afterCameraInput.click());
 
   beforeGalleryInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files, state.beforePhotos); beforeGalleryInput.value=''; });
-  beforeCameraInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files, state.beforePhotos); beforeCameraInput.value=''; });
-  afterGalleryInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files, state.afterPhotos); afterGalleryInput.value=''; });
-  afterCameraInput.addEventListener('change', async (e)=>{ await addPhotos(e.target.files, state.afterPhotos); afterCameraInput.value=''; });
+  beforeCameraInput.addEventListener('change',  async (e)=>{ await addPhotos(e.target.files, state.beforePhotos); beforeCameraInput.value=''; });
+  afterGalleryInput.addEventListener('change',  async (e)=>{ await addPhotos(e.target.files, state.afterPhotos);  afterGalleryInput.value=''; });
+  afterCameraInput.addEventListener('change',   async (e)=>{ await addPhotos(e.target.files, state.afterPhotos);  afterCameraInput.value=''; });
 
   // New report reset
   newBtn.addEventListener('click', async ()=>{
@@ -855,15 +840,16 @@
     worksNotes.value = "";
     extraAttachments.checked = false;
 
-    setReportIdUI(); setFinalisedUI(); setDateCompletedUI();
+    setReportIdUI();
+    setFinalisedUI();
+    setDateCompletedUI();
+    updateEvidenceMarks();
     updateAllPhotoUI();
 
-    // keep logo; ensure fallback if none
     if(!state.logoDataUrl){
       await loadLockedLogoFallback();
     }
 
-    // clear & save draft so new report doesn't re-load old fields
     clearDraft();
     saveDraft(false);
     showToast('New report started');
@@ -1092,7 +1078,6 @@
     if(addrLines[1]) doc.text(addrLines[1] + (addrTooLong ? "…" : ""), col1X + labelW, r2);
 
     field(col1X, r3, 'Date', data.dateCompleted);
-
     field(col2X, r0, 'Completed', data.completedBy);
 
     const cbX = col2X + labelW;
@@ -1155,7 +1140,7 @@
     const eaLines = doc.splitTextToSize(eaText, usableW - 8);
     doc.text(eaLines, margin + 4, y + 8);
 
-    // ===== PHOTOS: 2 columns, auto-add extra pages as required =====
+    // ===== PHOTOS: 2 cols, safe inside border, paged =====
     function drawPhotoSectionPaged(title, photos){
       if(!photos || !photos.length) return;
 
@@ -1163,6 +1148,7 @@
       const boxH = 78;
       const containerPad = 4;
 
+      // FIX: inner width used for columns so nothing overlaps border
       const innerW = usableW - (containerPad * 2);
       const boxW = (innerW - gap) / 2;
 
@@ -1173,7 +1159,8 @@
         doc.addPage();
         let py = 14;
 
-        py = sectionBar(title + (photos.length > perPage ? ` (${Math.floor(offset/perPage)+1})` : ''), py);
+        const pageLabel = (photos.length > perPage) ? ` (${Math.floor(offset/perPage)+1})` : '';
+        py = sectionBar(title + pageLabel, py);
 
         const chunk = photos.slice(offset, offset + perPage);
         const rows = Math.ceil(chunk.length / 2);
@@ -1222,7 +1209,6 @@
     const safeName = `${data.reportId}.pdf`.replace(/[^\w\-\.]/g,'_');
     doc.save(safeName);
 
-    // Save draft after generating PDF (so finalised date persists if you reopen)
     saveDraft(false);
   });
 </script>
