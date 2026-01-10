@@ -71,6 +71,10 @@
       border-radius:14px;
       font-weight:900;
       cursor:pointer;
+      user-select:none;
+      -webkit-user-select:none;
+      -webkit-touch-callout:none;
+      touch-action: manipulation;
     }
     button.primary{border-color: rgba(74,163,255,.45); background: rgba(74,163,255,.14)}
     button.good{border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.12)}
@@ -96,13 +100,7 @@
       overflow:hidden;
     }
 
-    /* Top row inside each photo item */
-    .itemTop{
-      display:flex;
-      gap:10px;
-      padding:12px;
-      align-items:flex-start;
-    }
+    .itemTop{display:flex;gap:10px;padding:12px;align-items:flex-start}
     .thumb{
       width:92px;height:92px;border-radius:14px;
       border:1px solid rgba(255,255,255,.14);
@@ -116,7 +114,7 @@
       align-items:flex-start;
       justify-content:space-between;
       gap:10px;
-      margin-bottom:6px;
+      margin-bottom:8px;
     }
     .metaLeft{min-width:0}
     .meta .t{margin:0;font-weight:900;font-size:14px}
@@ -128,19 +126,26 @@
       border-color: rgba(239,68,68,.55);
       background: rgba(239,68,68,.10);
       white-space:nowrap;
-    }
-
-    .itemBtns{
       display:flex;
       gap:8px;
-      flex-wrap:wrap;
-      padding:0 12px 12px;
+      align-items:center;
     }
+    .holdBar{
+      width:56px;height:8px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      overflow:hidden;
+    }
+    .holdFill{
+      height:100%;
+      width:0%;
+      background: rgba(239,68,68,.75);
+      border-radius:999px;
+    }
+
+    .itemBtns{display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 12px}
     .small{padding:9px 12px;border-radius:12px;font-size:13px}
-    .ghost{
-      border-color: rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
-    }
+    .ghost{border-color: rgba(255,255,255,.12);background: rgba(255,255,255,.04)}
   </style>
 </head>
 
@@ -308,7 +313,7 @@
   // -------- end GPS helpers --------
 
   const STORE = "fps_photo_notes_v2_store";
-  const VERSION_STAMP = "v2.0.6-clear-notes-move-delete";
+  const VERSION_STAMP = "v2.0.7-hold-delete-subject";
 
   function setStatus(msg){ $("status").textContent = msg; }
   function setDebug(msg){ $("debug").textContent = msg || ""; }
@@ -326,6 +331,9 @@
   function load(){
     const raw = localStorage.getItem(STORE);
     if (raw) { try { state = JSON.parse(raw); } catch {} }
+    // Backward compatible: ensure subject exists
+    state.photos = (state.photos || []).map(p => ({ subject: p.subject || "", ...p }));
+
     $("address").value = state.address || "";
     $("date").value = state.date || todayISO();
     $("operative").value = state.operative || "";
@@ -440,12 +448,19 @@
           <div class="meta">
             <div class="metaHead">
               <div class="metaLeft">
-                <p class="t">Photo ${idx+1}</p>
+                <p class="t">Photo ${idx+1}${p.subject ? " • " + escapeHtml(p.subject) : ""}</p>
                 <p class="s">${ukDate(p.ts)} ${ukTime(p.ts)}</p>
               </div>
-              <!-- ✅ Delete Photo moved to top-right -->
-              <button class="dangerTop" type="button" data-del="${p.id}">🗑️ Delete Photo</button>
+
+              <!-- ✅ HOLD TO DELETE (2s) -->
+              <button class="dangerTop" type="button" data-del="${p.id}">
+                🗑️ Hold 2s
+                <span class="holdBar" aria-hidden="true"><span class="holdFill" data-fill="${p.id}"></span></span>
+              </button>
             </div>
+
+            <input data-subject="${p.id}" placeholder="Subject (e.g., Kitchen door, Bathroom basin)" value="${escapeAttr(p.subject || "")}">
+            <div style="height:8px"></div>
             <textarea placeholder="Notes…">${p.note || ""}</textarea>
           </div>
         </div>
@@ -453,11 +468,20 @@
         <div class="itemBtns">
           <button class="small primary" type="button" ${dictationSupported ? "" : "disabled"} data-dict="${p.id}">🎙️ Dictate</button>
           <button class="small ghost" type="button" disabled data-stop="${p.id}">⏹️ Stop</button>
-
-          <!-- ✅ NEW: Clear notes only -->
           <button class="small" type="button" data-clearnote="${p.id}">🧽 Clear Notes</button>
         </div>
       `;
+
+      const subj = item.querySelector(`[data-subject="${p.id}"]`);
+      subj.addEventListener("input", () => {
+        p.subject = subj.value;
+        save();
+        pdfBlob = pdfFile = null;
+        $("btnShare").disabled = true;
+        // update title line live without full rerender:
+        const titleEl = item.querySelector(".t");
+        titleEl.textContent = `Photo ${idx+1}${p.subject ? " • " + p.subject : ""}`;
+      });
 
       const ta = item.querySelector("textarea");
       ta.addEventListener("input", () => {
@@ -466,16 +490,6 @@
         pdfBlob = pdfFile = null;
         $("btnShare").disabled = true;
       });
-
-      // Delete photo (now top-right)
-      item.querySelector(`[data-del="${p.id}"]`).onclick = () => {
-        if(!confirm("Delete this photo?")) return;
-        state.photos = state.photos.filter(x => x.id !== p.id);
-        save();
-        pdfBlob = pdfFile = null;
-        $("btnShare").disabled = true;
-        render();
-      };
 
       // Clear notes only
       item.querySelector(`[data-clearnote="${p.id}"]`).onclick = () => {
@@ -488,6 +502,51 @@
         setStatus("Notes cleared for that photo.");
       };
 
+      // HOLD-TO-DELETE (2 seconds)
+      const delBtn = item.querySelector(`[data-del="${p.id}"]`);
+      const fill = item.querySelector(`[data-fill="${p.id}"]`);
+      let holdTimer = null;
+      let startTs = 0;
+
+      const cancelHold = () => {
+        if (holdTimer) { clearInterval(holdTimer); holdTimer = null; }
+        fill.style.width = "0%";
+        delBtn.style.opacity = "1";
+      };
+
+      const startHold = () => {
+        if (holdTimer) return;
+        startTs = performance.now();
+        delBtn.style.opacity = "0.95";
+
+        holdTimer = setInterval(() => {
+          const elapsed = performance.now() - startTs;
+          const pct = Math.min(100, (elapsed / 2000) * 100);
+          fill.style.width = pct.toFixed(1) + "%";
+
+          if (elapsed >= 2000) {
+            clearInterval(holdTimer);
+            holdTimer = null;
+            fill.style.width = "100%";
+
+            // do delete
+            state.photos = state.photos.filter(x => x.id !== p.id);
+            save();
+            pdfBlob = pdfFile = null;
+            $("btnShare").disabled = true;
+            setStatus("Photo deleted.");
+            render();
+          }
+        }, 30);
+      };
+
+      // pointer events cover touch + mouse
+      delBtn.addEventListener("pointerdown", (ev) => { ev.preventDefault(); startHold(); });
+      delBtn.addEventListener("pointerup", cancelHold);
+      delBtn.addEventListener("pointerleave", cancelHold);
+      delBtn.addEventListener("pointercancel", cancelHold);
+
+      // Dictation
       const btnDict = item.querySelector(`[data-dict="${p.id}"]`);
       const btnStop = item.querySelector(`[data-stop="${p.id}"]`);
 
@@ -542,6 +601,14 @@
 
       list.appendChild(item);
     });
+  }
+
+  // Simple escaping helpers (for safe attribute/text injection)
+  function escapeHtml(str){
+    return String(str||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function escapeAttr(str){
+    return escapeHtml(str).replace(/"/g, "&quot;");
   }
 
   // ✅ Reliable import: objectURL -> Image -> canvas -> JPEG dataURL
@@ -600,6 +667,7 @@
         state.photos.push({
           id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
           img: dataURL,
+          subject: "",
           note: "",
           ts: new Date().toISOString()
         });
@@ -625,7 +693,7 @@
   $("cameraInput").addEventListener("change", handleFiles);
   $("galleryInput").addEventListener("change", handleFiles);
 
-  // PDF / share / clear (unchanged)
+  // PDF / share / clear
   $("btnPdf").onclick = async () => {
     if (!state.address.trim()) { alert("Add the property address first."); return; }
     if (!state.photos.length) { alert("Add at least one photo first."); return; }
@@ -676,10 +744,12 @@
       const p = state.photos[i];
       if (y > pageH - 30) { doc.addPage(); y = 18; }
 
+      const subjectLine = (p.subject || "").trim();
       doc.setFont("helvetica","bold"); doc.setFontSize(11);
-      doc.text(`Photo ${i+1}`, margin, y);
+      doc.text(`Photo ${i+1}${subjectLine ? " — " + subjectLine : ""}`, margin, y);
+
       doc.setFont("helvetica","normal"); doc.setFontSize(9);
-      doc.text(`${ukDate(p.ts)} ${ukTime(p.ts)}`, pageW - margin, y, { align:"right" });
+      doc.text(`${new Date(p.ts).toLocaleDateString("en-GB")} ${new Date(p.ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`, pageW - margin, y, { align:"right" });
       y += 5;
 
       const img = await dataURLToImage(p.img);
