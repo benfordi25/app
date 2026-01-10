@@ -120,7 +120,6 @@
     .meta .t{margin:0;font-weight:900;font-size:14px}
     .meta .s{margin:4px 0 0;font-size:12px;color:var(--muted)}
 
-    /* Delete button is now tap-to-open confirm (no hold here) */
     .dangerTop{
       padding:8px 10px;
       border-radius:12px;
@@ -267,7 +266,7 @@
   </div>
 </main>
 
-<!-- ✅ Delete confirm modal -->
+<!-- Delete confirm modal -->
 <div class="modal" id="delModal" aria-hidden="true">
   <div class="sheet" role="dialog" aria-modal="true">
     <div class="sheetTop">
@@ -284,9 +283,6 @@
         <div class="hint" style="margin:0;color:#ffd1d1">Keep holding until the bar fills.</div>
         <div class="holdBarBig"><div class="holdFillBig" id="holdFillBig"></div></div>
       </div>
-      <div class="hint" style="margin-top:10px">
-        Tip: This big hold button works even when the small hold button fails in installed app mode.
-      </div>
     </div>
 
     <div class="sheetBtns">
@@ -299,7 +295,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
 
-  // ---- Cache/SW cleanup once ----
   async function killServiceWorkersAndCachesOnce(){
     try{
       if ('serviceWorker' in navigator) {
@@ -313,7 +308,7 @@
     }catch(e){}
   }
 
-  // -------- GPS helpers (unchanged) --------
+  // -------- GPS helpers --------
   async function reverseGeocodeOSM(lat, lon){
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`;
     const res = await fetch(url, { headers: { "Accept":"application/json", "Accept-Language":"en-GB" } });
@@ -395,12 +390,12 @@
   }
 
   const STORE = "fps_photo_notes_v2_store";
-  const VERSION_STAMP = "v2.1.0-modal-hold-delete";
+  const VERSION_STAMP = "v2.2.0-clean-pdf-no-timestamps";
+
   function setStatus(msg){ $("status").textContent = msg; }
   function setDebug(msg){ $("debug").textContent = msg || ""; }
   function todayISO(){ return new Date().toISOString().slice(0,10); }
-  function ukDate(d){ return new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"}); }
-  function ukTime(d){ return new Date(d).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }
+  function ukDateFromISO(iso){ return new Date(iso).toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"}); }
 
   let state = { address:"", date: todayISO(), operative:"", photos: [], gps:null };
   let pdfBlob = null;
@@ -521,7 +516,7 @@
     return ensureEndsWithNewline(t) + BULLET;
   }
 
-  // ✅ Modal hold-to-delete (reliable everywhere)
+  // Delete modal hold-to-delete
   let deleteTargetId = null;
   let holdRAF = null;
   let holdStart = 0;
@@ -530,7 +525,7 @@
     deleteTargetId = photo.id;
     $("delThumb").src = photo.img;
     const subj = (photo.subject || "").trim();
-    $("delSub").textContent = `Photo subject: ${subj ? subj : "—"} • ${ukDate(photo.ts)} ${ukTime(photo.ts)}`;
+    $("delSub").textContent = `Photo subject: ${subj ? subj : "—"}`;
     $("delModal").classList.add("show");
     $("holdFillBig").style.width = "0%";
     $("delModal").setAttribute("aria-hidden", "false");
@@ -557,7 +552,6 @@
       const pct = Math.min(100, (elapsed/2000)*100);
       $("holdFillBig").style.width = pct.toFixed(1) + "%";
       if(elapsed >= 2000){
-        // delete now
         const id = deleteTargetId;
         closeDeleteModal();
         state.photos = state.photos.filter(p => p.id !== id);
@@ -574,18 +568,15 @@
     holdRAF = requestAnimationFrame(tick);
   }
 
-  // Modal listeners
   $("delCancel").onclick = closeDeleteModal;
   $("delModal").addEventListener("click", (e) => {
     if(e.target === $("delModal")) closeDeleteModal();
   });
 
   const holdArea = $("holdArea");
-  // touch first
   holdArea.addEventListener("touchstart", (e)=>{ e.preventDefault(); startHold(); }, {passive:false});
   holdArea.addEventListener("touchend", (e)=>{ e.preventDefault(); cancelHold(); }, {passive:false});
   holdArea.addEventListener("touchcancel", cancelHold);
-  // mouse fallback
   holdArea.addEventListener("mousedown", (e)=>{ e.preventDefault(); startHold(); });
   window.addEventListener("mouseup", cancelHold);
   window.addEventListener("blur", cancelHold);
@@ -695,10 +686,8 @@
             <div class="metaHead">
               <div class="metaLeft">
                 <p class="t">Photo ${idx+1}${p.subject ? " • " + escapeHtml(p.subject) : ""}</p>
-                <p class="s">${ukDate(p.ts)} ${ukTime(p.ts)}</p>
+                <p class="s">Notes + subject</p>
               </div>
-
-              <!-- ✅ tap opens modal -->
               <button class="dangerTop" type="button" data-delopen="${p.id}">🗑️ Delete</button>
             </div>
 
@@ -715,7 +704,6 @@
         </div>
       `;
 
-      // Open delete modal
       item.querySelector(`[data-delopen="${p.id}"]`).onclick = () => openDeleteModal(p);
 
       const subj = item.querySelector(`[data-subject="${p.id}"]`);
@@ -745,7 +733,6 @@
         setStatus("Notes cleared for that photo.");
       };
 
-      // Bullet dictation per session
       const btnDict = item.querySelector(`[data-dict="${p.id}"]`);
       const btnStop = item.querySelector(`[data-stop="${p.id}"]`);
       if (dictationSupported) {
@@ -818,14 +805,26 @@
     });
   }
 
-  // PDF/share/clear — leaving exactly as you had (not repeating here would break copy/paste),
-  // so we keep your existing functions below unchanged.
+  // ---------- CLEAN PROFESSIONAL PDF (NO TIMESTAMPS) ----------
+  function addPageNumbers(doc){
+    const pageCount = doc.getNumberOfPages();
+    for(let i=1;i<=pageCount;i++){
+      doc.setPage(i);
+      const w = doc.internal.pageSize.getWidth();
+      const h = doc.internal.pageSize.getHeight();
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(9);
+      doc.setTextColor(130);
+      doc.text(`Page ${i} of ${pageCount}`, w - 12, h - 8, { align:"right" });
+    }
+  }
 
   $("btnPdf").onclick = async () => {
     if (!state.address.trim()) { alert("Add the property address first."); return; }
     if (!state.photos.length) { alert("Add at least one photo first."); return; }
 
     setStatus("Generating PDF…");
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:"p", unit:"mm", format:"a4" });
 
@@ -834,29 +833,27 @@
     const margin = 12;
     const contentW = pageW - margin*2;
 
-    doc.setFont("helvetica","bold"); doc.setFontSize(14);
-    doc.text("PHOTO NOTES REPORT", margin, 16);
+    // Style
+    const border = 210;
+    const dark = 20;
+    const mid = 110;
 
-    doc.setFont("helvetica","normal"); doc.setFontSize(10);
-    doc.text(`Date: ${new Date(state.date).toLocaleDateString("en-GB")}   App: ${VERSION_STAMP}`, margin, 22);
+    const dateUK = ukDateFromISO(state.date);
+    const gpsLine = (state.gps && typeof state.gps.lat==="number" && typeof state.gps.lon==="number")
+      ? `${state.gps.lat.toFixed(6)}, ${state.gps.lon.toFixed(6)}`
+      : "";
 
-    doc.setFont("helvetica","bold"); doc.text("Property Address:", margin, 30);
-    doc.setFont("helvetica","normal"); doc.text(state.address, margin, 36, { maxWidth: contentW });
-
-    if (state.operative.trim()) {
-      doc.setFont("helvetica","bold"); doc.text("Operative:", margin, 46);
-      doc.setFont("helvetica","normal"); doc.text(state.operative, margin + 22, 46);
+    function hr(y){
+      doc.setDrawColor(border);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, pageW - margin, y);
     }
 
-    if (state.gps && typeof state.gps.lat === "number" && typeof state.gps.lon === "number") {
-      doc.setFont("helvetica","normal"); doc.setFontSize(9);
-      doc.text(`GPS: ${state.gps.lat.toFixed(6)}, ${state.gps.lon.toFixed(6)}`, margin, 52);
+    function card(x, y, w, h){
+      doc.setDrawColor(border);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, y, w, h, 3, 3);
     }
-
-    doc.setDrawColor(200); doc.setLineWidth(0.2);
-    doc.line(margin, 56, pageW - margin, 56);
-
-    let y = 64;
 
     async function dataURLToImage(dataURL){
       return new Promise((resolve, reject) => {
@@ -867,48 +864,103 @@
       });
     }
 
+    // Header
+    doc.setTextColor(dark);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(16);
+    doc.text("FORD PROPERTY SERVICES", margin, 18);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(mid);
+    doc.text("PHOTO NOTES REPORT", margin, 25);
+
+    hr(30);
+
+    // Info block
+    let y = 36;
+    const infoH = gpsLine ? 32 : 26;
+    card(margin, y, contentW, infoH);
+
+    doc.setTextColor(dark);
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(10);
+
+    doc.text("Property:", margin+4, y+7);
+    doc.text("Date:", margin+4, y+14);
+    doc.text("Operative:", margin+4, y+21);
+    if (gpsLine) doc.text("GPS:", margin+4, y+28);
+
+    doc.setFont("helvetica","normal");
+    doc.setTextColor(dark);
+
+    const addrLines = doc.splitTextToSize(state.address.trim(), contentW - 30);
+    doc.text(addrLines, margin+26, y+7);
+
+    doc.text(dateUK, margin+26, y+14);
+    doc.text((state.operative || "").trim() || "—", margin+26, y+21);
+    if (gpsLine) doc.text(gpsLine, margin+26, y+28);
+
+    y += infoH + 10;
+
+    // Photos
     for (let i=0; i<state.photos.length; i++){
       const p = state.photos[i];
-      if (y > pageH - 30) { doc.addPage(); y = 18; }
-
       const subjectLine = (p.subject || "").trim();
-      doc.setFont("helvetica","bold"); doc.setFontSize(11);
+
+      // Title
+      if (y > pageH - 40) { doc.addPage(); y = 18; }
+
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(11);
+      doc.setTextColor(dark);
       doc.text(`Photo ${i+1}${subjectLine ? " — " + subjectLine : ""}`, margin, y);
 
-      doc.setFont("helvetica","normal"); doc.setFontSize(9);
-      doc.text(`${new Date(p.ts).toLocaleDateString("en-GB")} ${new Date(p.ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}`, pageW - margin, y, { align:"right" });
       y += 5;
 
+      // Image box
+      const maxImgH = 85;
       const img = await dataURLToImage(p.img);
       const imgWpx = img.naturalWidth || img.width;
       const imgHpx = img.naturalHeight || img.height;
 
-      const maxImgH = 95;
       let drawW = contentW;
       let drawH = (imgHpx / imgWpx) * drawW;
       if (drawH > maxImgH) { drawH = maxImgH; drawW = (imgWpx / imgHpx) * drawH; }
       const xImg = margin + (contentW - drawW)/2;
 
-      doc.setDrawColor(180);
-      doc.roundedRect(margin, y, contentW, drawH + 2, 2, 2);
-      doc.addImage(p.img, "JPEG", xImg, y+1, drawW, drawH);
-      y += drawH + 10;
+      if (y + drawH + 18 > pageH - 12) { doc.addPage(); y = 18; }
 
+      card(margin, y, contentW, drawH + 6);
+      doc.addImage(p.img, "JPEG", xImg, y+3, drawW, drawH);
+
+      y += drawH + 12;
+
+      // Notes box
       const note = (p.note || "").trim() || "—";
-      doc.setFont("helvetica","bold"); doc.setFontSize(10);
-      doc.text("Notes:", margin, y);
-      y += 6;
-      doc.setFont("helvetica","normal"); doc.setFontSize(10);
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(10);
+      doc.setTextColor(dark);
+      doc.text("Notes", margin, y);
+      y += 4;
 
-      const lines = doc.splitTextToSize(note, contentW);
-      const boxH = Math.max(14, lines.length * 5 + 6);
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(10);
+      doc.setTextColor(dark);
+
+      const lines = doc.splitTextToSize(note, contentW - 8);
+      const boxH = Math.max(14, (lines.length * 5) + 8);
 
       if (y + boxH > pageH - 12) { doc.addPage(); y = 18; }
-      doc.setDrawColor(180);
-      doc.roundedRect(margin, y-4, contentW, boxH, 2, 2);
-      doc.text(lines, margin+3, y+2);
-      y += boxH + 10;
+
+      card(margin, y, contentW, boxH);
+      doc.text(lines, margin+4, y+6);
+
+      y += boxH + 12;
     }
+
+    // Footer page numbers
+    addPageNumbers(doc);
 
     pdfBlob = doc.output("blob");
     const safeAddr = state.address.replace(/[^\w\s-]/g,"").trim().replace(/\s+/g,"-").slice(0,40);
