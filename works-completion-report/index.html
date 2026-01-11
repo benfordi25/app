@@ -806,6 +806,11 @@
           doc.addPage();
           y = 14;
           y = sectionBar(title + " (cont.)", y);
+
+          /* FIX: sectionBar sets font to bold - reset to normal for continued note text */
+          doc.setFont('helvetica','normal');
+          doc.setFontSize(10);
+          doc.setTextColor(35);
         }
       }
       return y;
