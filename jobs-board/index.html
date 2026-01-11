@@ -166,6 +166,7 @@
       display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
       margin-bottom:8px;
     }
+    .bookingsList{displayGrid: gap:8px}
     .bookingsList{display:grid; gap:8px}
     .bookingItem{
       border:1px solid rgba(255,255,255,.12);
@@ -1140,7 +1141,7 @@
       }
     }
 
-    // ✅ NEW: set invoice ref from button on "Works Completed – Invoice Required"
+    // ✅ Existing: set invoice ref from button on "Works Completed – Invoice Required"
     function setInvoiceRef(jobId){
       const job = jobs.find(j=>j.id===jobId);
       if(!job) return;
@@ -1150,6 +1151,25 @@
       if(v === null) return; // cancelled
 
       job.invRef = String(v).trim();
+      job.updatedAt = new Date().toISOString();
+      save();
+      renderAll();
+
+      if(detailsBack.style.display==="flex" && detailsJobId===jobId){
+        openDetailsModal(jobId);
+      }
+    }
+
+    // ✅ NEW: set estimate number from button on "Attended – Estimate Required"
+    function setEstimateNo(jobId){
+      const job = jobs.find(j=>j.id===jobId);
+      if(!job) return;
+
+      const current = (job.estNo || "").trim();
+      const v = prompt("Enter estimate number / reference:", current);
+      if(v === null) return; // cancelled
+
+      job.estNo = String(v).trim();
       job.updatedAt = new Date().toISOString();
       save();
       renderAll();
@@ -1659,7 +1679,6 @@
       const items = [];
 
       for(const j of filteredJobs){
-        // ✅ FIX: only include bookings when job is actually in the relevant "booked" status
         if(j.status === "est_visit_booked"){
           const t2 = toMillis(j.estVisitDT);
           if(t2 && t2 >= now) items.push({ when: t2, kind: "Estimate Visit", dt: j.estVisitDT, job: j });
@@ -1764,7 +1783,6 @@
           btns.push(`<button type="button" data-act="details">Details</button>`);
           btns.push(`<button type="button" data-act="documents">Documents</button>`);
 
-          // ✅ Workflow buttons (your notes)
           if(job.status === "req_est" || job.status === "est_accepted"){
             btns.push(`<button type="button" class="purple" data-act="book">Book Now</button>`);
           }
@@ -1773,7 +1791,9 @@
             btns.push(`<button type="button" class="ok" data-act="move" data-to="attended_est_required">Attended</button>`);
           }
 
+          // ✅ Attended – Estimate Required: add Estimate No button (like Invoice No)
           if(job.status === "attended_est_required"){
+            btns.push(`<button type="button" class="warn" data-act="estimateNo">Estimate No</button>`);
             btns.push(`<button type="button" class="ok" data-act="move" data-to="est_complete">Complete</button>`);
           }
 
@@ -1788,7 +1808,6 @@
           }
 
           if(job.status === "works_done_invoice_required"){
-            // ✅ NEW: Invoice number button
             btns.push(`<button type="button" class="warn" data-act="invoiceNo">Invoice No</button>`);
             btns.push(`<button type="button" class="ok" data-act="move" data-to="invoice_sent_complete">Invoiced</button>`);
           }
@@ -1834,9 +1853,12 @@
           const bookBtn = el.querySelector('[data-act="book"]');
           if(bookBtn) bookBtn.addEventListener('click', ()=> openBookNow(job.id));
 
-          // ✅ NEW: invoice number button handler
           const invBtn = el.querySelector('[data-act="invoiceNo"]');
           if(invBtn) invBtn.addEventListener("click", ()=> setInvoiceRef(job.id));
+
+          // ✅ NEW: estimate number button handler
+          const estBtn = el.querySelector('[data-act="estimateNo"]');
+          if(estBtn) estBtn.addEventListener("click", ()=> setEstimateNo(job.id));
 
           el.querySelectorAll('[data-act="move"]').forEach(b=>{
             b.addEventListener("click", ()=>{
