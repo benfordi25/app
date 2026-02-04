@@ -362,6 +362,7 @@
       <div class="hint">Install to Home Screen for app mode.</div>
     </div>
   </main>
+
   <!-- Add/Edit Modal -->
   <div class="modalBack" id="modalBack">
     <div class="modal">
@@ -458,7 +459,8 @@
       </div>
 
       <div class="modalActions">
-        <button id="docsShare" class="purple" type="button">Share PDF</button>
+        <!-- ✅ NOW shares latest PDF document as a FILE (not a link) -->
+        <button id="docsShareLatestPdf" class="purple" type="button">Share Latest PDF</button>
         <button id="docsDone" class="ok" type="button">Done</button>
       </div>
     </div>
@@ -530,7 +532,6 @@
   </div>
 
   <input id="docsInput" type="file" accept="image/*,application/pdf" multiple style="display:none" />
-  <input id="logoInput" type="file" accept="image/*" style="display:none" />
 
   <!-- Dashboard button -->
   <a href="../dashboard/" style="
@@ -679,7 +680,7 @@
     const docsBack = document.getElementById('docsBack');
     const docsClose = document.getElementById('docsClose');
     const docsDone = document.getElementById('docsDone');
-    const docsShare = document.getElementById('docsShare');
+    const docsShareLatestPdf = document.getElementById('docsShareLatestPdf');
     const docsTitle = document.getElementById('docsTitle');
     const docsSub = document.getElementById('docsSub');
     const docsAddBtn = document.getElementById('docsAddBtn');
@@ -694,7 +695,6 @@
 
     const detailsBack  = document.getElementById('detailsBack');
     const detailsClose = document.getElementById('detailsClose');
-    const detailsTitle = document.getElementById('detailsTitle');
     const detailsBody  = document.getElementById('detailsBody');
     const detailsDocs  = document.getElementById('detailsDocs');
     const detailsEdit  = document.getElementById('detailsEdit');
@@ -801,15 +801,8 @@
     });
 
     /* =========================
-       PART 3 STARTS NEXT
-       - Message tap/hold logic
-       - increaseMessage/decreaseMessage
+       MESSAGE BUTTON SYSTEM (UPDATED)
        ========================= */
-    // ==============================
-    // ✅ MESSAGE BUTTON SYSTEM (UPDATED)
-    // ==============================
-    // msgCount: 0..3
-    // msgLog: [{ n: 0|1|2|3, atMs: number, action:"inc"|"dec" }, ...]
     function msgLevel(job){
       const n = Number(job?.msgCount || 0);
       if(n >= 3) return 3;
@@ -868,10 +861,7 @@
       if(!job) return;
 
       const current = Math.min(3, Math.max(0, Number(job.msgCount || 0)));
-      if(current <= 0){
-        // silent (no alert) so it’s not annoying on accidental holds
-        return;
-      }
+      if(current <= 0) return;
 
       job.msgCount = current - 1;
       job.msgLog = Array.isArray(job.msgLog) ? job.msgLog : [];
@@ -886,12 +876,7 @@
       }
     }
 
-    // ✅ Attach TAP vs HOLD behaviour to a button element
-    function attachTapHold(btn, {
-      onTap,
-      onHold,
-      holdMs = 1200
-    }){
+    function attachTapHold(btn, { onTap, onHold, holdMs = 1200 }){
       let holdTimer = null;
       let didHold = false;
 
@@ -901,7 +886,6 @@
       };
 
       const start = (e)=>{
-        // prevent long-press context menu on mobile
         e.preventDefault?.();
         didHold = false;
         clear();
@@ -911,18 +895,13 @@
         }, holdMs);
       };
 
-      const end = ()=>{
-        clear();
-      };
+      const end = ()=> clear();
 
-      // Pointer events cover mouse + touch (modern browsers)
       btn.addEventListener("pointerdown", start, { passive:false });
       btn.addEventListener("pointerup", end);
       btn.addEventListener("pointercancel", end);
       btn.addEventListener("pointerleave", end);
 
-      // If the user taps, click fires after pointerup.
-      // We only run tap if hold didn't already run.
       btn.addEventListener("click", (e)=>{
         if(didHold){
           e.preventDefault();
@@ -932,7 +911,6 @@
         onTap && onTap();
       });
 
-      // Extra: stop iOS context menu / selection
       btn.addEventListener("contextmenu", (e)=> e.preventDefault());
     }
 
@@ -952,19 +930,16 @@
       j.createdAt = j.createdAt || new Date().toISOString();
       j.updatedAt = j.updatedAt || new Date().toISOString();
 
-      // ✅ message defaults
       if(j.msgCount === undefined || j.msgCount === null || j.msgCount === "") j.msgCount = 0;
       const mc = Number(j.msgCount);
       j.msgCount = Number.isFinite(mc) ? Math.min(3, Math.max(0, Math.floor(mc))) : 0;
       j.msgLog = Array.isArray(j.msgLog) ? j.msgLog : [];
 
-      // ✅ works days
       if(j.worksDays === undefined || j.worksDays === null || j.worksDays === "") j.worksDays = 1;
       const wd = Number(j.worksDays);
       j.worksDays = (Number.isFinite(wd) && wd>0) ? wd : 1;
       j.worksEndDT = j.worksEndDT || (j.worksDT ? addDays(j.worksDT, j.worksDays) : "");
 
-      // ✅ estimate hours (0.5 -> 5)
       if(j.estHours === undefined || j.estHours === null || j.estHours === "") j.estHours = 1;
       const eh = Number(j.estHours);
       j.estHours = (Number.isFinite(eh) && eh>=0.5 && eh<=5) ? Number(eh.toFixed(1)) : 1;
@@ -1337,33 +1312,110 @@
       u.searchParams.set("job", jobId);
       return u.toString();
     }
+
     function photoNotesLink(job){
-  // Adjust if your Photo Notes folder name/path is different:
-  const base = "https://benfordi25.github.io/app/job-photo-notes-v2/";
+      const base = "https://benfordi25.github.io/app/job-photo-notes-v2/";
+      const u = new URL(base, location.href);
+      u.searchParams.set("job", job.id);
 
-  const u = new URL(base, location.href); // resolves relative to current page
-  u.searchParams.set("job", job.id);
+      if(job.address) u.searchParams.set("address", job.address);
+      if(job.agent)   u.searchParams.set("agent", job.agent);
+      if(job.ref)     u.searchParams.set("ref", job.ref);
+      if(job.estNo)   u.searchParams.set("estNo", job.estNo);
 
-  // best-effort auto-populate
-  if(job.address) u.searchParams.set("address", job.address);
-  if(job.agent)   u.searchParams.set("agent", job.agent);
-  if(job.ref)     u.searchParams.set("ref", job.ref);
-  if(job.estNo)   u.searchParams.set("estNo", job.estNo);
+      u.searchParams.set("back", jobDeepLink(job.id));
+      return u.toString();
+    }
 
-  // back link straight to this job’s details
-  u.searchParams.set("back", jobDeepLink(job.id));
-
-  return u.toString();
-}
-
-function openJobNotes(jobId){
-  const job = jobs.find(j=>j.id===jobId);
-  if(!job) return;
-  window.location.href = photoNotesLink(job);
-}
+    function openJobNotes(jobId){
+      const job = jobs.find(j=>j.id===jobId);
+      if(!job) return;
+      window.location.href = photoNotesLink(job);
+    }
 
     // ===========================
-    // REAL PDF SHARE (not link)
+    // ✅ SHARE/DOWNLOAD A JOB DOC AS A REAL FILE
+    // ===========================
+    async function fetchDocAsBlob(docItem){
+      if(!docItem?.url) throw new Error("No URL");
+      const res = await fetch(docItem.url, { cache: "no-store" });
+      if(!res.ok) throw new Error("Fetch failed");
+      return await res.blob();
+    }
+
+    function guessMime(docItem){
+      const m = String(docItem?.mime || "").trim();
+      if(m) return m;
+      const n = String(docItem?.name || "").toLowerCase();
+      if(n.endsWith(".pdf")) return "application/pdf";
+      if(/\.(png)$/i.test(n)) return "image/png";
+      if(/\.(jpe?g)$/i.test(n)) return "image/jpeg";
+      if(/\.(webp)$/i.test(n)) return "image/webp";
+      return "application/octet-stream";
+    }
+
+    async function shareDocAsFile(docItem){
+      try{
+        const blob = await fetchDocAsBlob(docItem);
+        const mime = guessMime(docItem);
+        const name = docItem?.name || (mime==="application/pdf" ? "document.pdf" : "document");
+        const file = new File([blob], name, { type: mime });
+
+        if(navigator.share && (!navigator.canShare || navigator.canShare({ files:[file] }))){
+          await navigator.share({
+            title: name,
+            text: "Document attached.",
+            files: [file]
+          });
+          return;
+        }
+
+        // fallback download
+        await downloadDocBlob(blob, name);
+        alert("Share not supported here — downloaded instead. Attach in WhatsApp.");
+      }catch(e){
+        console.error(e);
+        alert("Couldn’t share this document as a file. Try Open/Download instead.");
+      }
+    }
+
+    function downloadDocBlob(blob, filename){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename || "document";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1200);
+    }
+
+    async function downloadDocAsFile(docItem){
+      try{
+        const blob = await fetchDocAsBlob(docItem);
+        const name = docItem?.name || "document";
+        downloadDocBlob(blob, name);
+      }catch(e){
+        console.error(e);
+        alert("Couldn’t download this document.");
+      }
+    }
+
+    function isPdf(docItem){
+      const mime = String(docItem?.mime || "").toLowerCase();
+      const name = String(docItem?.name || "").toLowerCase();
+      return mime.includes("pdf") || name.endsWith(".pdf");
+    }
+
+    function pickLatestPdfDoc(job){
+      const arr = Array.isArray(job?.docs) ? job.docs.slice() : [];
+      const pdfs = arr.filter(d=>isPdf(d) && d?.url);
+      pdfs.sort((a,b)=>(b.createdAtMs||0)-(a.createdAtMs||0));
+      return pdfs[0] || null;
+    }
+
+    // ===========================
+    // REAL PDF SHARE (job summary) — your existing
     // ===========================
     function getJsPDF(){
       const u = window.jspdf;
@@ -1396,7 +1448,6 @@ function openJobNotes(jobId){
       const worksDays = Number(job.worksDays || 1);
       const docsArr = Array.isArray(job.docs) ? job.docs.slice() : [];
 
-      // Header
       if(logo){
         try{ doc.addImage(logo, "JPEG", m, 34, 56, 56); }catch{}
       }else{
@@ -1442,7 +1493,6 @@ function openJobNotes(jobId){
         kv("Works Booking:", `${prettyDT(job.worksDT)} (${worksDays} days)${ends}`);
       }
 
-      // Notes
       y += 6;
       doc.setFont("helvetica","bold"); doc.setFontSize(12);
       doc.text("Notes", m, y);
@@ -1457,7 +1507,6 @@ function openJobNotes(jobId){
         y += 14;
       }
 
-      // Documents list
       y += 8;
       if(y > H - 70){ doc.addPage(); y = 60; }
 
@@ -1499,6 +1548,7 @@ function openJobNotes(jobId){
       const blob = doc.output("blob");
       return { blob, filename };
     }
+
     async function shareJobAsPdf(jobId){
       const job = jobs.find(j=>j.id===jobId);
       if(!job) return;
@@ -1516,15 +1566,7 @@ function openJobNotes(jobId){
           return;
         }
 
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 800);
-
+        downloadDocBlob(blob, filename);
         alert("Your device didn’t offer file-sharing here, so I downloaded the PDF instead.");
       }catch(err){
         console.error("PDF share failed:", err);
@@ -1532,7 +1574,7 @@ function openJobNotes(jobId){
       }
     }
 
-    // ===== Details modal (UPDATED with Message log) =====
+    // ===== Details modal =====
     function openDetailsModal(jobId){
       const job = jobs.find(j=>j.id===jobId);
       if(!job) return;
@@ -1549,7 +1591,6 @@ function openJobNotes(jobId){
       const worksDays = Number(job.worksDays || 1);
       const estHours = Number(job.estHours || 1);
 
-      // ✅ message info
       const msgCount = Math.min(3, Math.max(0, Number(job.msgCount || 0)));
       const msgLog = Array.isArray(job.msgLog) ? job.msgLog : [];
 
@@ -1691,7 +1732,6 @@ function openJobNotes(jobId){
   <\/script>
 </body>
 </html>`;
-
       const w = window.open("", "_blank");
       if(!w){ alert("Pop-up blocked. Allow pop-ups to print PDF."); return; }
       w.document.open();
@@ -1860,9 +1900,18 @@ function openJobNotes(jobId){
     docsDone.addEventListener("click", closeDocs);
     docsBack.addEventListener("click", (e)=>{ if(e.target===docsBack) closeDocs(); });
 
-    docsShare.addEventListener("click", ()=>{
+    // ✅ Share latest PDF doc (as file)
+    docsShareLatestPdf.addEventListener("click", async ()=>{
       if(!docsJobId) return;
-      shareJobAsPdf(docsJobId);
+      const job = jobs.find(j=>j.id===docsJobId);
+      if(!job) return;
+
+      const latestPdf = pickLatestPdfDoc(job);
+      if(!latestPdf){
+        alert("No PDF documents found for this job yet.");
+        return;
+      }
+      await shareDocAsFile(latestPdf);
     });
 
     docsAddBtn.addEventListener("click", ()=>{
@@ -1910,6 +1959,7 @@ function openJobNotes(jobId){
           const size = docItem.size ? bytesToNice(docItem.size) : "";
           const when = docItem.createdAtMs ? new Date(docItem.createdAtMs).toLocaleString("en-GB") : "";
           const isImage = isImg(mime, name);
+          const isPDF = isPdf(docItem);
 
           el.innerHTML = `
             <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
@@ -1917,14 +1967,33 @@ function openJobNotes(jobId){
               <div>
                 <b>${escapeHtml(name)}</b>
                 <div class="small">${escapeHtml(mime || "file")}${size ? " • " + escapeHtml(size) : ""}${when ? " • " + escapeHtml(when) : ""}</div>
-                ${docItem.url ? `<div class="small"><a href="${escapeHtml(docItem.url)}"
-                   target="_blank" style="color:#9ecbff;text-decoration:none;font-weight:900">Open</a></div>` : ""}
               </div>
             </div>
-            <div class="row">
+            <div class="row" style="justify-content:flex-end">
+              ${docItem.url ? `<button type="button" data-open="1">Open</button>` : ""}
+              ${docItem.url ? `<button type="button" class="primary" data-download="1">Download</button>` : ""}
+              ${docItem.url ? `<button type="button" class="purple" data-share="1">${isPDF ? "Share PDF" : "Share File"}</button>` : ""}
               <button type="button" class="danger" data-del="1">Delete</button>
             </div>
           `;
+
+          const openBtn = el.querySelector('[data-open="1"]');
+          if(openBtn){
+            openBtn.addEventListener("click", ()=>{
+              if(!docItem.url) return;
+              window.open(docItem.url, "_blank", "noopener");
+            });
+          }
+
+          const downBtn = el.querySelector('[data-download="1"]');
+          if(downBtn){
+            downBtn.addEventListener("click", ()=> downloadDocAsFile(docItem));
+          }
+
+          const shareBtn = el.querySelector('[data-share="1"]');
+          if(shareBtn){
+            shareBtn.addEventListener("click", ()=> shareDocAsFile(docItem));
+          }
 
           el.querySelector('[data-del="1"]').addEventListener("click", async ()=>{
             if(!confirm("Delete this document?")) return;
@@ -2009,6 +2078,7 @@ function openJobNotes(jobId){
         refreshJobSheetDocsUI();
       }
     });
+
     function renderBookings(filteredJobs){
       const now = Date.now();
       const items = [];
@@ -2062,12 +2132,6 @@ function openJobNotes(jobId){
       });
     }
 
-    // ==========================
-    // ✅ BOARD RENDER (UPDATED)
-    // - Address colour changes based on msgCount (blue/amber/red)
-    // - Message button appears only in Requires Estimate
-    // - TAP increases, HOLD (1.2s) decreases (same button)
-    // ==========================
     function renderBoard(filteredJobs){
       boardEl.innerHTML = "";
 
@@ -2107,8 +2171,6 @@ function openJobNotes(jobId){
           const estNo = job.estNo?.trim() ? job.estNo.trim() : "";
 
           const chipsHtml = [];
-
-          // show message badge chip if pressed
           const badge = msgBadgeHtml(job);
           if(badge) chipsHtml.push(badge);
 
@@ -2128,25 +2190,16 @@ function openJobNotes(jobId){
           btns.push(`<button type="button" data-act="edit">Edit</button>`);
           btns.push(`<button type="button" data-act="details">Details</button>`);
           btns.push(`<button type="button" data-act="documents">Documents</button>`);
-          
 
-          // Message button ONLY on Requires Estimate
           if(job.status === "req_est"){
             const lvl = msgLevel(job);
-            const nextUp = Math.min(3, lvl + 1);
-            const nextDown = Math.max(0, lvl - 1);
-
-            // label hints what will happen
-            // Tap => goes to nextUp
-            // Hold => goes to nextDown
             const label =
               lvl === 0 ? `Message 1/3` :
               lvl === 1 ? `Message 2/3` :
               lvl === 2 ? `Message 3/3` :
                           `Message 3/3`;
 
-            btns.push(`<button type="button" class="warn" data-act="message"
-              title="Tap to increase. Hold to decrease.">${label}</button>`);
+            btns.push(`<button type="button" class="warn" data-act="message" title="Tap to increase. Hold to decrease.">${label}</button>`);
           }
 
           if(job.status === "req_est" || job.status === "est_accepted"){
@@ -2158,9 +2211,9 @@ function openJobNotes(jobId){
           }
 
           if(job.status === "attended_est_required"){
-  btns.push(`<button type="button" class="primary" data-act="jobnotes">Job Notes</button>`);
-  btns.push(`<button type="button" class="warn" data-act="estimateNo">Estimate No</button>`);
-  btns.push(`<button type="button" class="ok" data-act="move" data-to="est_complete">Complete</button>`);
+            btns.push(`<button type="button" class="primary" data-act="jobnotes">Job Notes</button>`);
+            btns.push(`<button type="button" class="warn" data-act="estimateNo">Estimate No</button>`);
+            btns.push(`<button type="button" class="ok" data-act="move" data-to="est_complete">Complete</button>`);
           }
 
           if(job.status === "est_complete"){
@@ -2196,7 +2249,6 @@ function openJobNotes(jobId){
           }
 
           const docsCount = Array.isArray(job.docs) ? job.docs.length : 0;
-
           const styledTitle = `<span style="${msgAddressStyle(job)}">${escapeHtml(title)}</span>`;
 
           el.innerHTML = `
@@ -2216,8 +2268,9 @@ function openJobNotes(jobId){
           el.querySelector('[data-act="edit"]').addEventListener('click', ()=> openEdit(job.id));
           el.querySelector('[data-act="details"]').addEventListener('click', ()=> openDetailsModal(job.id));
           el.querySelector('[data-act="documents"]').addEventListener('click', ()=> openDocs(job.id));
+
           const notesBtn = el.querySelector('[data-act="jobnotes"]');
-if(notesBtn) notesBtn.addEventListener("click", ()=> openJobNotes(job.id));
+          if(notesBtn) notesBtn.addEventListener("click", ()=> openJobNotes(job.id));
 
           const bookBtn = el.querySelector('[data-act="book"]');
           if(bookBtn) bookBtn.addEventListener('click', ()=> openBookNow(job.id));
@@ -2228,7 +2281,6 @@ if(notesBtn) notesBtn.addEventListener("click", ()=> openJobNotes(job.id));
           const estBtn = el.querySelector('[data-act="estimateNo"]');
           if(estBtn) estBtn.addEventListener("click", ()=> setEstimateNo(job.id));
 
-          // ✅ UPDATED: Message button tap/hold
           const msgBtn = el.querySelector('[data-act="message"]');
           if(msgBtn){
             attachTapHold(msgBtn, {
@@ -2333,4 +2385,4 @@ if(notesBtn) notesBtn.addEventListener("click", ()=> openJobNotes(job.id));
     syncBoot();
   </script>
 </body>
-</html>
+  </html>
