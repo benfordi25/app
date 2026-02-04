@@ -296,6 +296,7 @@
     </div>
   </div>
 </div>
+
 <script type="module">
 /* =========================================================
    Firebase (SAME PROJECT AS JOBS BOARD)
@@ -429,7 +430,8 @@ $("date").addEventListener("change", e=>{
   state.date = e.target.value;
   save();
 });
-  /* =========================================================
+
+/* =========================================================
    CACHE / SERVICE WORKER KILL (your existing)
    ========================================================= */
 async function killServiceWorkersAndCachesOnce(){
@@ -939,8 +941,9 @@ function render(){
 
     list.appendChild(item);
   });
-      }
-  /* =========================================================
+}
+
+/* =========================================================
    PDF helpers (your existing)
    ========================================================= */
 function addPageNumbers(doc){
@@ -973,7 +976,7 @@ $("btnDownload").onclick = downloadLastPdf;
 
 /* =========================================================
    CLEAN PROFESSIONAL PDF (NO TIMESTAMPS, KEEP PHOTO+NOTES TOGETHER)
-   (your existing)
+   ✅ AMENDED: Operative REMOVED from PDF
    ========================================================= */
 function ukDateFromISO(iso){
   try{
@@ -1055,9 +1058,9 @@ $("btnPdf").onclick = async () => {
 
   hr(30);
 
-  // Info block
+  // Info block (✅ operative removed)
   let y = 36;
-  const infoH = gpsLine ? 32 : 26;
+  const infoH = gpsLine ? 26 : 20;   // ✅ AMENDED
   card(margin, y, contentW, infoH);
 
   doc.setTextColor(dark);
@@ -1066,8 +1069,7 @@ $("btnPdf").onclick = async () => {
 
   doc.text("Property:", margin+4, y+7);
   doc.text("Date:", margin+4, y+14);
-  doc.text("Operative:", margin+4, y+21);
-  if (gpsLine) doc.text("GPS:", margin+4, y+28);
+  if (gpsLine) doc.text("GPS:", margin+4, y+21);
 
   doc.setFont("helvetica","normal");
   doc.setTextColor(dark);
@@ -1076,8 +1078,7 @@ $("btnPdf").onclick = async () => {
   doc.text(addrLines, margin+26, y+7);
 
   doc.text(dateUK, margin+26, y+14);
-  doc.text((state.operative || "").trim() || "—", margin+26, y+21);
-  if (gpsLine) doc.text(gpsLine, margin+26, y+28);
+  if (gpsLine) doc.text(gpsLine, margin+26, y+21);
 
   y += infoH + 10;
 
@@ -1275,7 +1276,8 @@ $("btnClear").onclick = () => {
   setStatus("Cleared.");
   render();
 };
-  // ✅ Auto-populate address from Jobs Board
+
+// ✅ Auto-populate address from Jobs Board
 (function prefillAddressFromUrl(){
   const params = new URLSearchParams(window.location.search);
   const addressFromJob = params.get("address");
