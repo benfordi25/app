@@ -1,1318 +1,1108 @@
-<!doctype html>
+    <!doctype html>
 <html lang="en-GB">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Ford Property Services • Photo Notes</title>
+  <title>Ford Property Services • Job Photo Notes</title>
+
   <meta name="theme-color" content="#0b1220" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-
+  <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
   <style>
     :root{
-      --bg:#0b1220; --card:#101a33; --text:#e7eefc; --muted:#a9b7d3;
-      --line:rgba(255,255,255,.14); --shadow:0 10px 30px rgba(0,0,0,.35);
-      --blue:#4aa3ff; --good:#22c55e; --bad:#ef4444;
-      --r:18px; --r2:14px;
+      --bg:#0b1220;
+      --text:#e7eefc;
+      --muted:#a9b7d3;
+      --line:rgba(255,255,255,.14);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+      --radius2: 14px;
+      --blue: rgba(74,163,255,.95);
+      --ok: rgba(34,197,94,.9);
+      --warn: rgba(245,158,11,.9);
+      --bad: rgba(239,68,68,.9);
+      --purple: rgba(168,85,247,.9);
     }
     *{box-sizing:border-box}
+    html, body{ overflow-x:hidden; }
     body{
       margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--text);
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
       background:
-        radial-gradient(1200px 700px at 20% -10%, rgba(74,163,255,.22), transparent 60%),
-        radial-gradient(900px 650px at 100% 0%, rgba(34,197,94,.12), transparent 55%),
+        radial-gradient(1200px 600px at 20% -10%, rgba(74,163,255,.20), transparent 60%),
+        radial-gradient(1000px 600px at 100% 0%, rgba(34,197,94,.12), transparent 55%),
         var(--bg);
+      color:var(--text);
     }
     header{
-      position:sticky; top:0; z-index:20;
-      background:rgba(11,18,32,.88);
+      position:sticky; top:0; z-index:10;
+      background: rgba(11,18,32,.84);
       backdrop-filter: blur(10px);
-      border-bottom:1px solid var(--line);
+      border-bottom:1px solid rgba(255,255,255,.14);
     }
     .wrap{max-width:1100px;margin:0 auto;padding:14px 16px}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .top{justify-content:space-between}
-    .title{font-weight:900}
-    .back{color:#9ecbff;text-decoration:none;font-weight:900}
+    .top{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
+    .brand{display:flex; align-items:center; gap:12px;}
+    .logo{
+      width:56px;height:56px;border-radius:14px;
+      background: rgba(255,255,255,.92);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow: var(--shadow);
+      display:grid; place-items:center;
+      overflow:hidden;
+      cursor:pointer;
+      padding:7px;
+    }
+    .logo img{width:100%;height:100%;object-fit:contain;display:none}
+    .brand h1{margin:0;font-size:16px;line-height:1.1}
+    .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+
     main{max-width:1100px;margin:0 auto;padding:16px}
     .card{
-      border:1px solid var(--line);
-      border-radius: var(--r);
-      background: linear-gradient(180deg, rgba(16,26,51,.92), rgba(12,23,48,.92));
+      background: linear-gradient(180deg, rgba(15,27,51,.92), rgba(12,23,48,.92));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
       box-shadow: var(--shadow);
-      padding:14px;
+      padding: 14px;
     }
-    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-    input,textarea,select{
+
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+    .pill{
+      display:inline-flex;gap:8px;align-items:center;
+      padding:8px 10px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      font-size:12px;color:var(--muted);
+    }
+    .pill strong{color:var(--text)}
+    .small{font-size:12px;color:var(--muted)}
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px}
+
+    input, textarea{
       width:100%;
-      background: rgba(0,0,0,.25);
-      border:1px solid var(--line);
-      color:var(--text);
-      border-radius:14px;
-      padding:10px 12px;
-      outline:none;
-      font-size:15px;
-    }
-    textarea{min-height:92px;white-space:pre-wrap;resize:vertical}
-    .grid{display:grid;gap:12px;margin-top:12px}
-    @media(min-width:860px){.grid{grid-template-columns: 1.05fr .95fr}}
-    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-    button{
       border:1px solid rgba(255,255,255,.14);
       background: rgba(255,255,255,.06);
-      color:var(--text);
-      padding:10px 14px;
-      border-radius:14px;
-      font-weight:900;
-      cursor:pointer;
-      user-select:none;
-      -webkit-user-select:none;
-      -webkit-touch-callout:none;
-      touch-action: manipulation;
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 14px;
+      outline:none;
     }
-    button.primary{border-color: rgba(74,163,255,.45); background: rgba(74,163,255,.14)}
-    button.good{border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.12)}
-    button.bad{border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.10)}
-    button:disabled{opacity:.55;cursor:not-allowed}
-    .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.35}
-    .pill{
-      font-size:12px;color:var(--muted);
-      border:1px solid rgba(255,255,255,.12);
-      padding:6px 10px;border-radius:999px;
-      background: rgba(255,255,255,.04);
-      white-space:nowrap;
-    }
-    .addrRow{display:flex;gap:10px;align-items:center}
-    .addrRow input{flex:1;min-width:220px}
-    .smallBtn{padding:10px 12px;border-radius:14px;white-space:nowrap}
+    textarea{min-height:84px;resize:vertical}
 
-    .list{display:flex;flex-direction:column;gap:12px;margin-top:12px}
-    .item{
+    button{
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:900;
+      white-space:nowrap;
+      max-width:100%;
+    }
+    button.primary{
+      background: linear-gradient(135deg, var(--blue), rgba(74,163,255,.35));
+      border-color: rgba(74,163,255,.5);
+    }
+    button.ok{
+      background: linear-gradient(135deg, var(--ok), rgba(34,197,94,.25));
+      border-color: rgba(34,197,94,.45);
+    }
+    button.warn{
+      background: linear-gradient(135deg, var(--warn), rgba(245,158,11,.25));
+      border-color: rgba(245,158,11,.45);
+    }
+    button.danger{
+      background: linear-gradient(135deg, var(--bad), rgba(239,68,68,.25));
+      border-color: rgba(239,68,68,.45);
+    }
+    button.purple{
+      background: linear-gradient(135deg, var(--purple), rgba(168,85,247,.25));
+      border-color: rgba(168,85,247,.45);
+    }
+    button:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .grid2{display:grid;grid-template-columns:1fr;gap:10px}
+    @media(min-width:860px){ .grid2{grid-template-columns:1.3fr .7fr;} }
+
+    .box{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      border-radius: 14px;
+      padding:10px;
+    }
+
+    .photos{display:grid; gap:10px; margin-top:12px;}
+    .photoItem{
       border:1px solid rgba(255,255,255,.12);
       background: rgba(0,0,0,.18);
-      border-radius: var(--r2);
-      overflow:hidden;
+      border-radius: 14px;
+      padding:10px;
+      display:grid;
+      gap:10px;
     }
-
-    .itemTop{display:flex;gap:10px;padding:12px;align-items:flex-start}
+    .thumbRow{display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap;}
     .thumb{
-      width:92px;height:92px;border-radius:14px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      object-fit:cover;
-      flex:0 0 auto;
+      width:110px;height:110px;border-radius:14px;object-fit:cover;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
     }
-    .meta{flex:1;min-width:0}
-    .metaHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:8px;
-    }
-    .metaLeft{min-width:0}
-    .meta .t{margin:0;font-weight:900;font-size:14px}
-    .meta .s{margin:4px 0 0;font-size:12px;color:var(--muted)}
-
-    .dangerTop{
-      padding:8px 10px;
-      border-radius:12px;
-      font-size:13px;
-      border-color: rgba(239,68,68,.55);
-      background: rgba(239,68,68,.10);
-      white-space:nowrap;
-      display:flex;
-      gap:8px;
-      align-items:center;
+    .metaRow{display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;}
+    .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 8px;border-radius:999px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size:12px;
     }
 
-    .itemBtns{display:flex;gap:8px;flex-wrap:wrap;padding:0 12px 12px}
-    .small{padding:9px 12px;border-radius:12px;font-size:13px}
-    .ghost{border-color: rgba(255,255,255,.12);background: rgba(255,255,255,.04)}
+    .footerActions{
+      display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;
+      margin-top:12px;
+      padding-top:12px;
+      border-top:1px solid rgba(255,255,255,.12);
+    }
 
-    /* ----- Full screen delete confirm ----- */
-    .modal{
-      position:fixed; inset:0; z-index:9999;
-      background: rgba(0,0,0,.58);
-      display:none;
-      align-items:flex-end;
-      justify-content:center;
-      padding:16px;
-    }
-    .modal.show{display:flex}
-    .sheet{
-      width:min(720px, 100%);
-      border:1px solid rgba(255,255,255,.14);
-      background: linear-gradient(180deg, rgba(16,26,51,.96), rgba(10,16,34,.96));
-      border-radius: 20px;
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-    .sheetTop{
-      display:flex; gap:12px; align-items:center;
-      padding:14px;
-      border-bottom:1px solid rgba(255,255,255,.10);
-    }
-    .sheetTop img{
-      width:64px;height:64px;border-radius:14px; object-fit:cover;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      flex:0 0 auto;
-    }
-    .sheetTop .h{margin:0;font-weight:900}
-    .sheetTop .p{margin:6px 0 0; color:var(--muted); font-size:12px}
-    .sheetBody{padding:14px}
-    .holdArea{
-      border:1px solid rgba(239,68,68,.55);
-      background: rgba(239,68,68,.10);
-      border-radius: 16px;
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      user-select:none;
-      -webkit-user-select:none;
-      -webkit-touch-callout:none;
-      touch-action:none;
-    }
-    .holdTitle{font-weight:900}
-    .holdBarBig{
-      width:100%; height:14px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      overflow:hidden;
-    }
-    .holdFillBig{
-      width:0%; height:100%;
-      background: rgba(239,68,68,.78);
-      border-radius:999px;
-    }
-    .sheetBtns{
-      display:flex; gap:10px; flex-wrap:wrap;
-      padding:14px;
-      border-top:1px solid rgba(255,255,255,.10);
-      justify-content:flex-end;
+    .hint{color:var(--muted);font-size:12px;margin-top:10px}
+
+    a.link{
+      color:#9ecbff; text-decoration:none; font-weight:900;
     }
   </style>
 </head>
 
 <body>
-<header>
-  <div class="wrap row top">
-    <div class="row" style="gap:12px">
-      <div class="title">Ford Property Services • Photo Notes</div>
-      <span class="pill" id="speechPill">Dictation: checking…</span>
+  <header>
+    <div class="wrap">
+      <div class="top">
+        <div class="brand">
+          <div class="logo" id="logoBox" title="Tap to upload logo">
+            <span id="logoFallback" style="font-weight:950;letter-spacing:.4px;color:#0b1220;">FPS</span>
+            <img id="logoImg" alt="Company logo" />
+          </div>
+          <div>
+            <h1>Ford Property Services</h1>
+            <p>Job Photo Notes</p>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="backBtn" type="button">⬅ Back to Job</button>
+          <button id="addPhotoBtn" class="primary" type="button">Add Photo</button>
+          <button id="saveAttachBtn" class="ok" type="button">Save & Attach to Job</button>
+        </div>
+      </div>
     </div>
-    <!-- ✅ AMENDED: becomes "Back to Job" when opened from Jobs Board -->
-    <a class="back" id="backLink" href="../dashboard/">← Dashboard</a>
-  </div>
-</header>
+  </header>
 
-<main>
-  <div class="grid">
-    <section class="card">
-      <label>Property Address</label>
-      <div class="addrRow">
-        <input id="address" placeholder="e.g., 12 High Street, London" />
-        <button id="btnGps" class="primary smallBtn" type="button">📍 Use GPS</button>
-      </div>
+  <input id="logoInput" type="file" accept="image/*" style="display:none" />
+  <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none" />
 
-      <div id="houseWrap" style="display:none; margin-top:8px;">
-        <label style="margin:0 0 6px;">Select Address (if needed)</label>
-        <select id="houseSelect"></select>
-        <div class="hint" id="houseHint" style="margin-top:6px;"></div>
-      </div>
-
-      <div class="hint" id="gpsHint" style="margin-top:6px;"></div>
-
-      <div class="row" style="gap:12px">
-        <div style="flex:1;min-width:220px">
-          <label>Date</label>
-          <input id="date" type="date" />
-        </div>
-        <div style="flex:1;min-width:220px">
-          <label>Operative (optional)</label>
-          <input id="operative" placeholder="e.g., Ben Ford" />
-        </div>
-      </div>
-
-      <div class="btnrow">
-        <button id="btnCamera" class="primary" type="button">📷 Camera</button>
-        <button id="btnGallery" class="primary" type="button">🖼️ Gallery</button>
-        <button id="btnPdf" class="good" type="button">🧾 Generate PDF</button>
-        <button id="btnShare" class="primary" type="button" disabled>📤 Share PDF (WhatsApp)</button>
-        <button id="btnDownload" class="primary" type="button" disabled>⬇️ Download PDF</button>
-
-        <!-- ✅ AMENDED: Save into Jobs Board Documents -->
-        <button id="btnSaveToJob" class="good" type="button" disabled>💾 Save to Job (Docs)</button>
-
-        <button id="btnClear" class="bad" type="button">🗑️ Clear All</button>
-      </div>
-
-      <div class="hint" id="status">Ready.</div>
-      <div class="hint" id="debug"></div>
-
-      <input id="cameraInput" type="file" accept="image/*" capture="environment" multiple hidden>
-      <input id="galleryInput" type="file" accept="image/*" multiple hidden>
-    </section>
-
-    <section class="card">
+  <main>
+    <div class="card">
       <div class="row" style="justify-content:space-between">
-        <strong>Photos & Notes</strong>
-        <span class="pill" id="countPill">0 photos</span>
+        <div class="row">
+          <span class="pill"><strong>Job:</strong> <span id="jobIdPill">—</span></span>
+          <span class="pill"><strong>Saved:</strong> <span id="savedStatus">—</span></span>
+        </div>
+        <div class="small" id="cloudStatus">Connecting…</div>
       </div>
-      <div class="list" id="list"></div>
-    </section>
-  </div>
-</main>
 
-<!-- Delete confirm modal -->
-<div class="modal" id="delModal" aria-hidden="true">
-  <div class="sheet" role="dialog" aria-modal="true">
-    <div class="sheetTop">
-      <img id="delThumb" alt="Photo preview">
-      <div style="min-width:0">
-        <p class="h" id="delTitle" style="margin:0">Delete photo?</p>
-        <p class="p" id="delSub" style="margin:6px 0 0"></p>
-      </div>
-    </div>
+      <div class="grid2" style="margin-top:12px">
+        <div class="box">
+          <div style="font-weight:950;letter-spacing:.2px">Job details</div>
+          <div class="hint" style="margin-top:6px">These auto-fill from the Jobs Board link, but you can edit if needed.</div>
 
-    <div class="sheetBody">
-      <div class="holdArea" id="holdArea">
-        <div class="holdTitle">🗑️ HOLD 2 SECONDS TO DELETE</div>
-        <div class="hint" style="margin:0;color:#ffd1d1">Keep holding until the bar fills.</div>
-        <div class="holdBarBig"><div class="holdFillBig" id="holdFillBig"></div></div>
-      </div>
-    </div>
-
-    <div class="sheetBtns">
-      <button type="button" class="primary" id="delCancel">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<script type="module">
-/* =========================================================
-   Firebase (SAME PROJECT AS JOBS BOARD)
-   ========================================================= */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import { getFirestore, doc, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
-  authDomain: "fps-jobs-board.firebaseapp.com",
-  projectId: "fps-jobs-board",
-  storageBucket: "fps-jobs-board.firebasestorage.app",
-  messagingSenderId: "386598717430",
-  appId: "1:386598717430:web:06a2b508f1d7fcc92069d7"
-};
-
-const fbApp   = initializeApp(firebaseConfig);
-const auth    = getAuth(fbApp);
-const db      = getFirestore(fbApp);
-const storage = getStorage(fbApp);
-const JOBS_DOC = doc(db, "jobsBoard", "shared");
-
-async function ensureSignedIn(){
-  if(auth.currentUser) return auth.currentUser;
-  const u = await new Promise(resolve=>{
-    const unsub = onAuthStateChanged(auth, usr=>{ unsub(); resolve(usr); });
-  });
-  if(u) return u;
-  await signInAnonymously(auth);
-  return auth.currentUser;
-}
-
-/* =========================================================
-   LINK CONTEXT FROM JOBS BOARD
-   ========================================================= */
-const params      = new URLSearchParams(location.search);
-const linkedJobId = params.get("job") || "";
-const backUrl     = params.get("back") || "../dashboard/";
-
-const backLink = document.getElementById("backLink");
-if(linkedJobId){
-  backLink.textContent = "← Back to Job";
-  backLink.href = backUrl;
-}
-
-/* =========================================================
-   STATE / HELPERS
-   ========================================================= */
-const $ = (id) => document.getElementById(id);
-
-const STORE = "fps_photo_notes_v2_store";
-const VERSION_STAMP = "v2.4.0-job-linked-doc-save";
-
-let state = {
-  address:"",
-  date:"",
-  operative:"",
-  photos:[],
-  gps:null
-};
-
-let pdfBlob = null;
-let pdfFile = null;
-let pdfName = "";
-
-function save(){
-  localStorage.setItem(STORE, JSON.stringify(state));
-}
-
-function load(){
-  const raw = localStorage.getItem(STORE);
-  if(raw){
-    try{ state = JSON.parse(raw); }catch{}
-  }
-  state.photos = (state.photos || []).map(p=>({
-    id:p.id,
-    img:p.img,
-    subject:p.subject||"",
-    note:p.note||"",
-    ts:p.ts
-  }));
-
-  $("address").value   = state.address || "";
-  $("operative").value = state.operative || "";
-  $("date").value      = state.date || new Date().toISOString().slice(0,10);
-}
-
-/* =========================================================
-   AUTO-POPULATE FROM JOB (BEST EFFORT)
-   ========================================================= */
-function applyLinkContext(){
-  const addr  = params.get("address");
-  const agent = params.get("agent");
-  const ref   = params.get("ref");
-  const estNo = params.get("estNo");
-
-  if(addr && !$("address").value.trim()){
-    $("address").value = addr;
-    state.address = addr;
-  }
-
-  if(!$("operative").value.trim()){
-    const bits = [];
-    if(agent) bits.push(agent);
-    if(ref)   bits.push(ref);
-    if(estNo) bits.push(`Est ${estNo}`);
-    if(bits.length){
-      $("operative").value = bits.join(" • ");
-      state.operative = $("operative").value;
-    }
-  }
-  save();
-}
-
-/* =========================================================
-   BASIC FORM BINDINGS
-   ========================================================= */
-$("address").addEventListener("input", e=>{
-  state.address = e.target.value;
-  save();
-});
-
-$("operative").addEventListener("input", e=>{
-  state.operative = e.target.value;
-  save();
-});
-
-$("date").addEventListener("change", e=>{
-  state.date = e.target.value;
-  save();
-});
-
-/* =========================================================
-   CACHE / SERVICE WORKER KILL (your existing)
-   ========================================================= */
-async function killServiceWorkersAndCachesOnce(){
-  try{
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) await r.unregister().catch(()=>{});
-    }
-    if (window.caches) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k).catch(()=>{})));
-    }
-  }catch(e){}
-}
-
-/* =========================================================
-   GPS helpers (your existing)
-   ========================================================= */
-async function reverseGeocodeOSM(lat, lon){
-  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`;
-  const res = await fetch(url, { headers: { "Accept":"application/json", "Accept-Language":"en-GB" } });
-  if(!res.ok) throw new Error("Reverse geocode failed");
-  return await res.json();
-}
-function setGpsHint(msg){ $("gpsHint").textContent = msg || ""; }
-function setHouseHint(msg){ $("houseHint").textContent = msg || ""; }
-function pickTown(a){ return a.town || a.city || a.village || a.suburb || a.county || ""; }
-function buildAddress(houseNumber, road, town, postcode){
-  const line1 = [houseNumber, road].filter(Boolean).join(" ").trim();
-  return [line1, town, postcode].filter(Boolean).join(", ").trim();
-}
-async function fetchNearbyFullAddresses({road, town, postcode, lat, lon}){
-  const d = 0.01;
-  const left = lon - d, right = lon + d, top = lat + d, bottom = lat - d;
-  const params = new URLSearchParams({
-    format: "jsonv2",
-    addressdetails: "1",
-    limit: "60",
-    countrycodes: "gb",
-    street: road || "",
-    city: town || "",
-    postalcode: postcode || "",
-    viewbox: `${left},${top},${right},${bottom}`,
-    bounded: "1"
-  });
-  const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
-  const res = await fetch(url, { headers: { "Accept":"application/json", "Accept-Language":"en-GB" } });
-  if(!res.ok) throw new Error("Nearby address search failed");
-  const results = await res.json();
-
-  const seen = new Set();
-  const list = [];
-  for(const r of results){
-    const a = r.address || {};
-    const hn = (a.house_number || "").trim();
-    const rRoad = (a.road || a.pedestrian || a.footway || "").trim();
-    if(!hn) continue;
-    if(road && rRoad && rRoad.toLowerCase() !== road.toLowerCase()) continue;
-
-    const t = pickTown(a) || town || "";
-    const pc = (a.postcode || "").trim() || postcode || "";
-    const full = buildAddress(hn, rRoad || road, t, pc);
-    if(!full) continue;
-
-    const key = full.toLowerCase();
-    if(seen.has(key)) continue;
-    seen.add(key);
-
-    list.push({ label: full, house: hn, road: rRoad || road, town: t, postcode: pc });
-  }
-  list.sort((A,B)=>{
-    const na = parseInt(A.house,10), nb = parseInt(B.house,10);
-    if(!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
-    return A.label.localeCompare(B.label, "en-GB", {numeric:true, sensitivity:"base"});
-  });
-  return list.slice(0, 40);
-}
-function showAddressPicker(addresses, preselectLabel){
-  const wrap = $("houseWrap");
-  const sel = $("houseSelect");
-  sel.innerHTML = "";
-  const opt0 = document.createElement("option");
-  opt0.value = "";
-  opt0.textContent = "Select the correct address…";
-  sel.appendChild(opt0);
-  addresses.forEach((a) => {
-    const opt = document.createElement("option");
-    opt.value = a.label;
-    opt.textContent = a.label;
-    sel.appendChild(opt);
-  });
-  wrap.style.display = addresses.length ? "block" : "none";
-  if(preselectLabel){
-    const found = addresses.find(x => x.label.toLowerCase() === preselectLabel.toLowerCase());
-    if(found) sel.value = found.label;
-  }
-}
-
-function setStatus(msg){ $("status").textContent = msg; }
-function setDebug(msg){ $("debug").textContent = msg || ""; }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
-
-/* =========================================================
-   GPS button (your existing)
-   ========================================================= */
-$("btnGps").onclick = () => {
-  if(!navigator.geolocation){ alert("GPS not supported on this device/browser."); return; }
-  setGpsHint("Getting your location…");
-  setHouseHint("");
-  $("houseWrap").style.display = "none";
-  $("btnGps").disabled = true;
-
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    try{
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-
-      setGpsHint("Finding road/postcode…");
-      const data = await reverseGeocodeOSM(lat, lon);
-      const a = data.address || {};
-
-      const hn = (a.house_number || "").trim();
-      const road = (a.road || a.pedestrian || a.footway || "").trim();
-      const town = pickTown(a);
-      const postcode = (a.postcode || "").trim();
-
-      const base = buildAddress(hn, road, town, postcode) || (data.display_name || "");
-      if(base){
-        $("address").value = base;
-        state.address = base;
-        state.gps = { lat, lon, ts: new Date().toISOString(), road, town, postcode, house: hn || null };
-        save();
-      }
-
-      if(!road){ setGpsHint("GPS found, but no road name returned. You can type the address manually."); return; }
-
-      setGpsHint("Looking for nearby full addresses…");
-      const addresses = await fetchNearbyFullAddresses({ road, town, postcode, lat, lon });
-
-      if(addresses.length){
-        showAddressPicker(addresses, base);
-        setGpsHint(hn
-          ? "GPS found an address. If it’s slightly off, pick the correct one below."
-          : "GPS couldn’t find an exact house number — pick the correct address below.");
-
-        $("houseSelect").onchange = () => {
-          const chosen = $("houseSelect").value;
-          if(!chosen) return;
-
-          $("address").value = chosen;
-          state.address = chosen;
-
-          const picked = addresses.find(x => x.label === chosen);
-          state.gps = {
-            ...(state.gps || {}),
-            lat, lon,
-            ts: new Date().toISOString(),
-            road: picked?.road || road,
-            town: picked?.town || town,
-            postcode: picked?.postcode || postcode,
-            house: picked?.house || hn || null
-          };
-          save();
-          setHouseHint("Selected address applied.");
-        };
-      } else {
-        setGpsHint(hn ? "GPS found an address." : "Couldn’t find nearby addresses for this road. Type the number manually if needed.");
-      }
-
-    }catch(err){
-      console.warn(err);
-      setGpsHint("Couldn’t get address list. Try again in a moment.");
-      alert("Couldn’t convert GPS to nearby addresses (may be rate-limited). Try again shortly.");
-    }finally{
-      $("btnGps").disabled = false;
-    }
-  }, () => {
-    $("btnGps").disabled = false;
-    setGpsHint("GPS permission denied or unavailable.");
-    alert("GPS not available. Please allow location permission and try again.");
-  }, { enableHighAccuracy:true, timeout:12000, maximumAge:60000 });
-};
-
-/* =========================================================
-   Dictation support (your existing)
-   ========================================================= */
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-const dictationSupported = !!SpeechRecognition;
-$("speechPill").textContent = dictationSupported ? "Dictation: supported" : "Dictation: not supported";
-
-const BULLET = "• ";
-function ensureEndsWithNewline(text){
-  if(!text) return "";
-  return text.endsWith("\n") ? text : (text + "\n");
-}
-function prepareBulletPrefix(currentText){
-  const t = (currentText || "");
-  const trimmed = t.trimEnd();
-  if(!trimmed) return BULLET;
-  const lines = trimmed.split("\n");
-  const last = lines[lines.length - 1].trim();
-  if(last === "•" || last === BULLET.trim()) return "";
-  return ensureEndsWithNewline(t) + BULLET;
-}
-
-/* =========================================================
-   Delete modal hold-to-delete (your existing)
-   ========================================================= */
-let deleteTargetId = null;
-let holdRAF = null;
-let holdStart = 0;
-
-function openDeleteModal(photo){
-  deleteTargetId = photo.id;
-  $("delThumb").src = photo.img;
-  const subj = (photo.subject || "").trim();
-  $("delSub").textContent = `Photo subject: ${subj ? subj : "—"}`;
-  $("delModal").classList.add("show");
-  $("holdFillBig").style.width = "0%";
-  $("delModal").setAttribute("aria-hidden", "false");
-}
-function closeDeleteModal(){
-  cancelHold();
-  deleteTargetId = null;
-  $("delModal").classList.remove("show");
-  $("delModal").setAttribute("aria-hidden", "true");
-  $("holdFillBig").style.width = "0%";
-}
-function cancelHold(){
-  if(holdRAF){ cancelAnimationFrame(holdRAF); holdRAF = null; }
-  $("holdFillBig").style.width = "0%";
-}
-function startHold(){
-  if(!deleteTargetId) return;
-  cancelHold();
-  holdStart = Date.now();
-  if(navigator.vibrate) navigator.vibrate(25);
-
-  const tick = () => {
-    const elapsed = Date.now() - holdStart;
-    const pct = Math.min(100, (elapsed/2000)*100);
-    $("holdFillBig").style.width = pct.toFixed(1) + "%";
-    if(elapsed >= 2000){
-      const id = deleteTargetId;
-      closeDeleteModal();
-      state.photos = state.photos.filter(p => p.id !== id);
-      save();
-      pdfBlob = pdfFile = null;
-      $("btnShare").disabled = true;
-      $("btnDownload").disabled = true;
-      $("btnSaveToJob").disabled = true;
-      setStatus("Photo deleted.");
-      if(navigator.vibrate) navigator.vibrate(90);
-      render();
-      return;
-    }
-    holdRAF = requestAnimationFrame(tick);
-  };
-  holdRAF = requestAnimationFrame(tick);
-}
-
-$("delCancel").onclick = closeDeleteModal;
-$("delModal").addEventListener("click", (e) => {
-  if(e.target === $("delModal")) closeDeleteModal();
-});
-
-const holdArea = $("holdArea");
-holdArea.addEventListener("touchstart", (e)=>{ e.preventDefault(); startHold(); }, {passive:false});
-holdArea.addEventListener("touchend", (e)=>{ e.preventDefault(); cancelHold(); }, {passive:false});
-holdArea.addEventListener("touchcancel", cancelHold);
-holdArea.addEventListener("mousedown", (e)=>{ e.preventDefault(); startHold(); });
-window.addEventListener("mouseup", cancelHold);
-window.addEventListener("blur", cancelHold);
-
-/* =========================================================
-   Images import helpers (your existing)
-   ========================================================= */
-function looksLikeImage(file){
-  const name = (file?.name || "").toLowerCase();
-  const extOk = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(name);
-  const typeOk = (file?.type || "").startsWith("image/");
-  return typeOk || extOk;
-}
-function loadImageFromObjectURL(file){
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image load failed")); };
-    img.src = url;
-  });
-}
-function compressToJpegDataURL(img, maxW=1600, maxH=1600, quality=0.85){
-  const w = img.naturalWidth || img.width;
-  const h = img.naturalHeight || img.height;
-  const scale = Math.min(1, maxW / w, maxH / h);
-  const cw = Math.max(1, Math.round(w * scale));
-  const ch = Math.max(1, Math.round(h * scale));
-  const c = document.createElement("canvas");
-  c.width = cw; c.height = ch;
-  const ctx = c.getContext("2d", { alpha:false });
-  ctx.drawImage(img, 0, 0, cw, ch);
-  return c.toDataURL("image/jpeg", quality);
-}
-
-$("btnCamera").onclick = () => $("cameraInput").click();
-$("btnGallery").onclick = () => $("galleryInput").click();
-
-async function handleFiles(e){
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-
-  setStatus(`Adding ${files.length} photo(s)…`);
-  setDebug(`Picker returned ${files.length} file(s).`);
-
-  let added = 0, skipped = 0;
-
-  for (const f of files) {
-    try{
-      if (!f || !looksLikeImage(f)) { skipped++; continue; }
-      const img = await loadImageFromObjectURL(f);
-      const dataURL = compressToJpegDataURL(img, 1600, 1600, 0.85);
-      if (!dataURL.startsWith("data:image/")) { skipped++; continue; }
-
-      state.photos.push({
-        id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
-        img: dataURL,
-        subject: "",
-        note: "",
-        ts: new Date().toISOString()
-      });
-      added++;
-    }catch(err){
-      console.warn("Import fail:", err);
-      skipped++;
-    }
-  }
-
-  save();
-  pdfBlob = pdfFile = null;
-  $("btnShare").disabled = true;
-  $("btnDownload").disabled = true;
-  $("btnSaveToJob").disabled = true;
-  render();
-
-  if (added) setStatus(`Photos added: ${added}${skipped ? ` (skipped ${skipped})` : ""}.`);
-  else setStatus("No photos added. (If your phone uses HEIC, switch Camera settings to JPEG.)");
-  e.target.value = "";
-}
-
-$("cameraInput").addEventListener("change", handleFiles);
-$("galleryInput").addEventListener("change", handleFiles);
-
-/* =========================================================
-   Render (your existing)
-   ========================================================= */
-function escapeHtml(str){
-  return String(str||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-function escapeAttr(str){
-  return escapeHtml(str).replace(/"/g, "&quot;");
-}
-
-function render(){
-  $("countPill").textContent = `${state.photos.length} photo${state.photos.length===1?"":"s"}`;
-  const list = $("list");
-  list.innerHTML = "";
-
-  if (!state.photos.length) {
-    const div = document.createElement("div");
-    div.className = "hint";
-    div.textContent = "No photos yet. Tap “Camera” or “Gallery”.";
-    list.appendChild(div);
-    return;
-  }
-
-  state.photos.forEach((p, idx) => {
-    const item = document.createElement("div");
-    item.className = "item";
-    item.innerHTML = `
-      <div class="itemTop">
-        <img class="thumb" src="${p.img}" alt="Photo ${idx+1}">
-        <div class="meta">
-          <div class="metaHead">
-            <div class="metaLeft">
-              <p class="t">Photo ${idx+1}${p.subject ? " • " + escapeHtml(p.subject) : ""}</p>
-              <p class="s">Notes + subject</p>
-            </div>
-            <button class="dangerTop" type="button" data-delopen="${p.id}">🗑️ Delete</button>
+          <div style="margin-top:12px">
+            <label>Property Address</label>
+            <input id="address" placeholder="Full address" />
           </div>
 
-          <input data-subject="${p.id}" placeholder="Subject (e.g., Kitchen door, Bathroom basin)" value="${escapeAttr(p.subject || "")}">
-          <div style="height:8px"></div>
-          <textarea placeholder="Notes…">${p.note || ""}</textarea>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1; min-width:220px">
+              <label>Letting Agent</label>
+              <input id="agent" placeholder="e.g., Romans" />
+            </div>
+            <div style="flex:1; min-width:220px">
+              <label>Assigned Agent</label>
+              <input id="ref" placeholder="Optional" />
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1; min-width:220px">
+              <label>Estimate No</label>
+              <input id="estNo" placeholder="e.g., EST-1021" />
+            </div>
+            <div style="flex:1; min-width:220px">
+              <label>Quick note (optional)</label>
+              <input id="quick" placeholder="e.g., Access code / tenant name" />
+            </div>
+          </div>
+        </div>
+
+        <div class="box">
+          <div style="font-weight:950;letter-spacing:.2px">Actions</div>
+          <div class="hint" style="margin-top:6px">
+            • <b>Add Photo</b> = take a photo (or choose from gallery depending on device)<br/>
+            • <b>Save & Attach</b> = creates a PDF + uploads it into that job’s Documents
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="downloadPdfBtn" class="purple" type="button">Download PDF</button>
+            <button id="sharePdfBtn" type="button">Share PDF</button>
+          </div>
+
+          <div class="row" style="margin-top:10px">
+            <button id="deleteNotesBtn" class="danger" type="button" title="Hold 2 seconds to delete notes">Hold to Delete Notes</button>
+          </div>
+
+          <div class="hint" style="margin-top:10px">
+            Tip: if “Back to Job” doesn’t work, open the job from your Jobs Board and tap Job Notes again.
+          </div>
         </div>
       </div>
 
-      <div class="itemBtns">
-        <button class="small primary" type="button" ${dictationSupported ? "" : "disabled"} data-dict="${p.id}">🎙️ Dictate</button>
-        <button class="small ghost" type="button" disabled data-stop="${p.id}">⏹️ Stop</button>
-        <button class="small" type="button" data-clearnote="${p.id}">🧽 Clear Notes</button>
+      <div style="margin-top:14px; font-weight:950">Photos</div>
+      <div class="small" style="margin-top:6px">Each photo can have its own subject and notes. These are what go into the PDF.</div>
+      <div id="photos" class="photos"></div>
+      <div id="emptyPhotos" class="small" style="display:none;margin-top:10px;color:var(--muted)">No photos added yet.</div>
+
+      <div class="footerActions">
+        <button id="saveOnlyBtn" type="button">Save Notes (Cloud)</button>
+        <button id="saveAttachBtn2" class="ok" type="button">Save & Attach to Job</button>
       </div>
-    `;
+    </div>
+  </main>
 
-    item.querySelector(`[data-delopen="${p.id}"]`).onclick = () => openDeleteModal(p);
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
-    const subj = item.querySelector(`[data-subject="${p.id}"]`);
-    subj.addEventListener("input", () => {
-      p.subject = subj.value;
-      save();
-      pdfBlob = pdfFile = null;
-      $("btnShare").disabled = true;
-      $("btnDownload").disabled = true;
-      $("btnSaveToJob").disabled = true;
-      item.querySelector(".t").textContent = `Photo ${idx+1}${p.subject ? " • " + p.subject : ""}`;
-    });
-
-    const ta = item.querySelector("textarea");
-    ta.addEventListener("input", () => {
-      p.note = ta.value;
-      save();
-      pdfBlob = pdfFile = null;
-      $("btnShare").disabled = true;
-      $("btnDownload").disabled = true;
-      $("btnSaveToJob").disabled = true;
-    });
-
-    item.querySelector(`[data-clearnote="${p.id}"]`).onclick = () => {
-      if(!confirm("Clear notes for this photo only?")) return;
-      p.note = "";
-      ta.value = "";
-      save();
-      pdfBlob = pdfFile = null;
-      $("btnShare").disabled = true;
-      $("btnDownload").disabled = true;
-      $("btnSaveToJob").disabled = true;
-      setStatus("Notes cleared for that photo.");
+    // ✅ Using same Firebase project as your Jobs Board (so we can attach into the job docs)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
+      authDomain: "fps-jobs-board.firebaseapp.com",
+      projectId: "fps-jobs-board",
+      storageBucket: "fps-jobs-board.firebasestorage.app",
+      messagingSenderId: "386598717430",
+      appId: "1:386598717430:web:06a2b508f1d7fcc92069d7"
     };
 
-    const btnDict = item.querySelector(`[data-dict="${p.id}"]`);
-    const btnStop = item.querySelector(`[data-stop="${p.id}"]`);
-    if (dictationSupported) {
-      btnDict.onclick = () => {
-        const rec = new SpeechRecognition();
-        rec.lang = "en-GB";
-        rec.interimResults = true;
-        rec.continuous = false;
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
 
-        btnDict.disabled = true;
-        btnStop.disabled = false;
+    // ===== helpers =====
+    function pad2(n){ return String(n).padStart(2,"0"); }
+    function nowStamp(){
+      const d = new Date();
+      return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    }
+    function escapeHtml(str){
+      return String(str ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+    function uid(prefix="id"){
+      return prefix + "_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+    }
+    function safeFileName(s){
+      return String(s||"Job")
+        .replace(/[^\w\- ]+/g,"")
+        .trim()
+        .slice(0,60) || "Job";
+    }
+    function getJsPDF(){
+      const u = window.jspdf;
+      return (u && u.jsPDF) ? u.jsPDF : null;
+    }
+    async function fileToDataURL(file, maxDim=1400, quality=0.88){
+      const img = await new Promise((res, rej)=>{
+        const i = new Image();
+        i.onload=()=>res(i);
+        i.onerror=rej;
+        i.src = URL.createObjectURL(file);
+      });
+      const c = document.createElement("canvas");
+      let {width:w, height:h} = img;
+      const scale = Math.min(1, maxDim / Math.max(w,h));
+      w = Math.round(w*scale); h = Math.round(h*scale);
+      c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      const url = c.toDataURL("image/jpeg", quality);
+      URL.revokeObjectURL(img.src);
+      return url;
+    }
+    function bytesToNice(n){
+      const b = Number(n||0);
+      if(!b) return "";
+      const units = ["B","KB","MB","GB"];
+      let v=b, i=0;
+      while(v>=1024 && i<units.length-1){ v/=1024; i++; }
+      return `${v.toFixed(i===0?0:1)} ${units[i]}`;
+    }
 
-        const prefix = prepareBulletPrefix(ta.value);
-        if(prefix){
-          ta.value = prefix;
-          p.note = ta.value;
-          save();
-        }
-        setStatus("Listening… speak your bullet point.");
+    // ===== DOM =====
+    const logoBox = document.getElementById("logoBox");
+    const logoInput = document.getElementById("logoInput");
+    const logoImg = document.getElementById("logoImg");
+    const logoFallback = document.getElementById("logoFallback");
 
-        let finalText = "";
-        btnStop.onclick = () => { try{ rec.stop(); }catch{} };
+    const jobIdPill = document.getElementById("jobIdPill");
+    const savedStatus = document.getElementById("savedStatus");
+    const cloudStatus = document.getElementById("cloudStatus");
 
-        rec.onresult = (e) => {
-          let interim = "";
-          for (let i = e.resultIndex; i < e.results.length; i++){
-            const t = e.results[i][0].transcript;
-            if (e.results[i].isFinal) finalText += t;
-            else interim += t;
-          }
-          const spoken = (finalText + interim).trim();
-          if(!spoken) return;
+    const backBtn = document.getElementById("backBtn");
+    const addPhotoBtn = document.getElementById("addPhotoBtn");
+    const saveAttachBtn = document.getElementById("saveAttachBtn");
+    const saveAttachBtn2 = document.getElementById("saveAttachBtn2");
+    const saveOnlyBtn = document.getElementById("saveOnlyBtn");
+    const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+    const sharePdfBtn = document.getElementById("sharePdfBtn");
+    const deleteNotesBtn = document.getElementById("deleteNotesBtn");
 
-          const current = ta.value || "";
-          const lastBulletIdx = current.lastIndexOf(BULLET);
-          if(lastBulletIdx !== -1){
-            const before = current.slice(0, lastBulletIdx + BULLET.length);
-            ta.value = before + spoken;
-          }else{
-            ta.value = (current.trim() ? (current.trimEnd() + "\n") : "") + BULLET + spoken;
-          }
-          p.note = ta.value;
-          save();
-        };
+    const photoInput = document.getElementById("photoInput");
 
-        rec.onerror = () => {
-          setStatus("Dictation error. Try again.");
-          btnDict.disabled = false;
-          btnStop.disabled = true;
-        };
+    const addressEl = document.getElementById("address");
+    const agentEl = document.getElementById("agent");
+    const refEl = document.getElementById("ref");
+    const estNoEl = document.getElementById("estNo");
+    const quickEl = document.getElementById("quick");
 
-        rec.onend = () => {
-          setStatus("Ready.");
-          btnDict.disabled = false;
-          btnStop.disabled = true;
-          ta.value = (ta.value || "").replace(/[ \t]+$/g, "");
-          p.note = ta.value;
-          save();
-        };
+    const photosEl = document.getElementById("photos");
+    const emptyPhotosEl = document.getElementById("emptyPhotos");
 
-        try { rec.start(); } catch {
-          setStatus("Couldn’t start dictation. Try again.");
-          btnDict.disabled = false;
-          btnStop.disabled = true;
-        }
+    // ===== Logo (shared with your other apps) =====
+    const savedLogo = localStorage.getItem("fps_logo_v1");
+    if(savedLogo){
+      logoImg.src = savedLogo;
+      logoImg.style.display = "block";
+      logoFallback.style.display = "none";
+    }
+    logoBox.addEventListener("click", ()=> logoInput.click());
+    logoInput.addEventListener("change", async (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
+      const url = await fileToDataURL(f, 900, 0.90);
+      localStorage.setItem("fps_logo_v1", url);
+      logoImg.src = url;
+      logoImg.style.display = "block";
+      logoFallback.style.display = "none";
+    });
+
+    // ===== Query params from Jobs Board =====
+    const qp = new URLSearchParams(location.search);
+    const jobId = qp.get("job") || "";
+    const backUrl = qp.get("back") || ""; // Jobs Board deep link
+    jobIdPill.textContent = jobId ? jobId : "No job id";
+
+    // best-effort auto populate from query string
+    addressEl.value = qp.get("address") || "";
+    agentEl.value   = qp.get("agent") || "";
+    refEl.value     = qp.get("ref") || "";
+    estNoEl.value   = qp.get("estNo") || "";
+
+    // Back button
+    backBtn.addEventListener("click", ()=>{
+      if(backUrl){
+        location.href = backUrl;
+        return;
+      }
+      // fallback: go to jobs board root
+      location.href = "https://benfordi25.github.io/app/jobs-board/index.html";
+    });
+
+    // ===== Data model =====
+    // Stored per-job in Firestore: jobPhotoNotes/{jobId}
+    // Also can generate a PDF and attach it into jobsBoard/shared job.docs
+    const NOTES_STORAGE_KEY = "fps_job_photo_notes_v1_" + (jobId || "nojob");
+
+    let notes = {
+      jobId: jobId || "",
+      address: addressEl.value || "",
+      agent: agentEl.value || "",
+      ref: refEl.value || "",
+      estNo: estNoEl.value || "",
+      quick: "",
+      photos: [], // { id, subject, notes, dataUrl?, storageUrl?, storagePath?, createdAtMs, size? }
+      updatedAtMs: 0
+    };
+
+    function migrate(n){
+      n = n && typeof n === "object" ? n : {};
+      return {
+        jobId: String(n.jobId || jobId || ""),
+        address: String(n.address || addressEl.value || ""),
+        agent: String(n.agent || agentEl.value || ""),
+        ref: String(n.ref || refEl.value || ""),
+        estNo: String(n.estNo || estNoEl.value || ""),
+        quick: String(n.quick || ""),
+        photos: Array.isArray(n.photos) ? n.photos.map(p=>({
+          id: p.id || uid("p"),
+          subject: String(p.subject || ""),
+          notes: String(p.notes || ""),
+          dataUrl: p.dataUrl || "",         // optional local cache
+          storageUrl: p.storageUrl || "",   // preferred
+          storagePath: p.storagePath || "",
+          createdAtMs: Number(p.createdAtMs || Date.now()),
+          size: Number(p.size || 0)
+        })) : [],
+        updatedAtMs: Number(n.updatedAtMs || 0)
       };
     }
 
-    list.appendChild(item);
-  });
-}
-
-/* =========================================================
-   PDF helpers (your existing)
-   ========================================================= */
-function addPageNumbers(doc){
-  const pageCount = doc.getNumberOfPages();
-  for(let i=1;i<=pageCount;i++){
-    doc.setPage(i);
-    const w = doc.internal.pageSize.getWidth();
-    const h = doc.internal.pageSize.getHeight();
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(9);
-    doc.setTextColor(130);
-    doc.text(`Page ${i} of ${pageCount}`, w - 12, h - 8, { align:"right" });
-  }
-}
-
-function downloadLastPdf(){
-  if(!pdfBlob){ alert("Generate the PDF first."); return; }
-  const url = URL.createObjectURL(pdfBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = pdfName || "photo-notes.pdf";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  setStatus("PDF downloaded.");
-}
-
-$("btnDownload").onclick = downloadLastPdf;
-
-/* =========================================================
-   CLEAN PROFESSIONAL PDF (NO TIMESTAMPS, KEEP PHOTO+NOTES TOGETHER)
-   ✅ AMENDED: Operative REMOVED from PDF
-   ========================================================= */
-function ukDateFromISO(iso){
-  try{
-    return new Date(iso).toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric"});
-  }catch{
-    return iso || "";
-  }
-}
-
-async function dataURLToImage(dataURL){
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = dataURL;
-  });
-}
-
-function safeFilePart(s){
-  return String(s||"")
-    .replace(/[^\w\s-]/g,"")
-    .trim()
-    .replace(/\s+/g,"-")
-    .slice(0,40) || "Report";
-}
-
-$("btnPdf").onclick = async () => {
-  if (!state.address.trim()) { alert("Add the property address first."); return; }
-  if (!state.photos.length) { alert("Add at least one photo first."); return; }
-
-  setStatus("Generating PDF…");
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:"p", unit:"mm", format:"a4" });
-
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 12;
-  const contentW = pageW - margin*2;
-
-  const border = 210;
-  const dark = 20;
-  const mid = 110;
-
-  const dateUK = ukDateFromISO(state.date || todayISO());
-  const gpsLine = (state.gps && typeof state.gps.lat==="number" && typeof state.gps.lon==="number")
-    ? `${state.gps.lat.toFixed(6)}, ${state.gps.lon.toFixed(6)}`
-    : "";
-
-  function hr(y){
-    doc.setDrawColor(border);
-    doc.setLineWidth(0.3);
-    doc.line(margin, y, pageW - margin, y);
-  }
-  function card(x, y, w, h){
-    doc.setDrawColor(border);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, y, w, h, 3, 3);
-  }
-
-  function ensureSpace(neededHeight, y){
-    if (y + neededHeight > pageH - 12) {
-      doc.addPage();
-      return 18;
+    function loadLocal(){
+      const raw = localStorage.getItem(NOTES_STORAGE_KEY);
+      if(!raw) return;
+      try{
+        notes = migrate(JSON.parse(raw));
+        savedStatus.textContent = "Loaded (local)";
+      }catch{}
     }
-    return y;
-  }
+    function saveLocal(){
+      notes.address = addressEl.value.trim();
+      notes.agent = agentEl.value.trim();
+      notes.ref = refEl.value.trim();
+      notes.estNo = estNoEl.value.trim();
+      notes.quick = quickEl.value.trim();
+      notes.updatedAtMs = Date.now();
+      localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
+      savedStatus.textContent = nowStamp();
+    }
 
-  // Header
-  doc.setTextColor(dark);
-  doc.setFont("helvetica","bold");
-  doc.setFontSize(16);
-  doc.text("FORD PROPERTY SERVICES", margin, 18);
+    // ===== Cloud sync =====
+    let currentUserId = null;
+    let cloudReady = false;
+    let lastLocalChangeMs = 0;
+    let lastAppliedCloudMs = 0;
+    let suppressRemoteApply = false;
+    let pendingCloudSaveTimer = null;
 
-  doc.setFontSize(12);
-  doc.setFont("helvetica","normal");
-  doc.setTextColor(mid);
-  doc.text("PHOTO NOTES REPORT", margin, 25);
+    const notesRef = jobId ? doc(db, "jobPhotoNotes", jobId) : null;
 
-  hr(30);
-
-  // Info block (✅ operative removed)
-  let y = 36;
-  const infoH = gpsLine ? 26 : 20;   // ✅ AMENDED
-  card(margin, y, contentW, infoH);
-
-  doc.setTextColor(dark);
-  doc.setFont("helvetica","bold");
-  doc.setFontSize(10);
-
-  doc.text("Property:", margin+4, y+7);
-  doc.text("Date:", margin+4, y+14);
-  if (gpsLine) doc.text("GPS:", margin+4, y+21);
-
-  doc.setFont("helvetica","normal");
-  doc.setTextColor(dark);
-
-  const addrLines = doc.splitTextToSize(state.address.trim(), contentW - 30);
-  doc.text(addrLines, margin+26, y+7);
-
-  doc.text(dateUK, margin+26, y+14);
-  if (gpsLine) doc.text(gpsLine, margin+26, y+21);
-
-  y += infoH + 10;
-
-  // Photos: keep each block together
-  for (let i=0; i<state.photos.length; i++){
-    const p = state.photos[i];
-    const subjectLine = (p.subject || "").trim();
-
-    const note = (p.note || "").trim() || "—";
-    const noteLines = doc.splitTextToSize(note, contentW - 8);
-    const noteBoxH = Math.max(14, (noteLines.length * 5) + 8);
-
-    // Determine image draw size
-    const img = await dataURLToImage(p.img);
-    const imgWpx = img.naturalWidth || img.width;
-    const imgHpx = img.naturalHeight || img.height;
-
-    const titleH = 10;
-    const imgMaxH = 85;
-    let drawW = contentW;
-    let drawH = (imgHpx / imgWpx) * drawW;
-    if (drawH > imgMaxH) { drawH = imgMaxH; drawW = (imgWpx / imgHpx) * drawH; }
-
-    const imgCardH = drawH + 6;
-    const notesH = 4 + noteBoxH + 6;
-    const blockH = titleH + imgCardH + notesH + 8;
-
-    y = ensureSpace(blockH, y);
-
-    // Title
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(11);
-    doc.setTextColor(dark);
-    doc.text(`Photo ${i+1}${subjectLine ? " — " + subjectLine : ""}`, margin, y);
-    y += 5;
-
-    // Image card
-    const xImg = margin + (contentW - drawW)/2;
-    card(margin, y, contentW, imgCardH);
-    doc.addImage(p.img, "JPEG", xImg, y+3, drawW, drawH);
-    y += imgCardH + 6;
-
-    // Notes label + box
-    doc.setFont("helvetica","bold");
-    doc.setFontSize(10);
-    doc.setTextColor(dark);
-    doc.text("Notes", margin, y);
-    y += 4;
-
-    doc.setFont("helvetica","normal");
-    doc.setFontSize(10);
-    doc.setTextColor(dark);
-
-    card(margin, y, contentW, noteBoxH);
-    doc.text(noteLines, margin+4, y+6);
-
-    y += noteBoxH + 12;
-  }
-
-  addPageNumbers(doc);
-
-  pdfBlob = doc.output("blob");
-  const safeAddr = safeFilePart(state.address);
-  const datePart = (state.date || todayISO());
-  pdfName = `Photo-Notes-${safeAddr}-${datePart}.pdf`;
-  pdfFile = new File([pdfBlob], pdfName, { type:"application/pdf" });
-
-  $("btnShare").disabled = false;
-  $("btnDownload").disabled = false;
-
-  // ✅ enable save-to-job only if linked to a job
-  $("btnSaveToJob").disabled = !(linkedJobId && pdfBlob);
-
-  setStatus(linkedJobId
-    ? "PDF generated. Tap Share / Download, or Save to Job Documents."
-    : "PDF generated. Tap Share or Download.");
-};
-
-/* =========================================================
-   Share (your existing)
-   ========================================================= */
-$("btnShare").onclick = async () => {
-  if (!pdfFile) { alert("Generate the PDF first."); return; }
-  if (navigator.canShare && navigator.canShare({ files:[pdfFile] })) {
-    try{
-      await navigator.share({ title: "Photo Notes", text: "Photo notes report attached.", files:[pdfFile] });
-      setStatus("Shared.");
-      return;
-    }catch(e){}
-  }
-  downloadLastPdf();
-  alert("If Share isn’t supported on this device, the PDF downloads—attach it in WhatsApp.");
-};
-
-/* =========================================================
-   ✅ NEW: SAVE PDF INTO JOB BOARD DOCUMENTS
-   - Uploads PDF to Firebase Storage
-   - Appends into the matching job.docs in jobsBoard/shared
-   ========================================================= */
-function bytesToNice(n){
-  const b = Number(n||0);
-  if(!b) return "";
-  const units = ["B","KB","MB","GB"];
-  let v=b, i=0;
-  while(v>=1024 && i<units.length-1){ v/=1024; i++; }
-  return `${v.toFixed(i===0?0:1)} ${units[i]}`;
-}
-
-async function savePdfToJobDocs(){
-  if(!linkedJobId){
-    alert("This report is not linked to a job. Open Photo Notes from the Jobs Board Job Notes button.");
-    return;
-  }
-  if(!pdfBlob){
-    alert("Generate the PDF first.");
-    return;
-  }
-
-  $("btnSaveToJob").disabled = true;
-  setStatus("Saving PDF to Job Documents…");
-
-  try{
-    await ensureSignedIn();
-
-    // Upload to Storage
-    const ts = Date.now();
-    const safeName = (pdfName || `Photo-Notes-${ts}.pdf`).replace(/[^\w.\-() ]+/g, "_");
-    const docId = "doc_" + Math.random().toString(16).slice(2) + "_" + ts.toString(16);
-    const path = `jobsBoard/shared/jobs/${linkedJobId}/${docId}_${safeName}`;
-
-    const storageRef = sRef(storage, path);
-    await uploadBytes(storageRef, pdfBlob, { contentType:"application/pdf" });
-    const url = await getDownloadURL(storageRef);
-
-    // Append to Firestore job.docs (transaction)
-    await runTransaction(db, async (tx) => {
-      const snap = await tx.get(JOBS_DOC);
-      if(!snap.exists()) throw new Error("Jobs doc not found");
-
-      const data = snap.data() || {};
-      const arr = Array.isArray(data.jobs) ? data.jobs.slice() : [];
-
-      const idx = arr.findIndex(j => j && j.id === linkedJobId);
-      if(idx < 0) throw new Error("Linked job not found in jobs list");
-
-      const job = { ...(arr[idx] || {}) };
-      job.docs = Array.isArray(job.docs) ? job.docs.slice() : [];
-
-      job.docs.push({
-        id: docId,
-        name: safeName,
-        mime: "application/pdf",
-        size: pdfBlob.size || 0,
-        url,
-        storagePath: path,
-        createdAtMs: ts
+    async function ensureSignedIn(){
+      if(auth.currentUser) return auth.currentUser;
+      const user = await new Promise((resolve)=>{
+        const unsub = onAuthStateChanged(auth, (usr)=>{ unsub(); resolve(usr); });
       });
+      if(user) return user;
+      await signInAnonymously(auth);
+      return auth.currentUser;
+    }
 
-      job.updatedAt = new Date().toISOString();
-      arr[idx] = job;
+    function queueCloudSave(){
+      lastLocalChangeMs = Date.now();
+      if(!cloudReady || !currentUserId || !notesRef) return;
 
-      tx.set(JOBS_DOC, {
-        jobs: arr,
-        updatedAtMs: ts,
-        updatedBy: auth.currentUser?.uid || null
-      }, { merge:true });
+      if(pendingCloudSaveTimer) clearTimeout(pendingCloudSaveTimer);
+      pendingCloudSaveTimer = setTimeout(async ()=>{
+        try{
+          const payload = {
+            ...notes,
+            updatedAtMs: Date.now(),
+            updatedBy: currentUserId
+          };
+          // Don’t store giant base64 in cloud unless you want it.
+          // We keep dataUrl only locally; cloud uses storageUrl.
+          payload.photos = (payload.photos||[]).map(p=>({
+            id:p.id,
+            subject:p.subject||"",
+            notes:p.notes||"",
+            storageUrl:p.storageUrl||"",
+            storagePath:p.storagePath||"",
+            createdAtMs:p.createdAtMs||0,
+            size:p.size||0
+          }));
+          await setDoc(notesRef, payload, { merge:true });
+          cloudStatus.textContent = "Cloud: saved";
+        }catch(e){
+          console.error("[cloud] save failed:", e);
+          cloudStatus.textContent = "Cloud: save failed";
+        }
+      }, 650);
+    }
+
+    function startRealtimeCloud(){
+      if(!notesRef) return;
+      onSnapshot(notesRef, (snap)=>{
+        if(!snap.exists()) return;
+        const data = snap.data() || {};
+        const cloudMs = Number(data.updatedAtMs || 0);
+        if(suppressRemoteApply) return;
+        if(cloudMs <= lastAppliedCloudMs) return;
+
+        const localDirty = (Date.now() - lastLocalChangeMs) < 1500;
+        if(localDirty){
+          queueCloudSave();
+          return;
+        }
+
+        lastAppliedCloudMs = cloudMs;
+        try{
+          suppressRemoteApply = true;
+          // merge cloud into local (keep local dataUrl cache if same id exists)
+          const incoming = migrate(data);
+          const cacheById = new Map((notes.photos||[]).map(p=>[p.id, p.dataUrl||""]));
+          incoming.photos = (incoming.photos||[]).map(p=>({
+            ...p,
+            dataUrl: cacheById.get(p.id) || ""
+          }));
+          notes = incoming;
+          saveLocal();
+          render();
+          cloudStatus.textContent = "Cloud: updated";
+        } finally {
+          suppressRemoteApply = false;
+        }
+      }, (err)=>{
+        console.error("[cloud] listener error:", err);
+        cloudStatus.textContent = "Cloud: offline";
+      });
+    }
+
+    async function boot(){
+      loadLocal();
+      render();
+
+      try{
+        cloudStatus.textContent = "Cloud: connecting…";
+        const u = await ensureSignedIn();
+        currentUserId = u?.uid || null;
+        cloudReady = true;
+
+        if(!notesRef){
+          cloudStatus.textContent = "No job id (local only)";
+          return;
+        }
+
+        // seed doc
+        await setDoc(notesRef, { createdAtMs: Date.now(), jobId: jobId }, { merge:true });
+
+        startRealtimeCloud();
+
+        // initial pull
+        const snap = await getDoc(notesRef);
+        const data = snap.exists() ? (snap.data() || {}) : {};
+        if(snap.exists() && (data.photos || data.address || data.agent)){
+          const incoming = migrate(data);
+          // keep local base64 cache where possible
+          const cacheById = new Map((notes.photos||[]).map(p=>[p.id, p.dataUrl||""]));
+          incoming.photos = (incoming.photos||[]).map(p=>({ ...p, dataUrl: cacheById.get(p.id) || "" }));
+          notes = incoming;
+          saveLocal();
+          render();
+          cloudStatus.textContent = "Cloud: loaded";
+        }else{
+          cloudStatus.textContent = "Cloud: ready";
+          // if we already had local notes, seed them
+          if((notes.photos||[]).length){
+            queueCloudSave();
+          }
+        }
+      }catch(e){
+        console.error("boot failed:", e);
+        cloudStatus.textContent = "Cloud: failed (local only)";
+      }
+    }
+
+    function saveAll(){
+      saveLocal();
+      queueCloudSave();
+    }
+
+    // ===== UI render =====
+    function render(){
+      // sync inputs (but don’t clobber while typing)
+      addressEl.value = notes.address || "";
+      agentEl.value = notes.agent || "";
+      refEl.value = notes.ref || "";
+      estNoEl.value = notes.estNo || "";
+      quickEl.value = notes.quick || "";
+
+      photosEl.innerHTML = "";
+      const arr = Array.isArray(notes.photos) ? notes.photos.slice().sort((a,b)=>(a.createdAtMs||0)-(b.createdAtMs||0)) : [];
+      emptyPhotosEl.style.display = arr.length ? "none" : "block";
+
+      arr.forEach((p, idx)=>{
+        const el = document.createElement("div");
+        el.className = "photoItem";
+
+        const src = p.storageUrl || p.dataUrl || "";
+        const when = p.createdAtMs ? new Date(p.createdAtMs).toLocaleString("en-GB") : "";
+        const size = p.size ? bytesToNice(p.size) : "";
+
+        el.innerHTML = `
+          <div class="metaRow">
+            <div class="row" style="gap:8px">
+              <span class="chip">Photo ${idx+1}</span>
+              <span class="chip">${escapeHtml(when || "—")}</span>
+              ${size ? `<span class="chip">${escapeHtml(size)}</span>` : ""}
+              ${p.storageUrl ? `<a class="link chip" href="${escapeHtml(p.storageUrl)}" target="_blank">Open</a>` : ``}
+            </div>
+            <div class="row">
+              <button type="button" class="danger" data-del="${escapeHtml(p.id)}">Delete</button>
+            </div>
+          </div>
+
+          <div class="thumbRow">
+            ${src ? `<img class="thumb" src="${escapeHtml(src)}" alt="photo"/>` : `<div class="thumb" style="display:grid;place-items:center;color:var(--muted)">No image</div>`}
+            <div style="flex:1; min-width:240px">
+              <label>Subject</label>
+              <input data-subject="${escapeHtml(p.id)}" value="${escapeHtml(p.subject||"")}" placeholder="e.g. Kitchen door" />
+              <div style="height:10px"></div>
+              <label>Notes</label>
+              <textarea data-notes="${escapeHtml(p.id)}" placeholder="Type notes for this photo…">${escapeHtml(p.notes||"")}</textarea>
+            </div>
+          </div>
+        `;
+
+        // update handlers
+        el.querySelector(`[data-subject="${p.id}"]`).addEventListener("input", (e)=>{
+          const v = e.target.value;
+          const it = notes.photos.find(x=>x.id===p.id);
+          if(it){ it.subject = v; saveAll(); }
+        });
+        el.querySelector(`[data-notes="${p.id}"]`).addEventListener("input", (e)=>{
+          const v = e.target.value;
+          const it = notes.photos.find(x=>x.id===p.id);
+          if(it){ it.notes = v; saveAll(); }
+        });
+
+        el.querySelector(`[data-del="${p.id}"]`).addEventListener("click", async ()=>{
+          if(!confirm("Delete this photo note?")) return;
+          await deletePhoto(p.id);
+        });
+
+        photosEl.appendChild(el);
+      });
+    }
+
+    // keep notes in sync with top inputs
+    [addressEl, agentEl, refEl, estNoEl, quickEl].forEach(inp=>{
+      inp.addEventListener("input", ()=> saveAll());
     });
 
-    setStatus(`Saved to Job Documents ✅ (${bytesToNice(pdfBlob.size)})`);
-    if(navigator.vibrate) navigator.vibrate(60);
+    // ===== Photo add / upload =====
+    addPhotoBtn.addEventListener("click", ()=>{
+      if(!jobId){
+        alert("No job id found. Open from Jobs Board using the Job Notes button.");
+        return;
+      }
+      photoInput.value = "";
+      photoInput.click();
+    });
 
-  }catch(err){
-    console.error(err);
-    alert("Couldn’t save PDF into Job Documents. Check Storage/Firestore rules and try again.");
-    setStatus("Save failed.");
-  }finally{
-    // re-enable if still linked and pdf exists
-    $("btnSaveToJob").disabled = !(linkedJobId && pdfBlob);
-  }
-}
+    photoInput.addEventListener("change", async (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
 
-$("btnSaveToJob").onclick = savePdfToJobDocs;
+      if(!jobId){
+        alert("No job id found.");
+        return;
+      }
 
-/* =========================================================
-   Clear all (your existing)
-   ========================================================= */
-$("btnClear").onclick = () => {
-  if (!confirm("Clear ALL photos and notes for this report?")) return;
-  state.photos = [];
-  save();
-  pdfBlob = pdfFile = null;
-  $("btnShare").disabled = true;
-  $("btnDownload").disabled = true;
-  $("btnSaveToJob").disabled = true;
-  setStatus("Cleared.");
-  render();
-};
+      // Create local entry immediately (fast UX)
+      const pId = uid("photo");
+      const entry = {
+        id: pId,
+        subject: "",
+        notes: "",
+        dataUrl: "",
+        storageUrl: "",
+        storagePath: "",
+        createdAtMs: Date.now(),
+        size: f.size || 0
+      };
+      notes.photos = Array.isArray(notes.photos) ? notes.photos : [];
+      notes.photos.push(entry);
+      saveAll();
+      render();
 
-// ✅ Auto-populate address from Jobs Board
-(function prefillAddressFromUrl(){
-  const params = new URLSearchParams(window.location.search);
-  const addressFromJob = params.get("address");
+      // Build local preview
+      try{
+        entry.dataUrl = await fileToDataURL(f, 1600, 0.86);
+        saveLocal(); // keep base64 local only
+        render();
+      }catch{}
 
-  if(addressFromJob){
-    const addrInput = document.getElementById("address");
-    if(addrInput && !addrInput.value){
-      addrInput.value = addressFromJob;
-      state.address = addressFromJob;
-      save();
+      // Upload to Storage (preferred for PDF + sharing)
+      try{
+        cloudStatus.textContent = "Uploading photo…";
+        await ensureSignedIn();
+
+        const safeName = (f.name || "photo.jpg").replace(/[^\w.\-() ]+/g, "_");
+        const path = `jobsBoard/shared/jobPhotoNotes/${jobId}/${pId}_${safeName}`;
+        const storageRef = sRef(storage, path);
+        await uploadBytes(storageRef, f, { contentType: f.type || "image/jpeg" });
+        const url = await getDownloadURL(storageRef);
+
+        entry.storageUrl = url;
+        entry.storagePath = path;
+        saveAll();
+        render();
+        cloudStatus.textContent = "Cloud: saved";
+      }catch(err){
+        console.error("photo upload failed:", err);
+        cloudStatus.textContent = "Upload failed (kept local)";
+        // keep dataUrl as fallback
+      }finally{
+        photoInput.value = "";
+      }
+    });
+
+    async function deletePhoto(photoId){
+      const idx = (notes.photos||[]).findIndex(p=>p.id===photoId);
+      if(idx < 0) return;
+      const p = notes.photos[idx];
+
+      // remove from model first
+      notes.photos.splice(idx, 1);
+      saveAll();
+      render();
+
+      // attempt storage delete
+      try{
+        if(p.storagePath){
+          await deleteObject(sRef(storage, p.storagePath));
+        }
+      }catch(e){
+        console.warn("Storage delete failed:", e);
+      }
     }
-  }
-})();
 
-/* =========================================================
-   Boot
-   ========================================================= */
-(async () => {
-  await killServiceWorkersAndCachesOnce();
-  load();
+    // ===== Delete notes (hold 2s) =====
+    (function holdToDelete(){
+      let t=null;
+      let did=false;
 
-  if (!$("date").value) $("date").value = todayISO();
-  state.date = $("date").value || todayISO();
+      const start = (e)=>{
+        e.preventDefault?.();
+        did=false;
+        if(t) clearTimeout(t);
+        t=setTimeout(async ()=>{
+          did=true;
+          if(!confirm("Delete ALL notes/photos for this job?")) return;
+          await deleteAllNotes();
+        }, 2000);
+      };
+      const end = ()=>{
+        if(t) clearTimeout(t);
+        t=null;
+      };
 
-  applyLinkContext();
-  render();
+      deleteNotesBtn.addEventListener("pointerdown", start, { passive:false });
+      deleteNotesBtn.addEventListener("pointerup", end);
+      deleteNotesBtn.addEventListener("pointercancel", end);
+      deleteNotesBtn.addEventListener("pointerleave", end);
+      deleteNotesBtn.addEventListener("click", (e)=>{
+        if(did){ e.preventDefault(); e.stopPropagation(); }
+      });
+      deleteNotesBtn.addEventListener("contextmenu", (e)=> e.preventDefault());
+    })();
 
-  // If job-linked, show hint
-  if(linkedJobId){
-    setStatus("Linked to job — add photos, generate PDF, then Save to Job Documents.");
-  }else{
-    setStatus("Ready.");
-  }
-})();
-</script>
+    async function deleteAllNotes(){
+      // try delete storage items
+      const items = (notes.photos||[]).slice();
+      notes.photos = [];
+      notes.quick = "";
+      saveAll();
+      render();
 
+      for(const p of items){
+        try{
+          if(p.storagePath){
+            await deleteObject(sRef(storage, p.storagePath));
+          }
+        }catch{}
+      }
+
+      // clear cloud doc fields (keep jobId)
+      try{
+        if(notesRef){
+          await setDoc(notesRef, {
+            jobId,
+            photos: [],
+            quick: "",
+            address: addressEl.value.trim(),
+            agent: agentEl.value.trim(),
+            ref: refEl.value.trim(),
+            estNo: estNoEl.value.trim(),
+            updatedAtMs: Date.now()
+          }, { merge:true });
+        }
+      }catch{}
+      savedStatus.textContent = nowStamp();
+      cloudStatus.textContent = "Cloud: cleared";
+    }
+
+    // ===== PDF build =====
+    async function buildPdfBlob(){
+      const JsPDF = getJsPDF();
+      if(!JsPDF) throw new Error("jsPDF not loaded");
+
+      const logo = localStorage.getItem("fps_logo_v1") || "";
+      const doc = new JsPDF({ unit:"pt", format:"a4" });
+      const W = doc.internal.pageSize.getWidth();
+      const H = doc.internal.pageSize.getHeight();
+      const m = 40;
+
+      const jobTitle = (addressEl.value || "").trim() || "(No address)";
+      const agent = (agentEl.value || "").trim() || "-";
+      const ref = (refEl.value || "").trim() || "-";
+      const estNo = (estNoEl.value || "").trim() || "-";
+      const quick = (quickEl.value || "").trim();
+
+      // cover header
+      let y = 48;
+      if(logo){
+        try{ doc.addImage(logo, "JPEG", m, 34, 56, 56); }catch{}
+      }else{
+        doc.setFont("helvetica","bold"); doc.setFontSize(16);
+        doc.text("FPS", m+10, 70);
+      }
+
+      doc.setFont("helvetica","bold"); doc.setFontSize(16);
+      doc.text("Ford Property Services — Photo Notes", m+70, 56);
+
+      doc.setFont("helvetica","normal"); doc.setFontSize(10);
+      doc.text(`Generated: ${nowStamp()}`, m+70, 74);
+
+      y = 112;
+
+      const kv = (label, value)=>{
+        const leftW = 120;
+        doc.setFont("helvetica","bold"); doc.setFontSize(11);
+        doc.text(label, m, y);
+        doc.setFont("helvetica","normal");
+        const lines = doc.splitTextToSize(String(value ?? "-"), W - m*2 - leftW);
+        doc.text(lines, m + leftW, y);
+        y += 16 * lines.length + 6;
+        if(y > H - 80){ doc.addPage(); y = 60; }
+      };
+
+      kv("Property:", jobTitle);
+      kv("Letting Agent:", agent);
+      kv("Assigned Agent:", ref);
+      kv("Estimate No:", estNo);
+      if(quick) kv("Quick:", quick);
+
+      y += 6;
+      doc.setDrawColor(220);
+      doc.line(m, y, W-m, y);
+      y += 18;
+
+      // photos
+      const arr = (notes.photos||[]).slice().sort((a,b)=>(a.createdAtMs||0)-(b.createdAtMs||0));
+
+      if(arr.length === 0){
+        doc.setFont("helvetica","italic"); doc.setFontSize(11);
+        doc.text("No photos added.", m, y);
+        y += 16;
+      } else {
+        for(let i=0;i<arr.length;i++){
+          const p = arr[i];
+          const num = i+1;
+
+          const subject = (p.subject||"").trim() || `Photo ${num}`;
+          const text = (p.notes||"").trim();
+
+          // Section title
+          doc.setFont("helvetica","bold"); doc.setFontSize(12);
+          doc.text(`${num}. ${subject}`, m, y);
+          y += 10;
+
+          // Image (try storageUrl first, then dataUrl)
+          const src = p.dataUrl || "";
+          const imgMaxW = W - m*2;
+          const imgH = 240;
+
+          // reserve space
+          y += 8;
+          if(y + imgH > H - 60){ doc.addPage(); y = 60; }
+
+          let addedImage = false;
+          if(src){
+            try{
+              doc.addImage(src, "JPEG", m, y, imgMaxW, imgH);
+              addedImage = true;
+            }catch{}
+          }
+          if(!addedImage){
+            // placeholder box
+            doc.setDrawColor(200);
+            doc.rect(m, y, imgMaxW, imgH);
+            doc.setFont("helvetica","italic"); doc.setFontSize(10);
+            doc.text("(Image unavailable in PDF)", m+10, y+20);
+          }
+
+          y += imgH + 12;
+
+          // Notes
+          doc.setFont("helvetica","normal"); doc.setFontSize(10);
+          const noteText = text || "No notes.";
+          const lines = doc.splitTextToSize(noteText, imgMaxW);
+          for(const ln of lines){
+            if(y > H - 50){ doc.addPage(); y = 60; }
+            doc.text(ln, m, y);
+            y += 14;
+          }
+
+          y += 14;
+          if(y > H - 70){ doc.addPage(); y = 60; }
+        }
+      }
+
+      const filename = `FPS Photo Notes - ${safeFileName(jobTitle)}.pdf`;
+      const blob = doc.output("blob");
+      return { blob, filename };
+    }
+
+    async function downloadPdf(){
+      try{
+        const { blob, filename } = await buildPdfBlob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 800);
+      }catch(e){
+        console.error(e);
+        alert("Couldn’t build the PDF. Try again.");
+      }
+    }
+
+    async function sharePdf(){
+      try{
+        const { blob, filename } = await buildPdfBlob();
+        const file = new File([blob], filename, { type:"application/pdf" });
+
+        if(navigator.share && (!navigator.canShare || navigator.canShare({ files:[file] }))){
+          await navigator.share({
+            title: "FPS Photo Notes",
+            text: (addressEl.value||"").trim() || "Photo Notes",
+            files: [file]
+          });
+          return;
+        }
+
+        // fallback to download
+        await downloadPdf();
+        alert("Your device didn’t offer file-sharing here, so I downloaded the PDF instead.");
+      }catch(e){
+        console.error(e);
+        alert("Couldn’t share the PDF. Try again.");
+      }
+    }
+
+    downloadPdfBtn.addEventListener("click", downloadPdf);
+    sharePdfBtn.addEventListener("click", sharePdf);
+
+    // ===== Attach PDF to the job in Jobs Board (adds into job.docs) =====
+    const jobsBoardRef = doc(db, "jobsBoard", "shared");
+
+    async function attachPdfToJob(){
+      if(!jobId){
+        alert("No job id found. Open from Jobs Board using the Job Notes button.");
+        return;
+      }
+
+      saveAttachBtn.disabled = true;
+      saveAttachBtn2.disabled = true;
+      saveAttachBtn.textContent = "Working…";
+      saveAttachBtn2.textContent = "Working…";
+
+      try{
+        cloudStatus.textContent = "Building PDF…";
+        await ensureSignedIn();
+
+        // 1) build pdf
+        const { blob, filename } = await buildPdfBlob();
+
+        // 2) upload to storage
+        cloudStatus.textContent = "Uploading PDF…";
+        const docId = uid("doc");
+        const path = `jobsBoard/shared/jobs/${jobId}/${docId}_${safeFileName(filename)}.pdf`;
+        const storageRef = sRef(storage, path);
+        await uploadBytes(storageRef, blob, { contentType:"application/pdf" });
+        const url = await getDownloadURL(storageRef);
+
+        // 3) update jobs array in jobsBoard/shared
+        cloudStatus.textContent = "Attaching to job…";
+        const snap = await getDoc(jobsBoardRef);
+        const data = snap.exists() ? (snap.data() || {}) : {};
+        const arr = Array.isArray(data.jobs) ? data.jobs.slice() : [];
+
+        const idx = arr.findIndex(j=>String(j?.id||"") === String(jobId));
+        if(idx < 0){
+          alert("Couldn’t find that job in Jobs Board cloud data. Open Jobs Board, let it sync, then try again.");
+          return;
+        }
+
+        const job = arr[idx];
+        job.docs = Array.isArray(job.docs) ? job.docs : [];
+        job.docs.push({
+          id: docId,
+          name: filename,
+          mime: "application/pdf",
+          size: blob.size || 0,
+          url,
+          storagePath: path,
+          createdAtMs: Date.now(),
+          kind: "photo_notes_pdf"
+        });
+        job.updatedAt = new Date().toISOString();
+
+        await setDoc(jobsBoardRef, {
+          jobs: arr,
+          updatedAtMs: Date.now(),
+          updatedBy: currentUserId || "photo-notes"
+        }, { merge:true });
+
+        // also save notes doc
+        saveAll();
+
+        cloudStatus.textContent = "Attached ✅";
+        alert("Saved & attached into the job Documents ✅");
+      }catch(e){
+        console.error(e);
+        cloudStatus.textContent = "Attach failed";
+        alert("Couldn’t attach to the job. Check internet / Firebase Storage rules.");
+      }finally{
+        saveAttachBtn.disabled = false;
+        saveAttachBtn2.disabled = false;
+        saveAttachBtn.textContent = "Save & Attach to Job";
+        saveAttachBtn2.textContent = "Save & Attach to Job";
+      }
+    }
+
+    saveAttachBtn.addEventListener("click", attachPdfToJob);
+    saveAttachBtn2.addEventListener("click", attachPdfToJob);
+
+    // Save notes only
+    saveOnlyBtn.addEventListener("click", ()=>{
+      saveAll();
+      cloudStatus.textContent = "Cloud: saved";
+      alert("Notes saved ✅");
+    });
+
+    // Boot
+    boot();
+  </script>
 </body>
 </html>
+       
