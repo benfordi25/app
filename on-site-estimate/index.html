@@ -1019,7 +1019,6 @@ function clearForm(confirmAsk=true){
   els.saveStatus.textContent = "";
   els.dictateNotes.value = "";
   els.quoteOutput.value = "";
-  delete els.dictateNotes.dataset.base;
   renderMaterials();
   renderLabour();
   calc();
@@ -1065,8 +1064,8 @@ async function duplicateEstimate(id){
   });
   setCurrentId(null);
   els.quoteOutput.value = "";
-  window.scrollTo({top:0, behavior:"smooth"});
   els.saveStatus.textContent = "Duplicated. Tap “Save to Cloud” to create a new record.";
+  window.scrollTo({top:0, behavior:"smooth"});
 }
 
 async function deleteEstimate(id){
@@ -1288,6 +1287,7 @@ els.workspaceKey.addEventListener("change", ()=>{
 let recognition;
 let listening = false;
 let manuallyStopped = false;
+let dictatedFinalText = "";
 
 if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1297,24 +1297,22 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
   recognition.interimResults = true;
 
   recognition.onresult = (event) => {
-    let finalText = "";
     let interimText = "";
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
+      const transcript = event.results[i][0].transcript.trim();
+      if (!transcript) continue;
+
       if (event.results[i].isFinal) {
-        finalText += transcript + " ";
+        dictatedFinalText = (dictatedFinalText + " " + transcript).replace(/\s+/g, " ").trim();
       } else {
-        interimText += transcript + " ";
+        interimText += " " + transcript;
       }
     }
 
-    const base = els.dictateNotes.dataset.base || "";
-    els.dictateNotes.value = (base + " " + finalText + " " + interimText).replace(/\s+/g, " ").trim();
-
-    if (finalText.trim()) {
-      els.dictateNotes.dataset.base = (base + " " + finalText).replace(/\s+/g, " ").trim();
-    }
+    els.dictateNotes.value = (dictatedFinalText + " " + interimText)
+      .replace(/\s+/g, " ")
+      .trim();
   };
 
   recognition.onstart = () => {
@@ -1339,7 +1337,7 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
 
   recognition.onend = () => {
     listening = false;
-    els.dictateNotes.dataset.base = els.dictateNotes.value || "";
+    els.dictateNotes.value = dictatedFinalText;
 
     if (!manuallyStopped) {
       setTimeout(() => {
@@ -1360,7 +1358,7 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
 els.startDictateBtn.addEventListener("click", () => {
   if (!recognition || listening) return;
   manuallyStopped = false;
-  els.dictateNotes.dataset.base = els.dictateNotes.value || "";
+  dictatedFinalText = (els.dictateNotes.value || "").replace(/\s+/g, " ").trim();
   recognition.start();
 });
 
@@ -1496,4 +1494,4 @@ if (els.stopDictateBtn) els.stopDictateBtn.disabled = true;
 
 </main>
 </body>
-  </html>
+</html>
