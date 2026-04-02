@@ -97,8 +97,14 @@ textarea{resize:vertical}
   gap:10px;
 }
 
+.row3{
+  display:grid;
+  grid-template-columns:1.4fr .8fr .8fr;
+  gap:10px;
+}
+
 @media (max-width:780px){
-  .row{grid-template-columns:1fr}
+  .row,.row3{grid-template-columns:1fr}
 }
 
 button{
@@ -248,9 +254,48 @@ hr.sep{
   color:var(--muted);
   font-size:12px;
 }
+
 .dot{width:8px;height:8px;border-radius:50%;background:#64748b}
 .dot.ok{background:var(--green)}
 .dot.bad{background:var(--red)}
+
+.quoteItem{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#0b1630;
+  padding:12px;
+  margin-top:10px;
+}
+
+.quoteItemHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.quoteItemTitle{
+  font-weight:900;
+  font-size:14px;
+}
+
+.quoteItemLive{
+  color:#9ecbff;
+  font-size:12px;
+  font-weight:800;
+}
+
+.quoteActions{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:8px;
+  margin-top:10px;
+}
+
+@media (max-width:780px){
+  .quoteActions{grid-template-columns:1fr}
+}
 </style>
 </head>
 
@@ -381,19 +426,37 @@ hr.sep{
   </div>
 </section>
 
-<!-- ================= DICTATE TO QUOTE ================= -->
+<!-- ================= QUOTE ITEMS ================= -->
 <section class="card">
-  <h2>Dictate to Quote (No Prices)</h2>
+  <h2>Quote Items / Areas</h2>
 
-  <div style="margin-bottom:10px">
-    <label>Dictation / Site Notes</label>
-    <textarea id="dictateNotes" rows="4" placeholder="Describe the works..."></textarea>
+  <div class="row3">
+    <div>
+      <label>New Area / Item Title</label>
+      <input id="newQuoteItemTitle" placeholder="e.g. Bedroom / Kitchen / Door 1">
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button type="button" id="addQuoteItemBtn">+ Add Item</button>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button type="button" class="secondary" id="addDoorSeriesBtn">+ Door 1</button>
+    </div>
   </div>
 
-  <div class="row">
-    <button type="button" id="startDictateBtn">🎙️ Start Dictation</button>
-    <button type="button" class="secondary" id="stopDictateBtn">Stop</button>
+  <div class="small" style="margin-top:10px">
+    Add separate items such as Bedroom, Kitchen, Bathroom, Door 1, Door 2 etc. Each item has its own dictation.
   </div>
+
+  <div id="quoteItemsList"></div>
+</section>
+
+<!-- ================= QUOTE OUTPUT ================= -->
+<section class="card">
+  <h2>Generate Quote (No Prices)</h2>
+
+  <div class="small" id="dictationStatus" style="margin-bottom:10px">Dictation ready.</div>
 
   <div style="margin-top:10px">
     <button type="button" id="buildQuoteBtn">Generate Quote (No Prices)</button>
@@ -401,7 +464,7 @@ hr.sep{
 
   <div style="margin-top:10px">
     <label>Generated Quote</label>
-    <textarea id="quoteOutput" rows="8" placeholder="Quote will generate here..."></textarea>
+    <textarea id="quoteOutput" rows="10" placeholder="Quote will generate here..."></textarea>
   </div>
 
   <div class="row">
@@ -411,7 +474,7 @@ hr.sep{
 
   <div class="row" style="margin-top:10px">
     <button type="button" id="quotePdfBtn">Generate PDF (No Prices)</button>
-    <button type="button" class="secondary" id="useQuoteAsScopeBtn">Use Quote Notes in Scope</button>
+    <button type="button" class="secondary" id="useQuoteAsScopeBtn">Use Quote in Scope</button>
   </div>
 </section>
 
@@ -486,9 +549,7 @@ hr.sep{
 <script type="module">
 /* ===========================
    Firebase + Firestore (modular)
-   Multiple Estimates (cloud synced)
    =========================== */
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, updateDoc, deleteDoc,
@@ -496,7 +557,6 @@ import {
   serverTimestamp, enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-/* --- Your config (from Firebase console) --- */
 const firebaseConfig = {
   apiKey: "AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
   authDomain: "fps-jobs-board.firebaseapp.com",
@@ -508,8 +568,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// Offline cache for Firestore (best effort)
 enableIndexedDbPersistence(db).catch(()=>{});
 
 /* ===========================
@@ -544,6 +602,12 @@ function nowPretty(ts){
 }
 function uid(){
   return (crypto?.randomUUID?.() || ("id_" + Math.random().toString(16).slice(2) + Date.now().toString(16)));
+}
+function formatText(text){
+  return (text || "")
+    .replace(/\s+/g," ")
+    .trim()
+    .replace(/(^\w|[.!?]\s+\w)/g, s => s.toUpperCase());
 }
 
 /* ===========================
@@ -581,6 +645,12 @@ const els = {
   labourList: document.getElementById("labourList"),
   labourSubtotal: document.getElementById("labourSubtotal"),
 
+  newQuoteItemTitle: document.getElementById("newQuoteItemTitle"),
+  addQuoteItemBtn: document.getElementById("addQuoteItemBtn"),
+  addDoorSeriesBtn: document.getElementById("addDoorSeriesBtn"),
+  quoteItemsList: document.getElementById("quoteItemsList"),
+  dictationStatus: document.getElementById("dictationStatus"),
+
   markupGBP: document.getElementById("markupGBP"),
   commissionPct: document.getElementById("commissionPct"),
   vatPct: document.getElementById("vatPct"),
@@ -597,9 +667,6 @@ const els = {
   exportJsonBtn: document.getElementById("exportJsonBtn"),
   saveStatus: document.getElementById("saveStatus"),
 
-  dictateNotes: document.getElementById("dictateNotes"),
-  startDictateBtn: document.getElementById("startDictateBtn"),
-  stopDictateBtn: document.getElementById("stopDictateBtn"),
   buildQuoteBtn: document.getElementById("buildQuoteBtn"),
   quoteOutput: document.getElementById("quoteOutput"),
   copyQuoteBtn: document.getElementById("copyQuoteBtn"),
@@ -608,18 +675,17 @@ const els = {
   useQuoteAsScopeBtn: document.getElementById("useQuoteAsScopeBtn")
 };
 
-let state = { materials: [], labour: [] };
+let state = { materials: [], labour: [], quoteItems: [] };
 let currentEstimateId = null;
 let estimatesCache = [];
 let unsub = null;
 
 const LS_WS = "fps_est_ws_v1";
 els.workspaceKey.value = localStorage.getItem(LS_WS) || "FPS";
-
 if(!els.estimateDate.value) els.estimateDate.value = todayISO();
 
 /* ===========================
-   Render lists (materials/labour)
+   Materials / Labour render
    =========================== */
 function renderMaterials(){
   els.materialsList.innerHTML = "";
@@ -670,6 +736,87 @@ function renderLabour(){
 }
 
 /* ===========================
+   Quote items
+   =========================== */
+let quoteItemCounter = 1;
+
+function nextQuoteItemTitle(base="Area"){
+  let title = `${base} ${quoteItemCounter}`;
+  quoteItemCounter += 1;
+  return title;
+}
+
+function nextDoorTitle(){
+  let n = 1;
+  const used = new Set(state.quoteItems.map(x => (x.title || "").trim().toLowerCase()));
+  while(used.has(`door ${n}`)) n += 1;
+  return `Door ${n}`;
+}
+
+function addQuoteItem(title="", notes=""){
+  const cleanTitle = (title || "").trim() || nextQuoteItemTitle("Area");
+  state.quoteItems.push({
+    id: uid(),
+    title: cleanTitle,
+    notes: notes || ""
+  });
+  renderQuoteItems();
+}
+
+function removeQuoteItem(id){
+  state.quoteItems = state.quoteItems.filter(x => x.id !== id);
+  if (activeQuoteItemId === id) {
+    stopDictation();
+    activeQuoteItemId = null;
+    dictatedFinalText = "";
+  }
+  renderQuoteItems();
+}
+
+function renderQuoteItems(){
+  els.quoteItemsList.innerHTML = "";
+
+  if (!state.quoteItems.length) {
+    const empty = document.createElement("div");
+    empty.className = "small";
+    empty.style.marginTop = "10px";
+    empty.textContent = "No quote items yet. Add Bedroom, Kitchen, Bathroom, Door 1 etc.";
+    els.quoteItemsList.appendChild(empty);
+    return;
+  }
+
+  state.quoteItems.forEach((item, idx)=>{
+    const div = document.createElement("div");
+    div.className = "quoteItem";
+    const isActive = activeQuoteItemId === item.id;
+
+    div.innerHTML = `
+      <div class="quoteItemHead">
+        <div class="quoteItemTitle">Item ${idx + 1}</div>
+        <div class="quoteItemLive">${isActive ? "Listening to this item..." : ""}</div>
+      </div>
+
+      <div>
+        <label>Area / Item Title</label>
+        <input value="${escapeHtml(item.title)}" data-quote-k="title" data-quote-id="${item.id}" placeholder="e.g. Bedroom / Kitchen / Door 1">
+      </div>
+
+      <div style="margin-top:10px">
+        <label>Notes</label>
+        <textarea rows="4" data-quote-k="notes" data-quote-id="${item.id}" placeholder="Describe what this area or item needs">${escapeHtml(item.notes)}</textarea>
+      </div>
+
+      <div class="quoteActions">
+        <button type="button" data-quote-dictate="${item.id}">🎙️ Dictate</button>
+        <button type="button" class="secondary" data-quote-stop="${item.id}" ${isActive ? "" : "disabled"}>Stop</button>
+        <button type="button" class="danger" data-quote-remove="${item.id}">Remove</button>
+      </div>
+    `;
+    els.quoteItemsList.appendChild(div);
+  });
+}
+
+/* ===========================
    Totals
    =========================== */
 function calc(){
@@ -699,7 +846,7 @@ function calc(){
 }
 
 /* ===========================
-   Estimate document (for Firestore)
+   Firestore doc shape
    =========================== */
 function getDocData(){
   const totals = calc();
@@ -717,6 +864,7 @@ function getDocData(){
     vatPct: num(els.vatPct.value),
     materials: state.materials,
     labour: state.labour,
+    quoteItems: state.quoteItems,
     totals: {
       materialsSubtotal: totals.matSub,
       labourSubtotal: totals.labSub,
@@ -740,13 +888,15 @@ function setFromDocData(d){
   els.vatPct.value = (d.vatPct ?? 20);
   state.materials = Array.isArray(d.materials) ? d.materials : [];
   state.labour = Array.isArray(d.labour) ? d.labour : [];
+  state.quoteItems = Array.isArray(d.quoteItems) ? d.quoteItems : [];
   renderMaterials();
   renderLabour();
+  renderQuoteItems();
   calc();
 }
 
 /* ===========================
-   Materials / Labour add + edit + remove
+   Add material/labour
    =========================== */
 function addMaterial(){
   const name = els.matName.value.trim();
@@ -785,20 +935,57 @@ els.addLabBtn.addEventListener("click", addLabour);
   el.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); addLabour(); }});
 });
 
+els.addQuoteItemBtn.addEventListener("click", ()=>{
+  addQuoteItem(els.newQuoteItemTitle.value.trim());
+  els.newQuoteItemTitle.value = "";
+});
+
+els.addDoorSeriesBtn.addEventListener("click", ()=>{
+  addQuoteItem(nextDoorTitle());
+});
+
+els.newQuoteItemTitle.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){
+    e.preventDefault();
+    addQuoteItem(els.newQuoteItemTitle.value.trim());
+    els.newQuoteItemTitle.value = "";
+  }
+});
+
 document.addEventListener("click",(e)=>{
   const btn = e.target.closest("button[data-remove]");
-  if(!btn) return;
-  const type = btn.dataset.remove;
-  const i = parseInt(btn.dataset.i,10);
+  if(btn){
+    const type = btn.dataset.remove;
+    const i = parseInt(btn.dataset.i,10);
 
-  if(type==="mat"){
-    state.materials.splice(i,1);
-    renderMaterials();
-  }else{
-    state.labour.splice(i,1);
-    renderLabour();
+    if(type==="mat"){
+      state.materials.splice(i,1);
+      renderMaterials();
+    }else{
+      state.labour.splice(i,1);
+      renderLabour();
+    }
+    calc();
+    return;
   }
-  calc();
+
+  const dictateBtn = e.target.closest("[data-quote-dictate]");
+  if (dictateBtn) {
+    startDictationForItem(dictateBtn.dataset.quoteDictate);
+    return;
+  }
+
+  const stopBtn = e.target.closest("[data-quote-stop]");
+  if (stopBtn) {
+    stopDictation();
+    return;
+  }
+
+  const removeBtn = e.target.closest("[data-quote-remove]");
+  if (removeBtn) {
+    removeQuoteItem(removeBtn.dataset.quoteRemove);
+    return;
+  }
 });
 
 document.addEventListener("input",(e)=>{
@@ -806,23 +993,33 @@ document.addEventListener("input",(e)=>{
   const k = inp.dataset.k;
   const i = inp.dataset.i;
   const t = inp.dataset.t;
-  if(k==null || i==null || t==null) return;
-  const idx = parseInt(i,10);
+  if(k!=null && i!=null && t!=null){
+    const idx = parseInt(i,10);
 
-  if(t==="mat" && state.materials[idx] && (k==="name"||k==="qty"||k==="unit")){
-    state.materials[idx][k] = (k==="name") ? inp.value : num(inp.value);
-    calc();
+    if(t==="mat" && state.materials[idx] && (k==="name"||k==="qty"||k==="unit")){
+      state.materials[idx][k] = (k==="name") ? inp.value : num(inp.value);
+      calc();
+      return;
+    }
+    if(t==="lab" && state.labour[idx] && (k==="name"||k==="days"||k==="rate")){
+      state.labour[idx][k] = (k==="name") ? inp.value : num(inp.value);
+      calc();
+      return;
+    }
   }
-  if(t==="lab" && state.labour[idx] && (k==="name"||k==="days"||k==="rate")){
-    state.labour[idx][k] = (k==="name") ? inp.value : num(inp.value);
-    calc();
+
+  const quoteId = inp.dataset.quoteId;
+  const quoteK = inp.dataset.quoteK;
+  if (quoteId && quoteK) {
+    const item = state.quoteItems.find(x => x.id === quoteId);
+    if (item) item[quoteK] = inp.value;
   }
 });
 
 [els.markupGBP, els.commissionPct, els.vatPct].forEach(el=>el.addEventListener("input", calc));
 
 /* ===========================
-   GPS Address (OpenStreetMap Nominatim)
+   GPS
    =========================== */
 async function reverseGeocode(lat, lon){
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
@@ -883,7 +1080,7 @@ els.gpsBtn.addEventListener("click", async ()=>{
 });
 
 /* ===========================
-   Firestore: list / save / open / duplicate / delete
+   Firestore list / save
    =========================== */
 const estimatesCol = collection(db, "estimates");
 
@@ -893,8 +1090,7 @@ function setSync(ok, msg){
 }
 
 function workspace(){
-  const ws = (els.workspaceKey.value || "FPS").trim() || "FPS";
-  return ws;
+  return (els.workspaceKey.value || "FPS").trim() || "FPS";
 }
 
 function attachListener(){
@@ -991,7 +1187,7 @@ async function saveToCloud(){
       });
       els.saveStatus.textContent = "Updated in cloud ✔";
     }
-  }catch(err){
+  }catch{
     els.saveStatus.textContent = "Could not save (offline?) — try again when signal returns.";
   }
 }
@@ -1004,9 +1200,11 @@ function setCurrentId(id){
 function clearForm(confirmAsk=true){
   if(confirmAsk && !confirm("Start a new estimate? Unsaved changes will be lost unless you saved to cloud.")) return;
 
+  stopDictation();
   setCurrentId(null);
   state.materials = [];
   state.labour = [];
+  state.quoteItems = [];
   els.clientName.value = "";
   els.estimateDate.value = todayISO();
   els.doorNo.value = "";
@@ -1017,16 +1215,18 @@ function clearForm(confirmAsk=true){
   els.vatPct.value = 20;
   els.gpsStatus.textContent = "";
   els.saveStatus.textContent = "";
-  els.dictateNotes.value = "";
   els.quoteOutput.value = "";
+  els.newQuoteItemTitle.value = "";
   renderMaterials();
   renderLabour();
+  renderQuoteItems();
   calc();
 }
 
 async function openEstimate(id){
   const e = estimatesCache.find(x=>x.id===id);
   if(!e) return;
+  stopDictation();
   setFromDocData({
     agentBranch: e.agentBranch,
     estimateDate: e.estimateDate,
@@ -1037,11 +1237,12 @@ async function openEstimate(id){
     commissionPct: e.commissionPct,
     vatPct: e.vatPct,
     materials: e.materials,
-    labour: e.labour
+    labour: e.labour,
+    quoteItems: e.quoteItems
   });
   setCurrentId(id);
-  els.saveStatus.textContent = "Loaded. Tap “Save to Cloud” to update.";
   els.quoteOutput.value = "";
+  els.saveStatus.textContent = "Loaded. Tap “Save to Cloud” to update.";
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
@@ -1050,6 +1251,7 @@ async function duplicateEstimate(id){
   if(!e) return;
   if(!confirm("Duplicate this estimate as a new one?")) return;
 
+  stopDictation();
   setFromDocData({
     agentBranch: e.agentBranch,
     estimateDate: e.estimateDate || todayISO(),
@@ -1060,7 +1262,8 @@ async function duplicateEstimate(id){
     commissionPct: e.commissionPct,
     vatPct: e.vatPct,
     materials: e.materials,
-    labour: e.labour
+    labour: e.labour,
+    quoteItems: e.quoteItems
   });
   setCurrentId(null);
   els.quoteOutput.value = "";
@@ -1096,7 +1299,254 @@ document.addEventListener("click",(e)=>{
 });
 
 /* ===========================
-   PDF generation
+   Dictation
+   =========================== */
+let recognition;
+let listening = false;
+let manuallyStopped = false;
+let dictatedFinalText = "";
+let activeQuoteItemId = null;
+
+function setDictationStatus(text){
+  els.dictationStatus.textContent = text;
+}
+
+function getActiveQuoteItem(){
+  return state.quoteItems.find(x => x.id === activeQuoteItemId) || null;
+}
+
+function refreshQuoteItemButtons(){
+  renderQuoteItems();
+}
+
+function startDictationForItem(id){
+  const item = state.quoteItems.find(x => x.id === id);
+  if (!item) return;
+  if (!recognition) {
+    alert("Dictation not supported on this device/browser.");
+    return;
+  }
+  if (listening) {
+    manuallyStopped = true;
+    try { recognition.stop(); } catch {}
+  }
+  activeQuoteItemId = id;
+  dictatedFinalText = (item.notes || "").replace(/\s+/g, " ").trim();
+  manuallyStopped = false;
+  setDictationStatus(`Listening: ${item.title || "Item"}`);
+  refreshQuoteItemButtons();
+  try { recognition.start(); } catch {}
+}
+
+function stopDictation(){
+  manuallyStopped = true;
+  if (recognition && listening) {
+    try { recognition.stop(); } catch {}
+  } else {
+    listening = false;
+    activeQuoteItemId = null;
+    dictatedFinalText = "";
+    setDictationStatus("Dictation ready.");
+    refreshQuoteItemButtons();
+  }
+}
+
+if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = "en-GB";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onresult = (event) => {
+    const item = getActiveQuoteItem();
+    if (!item) return;
+
+    let interimText = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript.trim();
+      if (!transcript) continue;
+
+      if (event.results[i].isFinal) {
+        dictatedFinalText = (dictatedFinalText + " " + transcript).replace(/\s+/g, " ").trim();
+      } else {
+        interimText += " " + transcript;
+      }
+    }
+
+    item.notes = (dictatedFinalText + " " + interimText).replace(/\s+/g, " ").trim();
+    renderQuoteItems();
+  };
+
+  recognition.onstart = () => {
+    listening = true;
+    const item = getActiveQuoteItem();
+    setDictationStatus(`Listening: ${item?.title || "Item"}`);
+    refreshQuoteItemButtons();
+  };
+
+  recognition.onerror = () => {
+    listening = false;
+    if (!manuallyStopped && activeQuoteItemId) {
+      setTimeout(() => {
+        try { recognition.start(); } catch {}
+      }, 300);
+    } else {
+      activeQuoteItemId = null;
+      dictatedFinalText = "";
+      setDictationStatus("Dictation ready.");
+      refreshQuoteItemButtons();
+    }
+  };
+
+  recognition.onend = () => {
+    listening = false;
+    const item = getActiveQuoteItem();
+    if (item) item.notes = dictatedFinalText;
+
+    if (!manuallyStopped && activeQuoteItemId) {
+      setTimeout(() => {
+        try { recognition.start(); } catch {}
+      }, 300);
+    } else {
+      activeQuoteItemId = null;
+      dictatedFinalText = "";
+      setDictationStatus("Dictation ready.");
+      refreshQuoteItemButtons();
+    }
+  };
+} else {
+  setDictationStatus("Dictation not supported on this device/browser.");
+}
+
+/* ===========================
+   Quote builder
+   =========================== */
+function buildQuoteText(){
+  const agent = (els.clientName.value || "").trim();
+  const address = (els.jobAddress.value || "").trim();
+
+  const filledItems = state.quoteItems
+    .map(item => ({
+      title: (item.title || "").trim(),
+      notes: formatText(item.notes || "")
+    }))
+    .filter(item => item.title || item.notes);
+
+  if (!filledItems.length) return "";
+
+  const scopeText = filledItems.map(item => {
+    const heading = item.title || "Works";
+    const body = item.notes || "";
+    return `${heading}\n${body}`;
+  }).join("\n\n");
+
+  return `Estimate
+
+Client: ${agent}
+Address: ${address}
+
+Scope of Works
+${scopeText}
+
+Labour Allowance
+This estimate includes labour only based on site assessment.
+
+Additional Notes
+All works to be carried out in a safe and tidy manner. Waste to be removed from site unless otherwise agreed.
+
+Exclusions
+Any hidden defects or additional works not visible at time of inspection will be treated separately.`;
+}
+
+els.buildQuoteBtn.addEventListener("click", () => {
+  const q = buildQuoteText();
+  if (!q) return alert("Add at least one quote item and notes first.");
+  els.quoteOutput.value = q;
+});
+
+els.copyQuoteBtn.addEventListener("click", async () => {
+  if (!els.quoteOutput.value.trim()) return alert("Generate the quote first.");
+  try{
+    await navigator.clipboard.writeText(els.quoteOutput.value);
+    alert("Copied");
+  }catch{
+    alert("Copy failed on this device.");
+  }
+});
+
+els.shareQuoteBtn.addEventListener("click", async () => {
+  if (!els.quoteOutput.value.trim()) return alert("Generate the quote first.");
+  if (navigator.share) {
+    try{
+      await navigator.share({
+        title:"Estimate",
+        text:els.quoteOutput.value
+      });
+    }catch{}
+  } else {
+    try{
+      await navigator.clipboard.writeText(els.quoteOutput.value);
+      alert("Copied");
+    }catch{
+      alert("Share not supported on this device.");
+    }
+  }
+});
+
+els.quotePdfBtn.addEventListener("click", () => {
+  const text = buildQuoteText();
+  if (!text) return alert("Generate quote first.");
+
+  const { jsPDF } = window.jspdf;
+  const docp = new jsPDF({unit:"pt", format:"a4"});
+  const W = docp.internal.pageSize.getWidth();
+  const H = docp.internal.pageSize.getHeight();
+  const M = 42;
+
+  docp.setFont("helvetica","bold");
+  docp.setFontSize(16);
+  docp.text("FORD PROPERTY SERVICES", M, 56);
+
+  docp.setFont("helvetica","normal");
+  docp.setFontSize(10);
+  docp.text("Quote (No Prices)", M, 74);
+  docp.text(`Date: ${els.estimateDate.value || ""}`, W - M, 56, {align:"right"});
+
+  let y = 100;
+  const sections = text.split("\n\n");
+
+  sections.forEach(section => {
+    const lines = docp.splitTextToSize(section, W - (M*2));
+    const requiredHeight = lines.length * 14 + 12;
+    if(y + requiredHeight > H - M){
+      docp.addPage();
+      y = M;
+    }
+    docp.text(lines, M, y);
+    y += requiredHeight;
+  });
+
+  docp.setFontSize(9);
+  docp.text("Prepared on site • Ford Property Services", M, H - 26);
+
+  const fname = `FPS_Quote_No_Prices_${(els.clientName.value||"Agent").replace(/[^a-z0-9]+/gi,"_")}_${(els.estimateDate.value||todayISO())}.pdf`;
+  docp.save(fname);
+});
+
+els.useQuoteAsScopeBtn.addEventListener("click", () => {
+  const text = buildQuoteText();
+  if(!text) return alert("Generate quote first.");
+  const parts = text.split("Scope of Works\n");
+  if (parts[1]) {
+    const scopeOnly = parts[1].split("\n\nLabour Allowance")[0] || "";
+    els.jobDesc.value = scopeOnly.trim();
+  }
+});
+
+/* ===========================
+   Main priced PDF
    =========================== */
 function wrapText(docp, text, x, y, maxW, lineH){
   const lines = docp.splitTextToSize(String(text||""), maxW);
@@ -1282,214 +1732,16 @@ els.workspaceKey.addEventListener("change", ()=>{
 });
 
 /* ===========================
-   Dictation + Quote System
-   =========================== */
-let recognition;
-let listening = false;
-let manuallyStopped = false;
-let dictatedFinalText = "";
-
-if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = "en-GB";
-  recognition.continuous = true;
-  recognition.interimResults = true;
-
-  recognition.onresult = (event) => {
-    let interimText = "";
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript.trim();
-      if (!transcript) continue;
-
-      if (event.results[i].isFinal) {
-        dictatedFinalText = (dictatedFinalText + " " + transcript).replace(/\s+/g, " ").trim();
-      } else {
-        interimText += " " + transcript;
-      }
-    }
-
-    els.dictateNotes.value = (dictatedFinalText + " " + interimText)
-      .replace(/\s+/g, " ")
-      .trim();
-  };
-
-  recognition.onstart = () => {
-    listening = true;
-    els.startDictateBtn.textContent = "🎙️ Listening...";
-    els.startDictateBtn.disabled = true;
-    els.stopDictateBtn.disabled = false;
-  };
-
-  recognition.onerror = () => {
-    listening = false;
-    if (!manuallyStopped) {
-      setTimeout(() => {
-        try { recognition.start(); } catch {}
-      }, 300);
-    } else {
-      els.startDictateBtn.textContent = "🎙️ Start Dictation";
-      els.startDictateBtn.disabled = false;
-      els.stopDictateBtn.disabled = true;
-    }
-  };
-
-  recognition.onend = () => {
-    listening = false;
-    els.dictateNotes.value = dictatedFinalText;
-
-    if (!manuallyStopped) {
-      setTimeout(() => {
-        try { recognition.start(); } catch {}
-      }, 300);
-    } else {
-      els.startDictateBtn.textContent = "🎙️ Start Dictation";
-      els.startDictateBtn.disabled = false;
-      els.stopDictateBtn.disabled = true;
-    }
-  };
-} else {
-  els.startDictateBtn.disabled = true;
-  els.stopDictateBtn.disabled = true;
-  els.startDictateBtn.textContent = "Dictation not supported";
-}
-
-els.startDictateBtn.addEventListener("click", () => {
-  if (!recognition || listening) return;
-  manuallyStopped = false;
-  dictatedFinalText = (els.dictateNotes.value || "").replace(/\s+/g, " ").trim();
-  recognition.start();
-});
-
-els.stopDictateBtn.addEventListener("click", () => {
-  manuallyStopped = true;
-  if (recognition && listening) recognition.stop();
-});
-
-function formatText(text){
-  return (text || "")
-    .replace(/\s+/g," ")
-    .trim()
-    .replace(/(^\w|[.!?]\s+\w)/g, s => s.toUpperCase());
-}
-
-function buildQuoteText(){
-  const agent = (els.clientName.value || "").trim();
-  const address = (els.jobAddress.value || "").trim();
-  const notes = formatText(els.dictateNotes.value || els.jobDesc.value || "");
-
-  if (!notes) return "";
-
-  return `Estimate
-
-Client: ${agent}
-Address: ${address}
-
-Scope of Works
-${notes}
-
-Labour Allowance
-This estimate includes labour only based on site assessment.
-
-Additional Notes
-All works to be carried out in a safe and tidy manner. Waste to be removed from site unless otherwise agreed.
-
-Exclusions
-Any hidden defects or additional works not visible at time of inspection will be treated separately.`;
-}
-
-els.buildQuoteBtn.addEventListener("click", () => {
-  const q = buildQuoteText();
-  if (!q) return alert("Add dictation first.");
-  els.quoteOutput.value = q;
-});
-
-els.copyQuoteBtn.addEventListener("click", async () => {
-  if (!els.quoteOutput.value.trim()) return alert("Generate the quote first.");
-  try{
-    await navigator.clipboard.writeText(els.quoteOutput.value);
-    alert("Copied");
-  }catch{
-    alert("Copy failed on this device.");
-  }
-});
-
-els.shareQuoteBtn.addEventListener("click", async () => {
-  if (!els.quoteOutput.value.trim()) return alert("Generate the quote first.");
-  if (navigator.share) {
-    try{
-      await navigator.share({
-        title:"Estimate",
-        text:els.quoteOutput.value
-      });
-    }catch{}
-  } else {
-    try{
-      await navigator.clipboard.writeText(els.quoteOutput.value);
-      alert("Copied");
-    }catch{
-      alert("Share not supported on this device.");
-    }
-  }
-});
-
-els.quotePdfBtn.addEventListener("click", () => {
-  const text = buildQuoteText();
-  if (!text) return alert("Generate quote first.");
-
-  const { jsPDF } = window.jspdf;
-  const docp = new jsPDF({unit:"pt", format:"a4"});
-  const W = docp.internal.pageSize.getWidth();
-  const H = docp.internal.pageSize.getHeight();
-  const M = 42;
-
-  docp.setFont("helvetica","bold");
-  docp.setFontSize(16);
-  docp.text("FORD PROPERTY SERVICES", M, 56);
-
-  docp.setFont("helvetica","normal");
-  docp.setFontSize(10);
-  docp.text("Quote (No Prices)", M, 74);
-  docp.text(`Date: ${els.estimateDate.value || ""}`, W - M, 56, {align:"right"});
-
-  let y = 100;
-  const sections = text.split("\n\n");
-
-  sections.forEach(section => {
-    const lines = docp.splitTextToSize(section, W - (M*2));
-    const requiredHeight = lines.length * 14 + 12;
-    if(y + requiredHeight > H - M){
-      docp.addPage();
-      y = M;
-    }
-    docp.text(lines, M, y);
-    y += requiredHeight;
-  });
-
-  docp.setFontSize(9);
-  docp.text("Prepared on site • Ford Property Services", M, H - 26);
-
-  const fname = `FPS_Quote_No_Prices_${(els.clientName.value||"Agent").replace(/[^a-z0-9]+/gi,"_")}_${(els.estimateDate.value||todayISO())}.pdf`;
-  docp.save(fname);
-});
-
-els.useQuoteAsScopeBtn.addEventListener("click", () => {
-  const notes = formatText(els.dictateNotes.value);
-  if(!notes) return alert("Add dictation first.");
-  els.jobDesc.value = notes;
-});
-
-/* ===========================
    Init
    =========================== */
 renderMaterials();
 renderLabour();
+renderQuoteItems();
 calc();
 setCurrentId(null);
 attachListener();
 setSync(true, "Syncing…");
-if (els.stopDictateBtn) els.stopDictateBtn.disabled = true;
+setDictationStatus("Dictation ready.");
 </script>
 
 </main>
