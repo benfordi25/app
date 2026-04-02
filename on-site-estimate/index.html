@@ -381,6 +381,40 @@ hr.sep{
   </div>
 </section>
 
+<!-- ================= DICTATE TO QUOTE ================= -->
+<section class="card">
+  <h2>Dictate to Quote (No Prices)</h2>
+
+  <div style="margin-bottom:10px">
+    <label>Dictation / Site Notes</label>
+    <textarea id="dictateNotes" rows="4" placeholder="Describe the works..."></textarea>
+  </div>
+
+  <div class="row">
+    <button type="button" id="startDictateBtn">🎙️ Start Dictation</button>
+    <button type="button" class="secondary" id="stopDictateBtn">Stop</button>
+  </div>
+
+  <div style="margin-top:10px">
+    <button type="button" id="buildQuoteBtn">Generate Quote (No Prices)</button>
+  </div>
+
+  <div style="margin-top:10px">
+    <label>Generated Quote</label>
+    <textarea id="quoteOutput" rows="8" placeholder="Quote will generate here..."></textarea>
+  </div>
+
+  <div class="row">
+    <button type="button" class="secondary" id="copyQuoteBtn">Copy</button>
+    <button type="button" class="secondary" id="shareQuoteBtn">Share</button>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <button type="button" id="quotePdfBtn">Generate PDF (No Prices)</button>
+    <button type="button" class="secondary" id="useQuoteAsScopeBtn">Use Quote Notes in Scope</button>
+  </div>
+</section>
+
 <!-- ================= TOTALS ================= -->
 <section class="card">
   <h2>Totals</h2>
@@ -562,6 +596,16 @@ const els = {
   newEstimateBtn: document.getElementById("newEstimateBtn"),
   exportJsonBtn: document.getElementById("exportJsonBtn"),
   saveStatus: document.getElementById("saveStatus"),
+
+  dictateNotes: document.getElementById("dictateNotes"),
+  startDictateBtn: document.getElementById("startDictateBtn"),
+  stopDictateBtn: document.getElementById("stopDictateBtn"),
+  buildQuoteBtn: document.getElementById("buildQuoteBtn"),
+  quoteOutput: document.getElementById("quoteOutput"),
+  copyQuoteBtn: document.getElementById("copyQuoteBtn"),
+  shareQuoteBtn: document.getElementById("shareQuoteBtn"),
+  quotePdfBtn: document.getElementById("quotePdfBtn"),
+  useQuoteAsScopeBtn: document.getElementById("useQuoteAsScopeBtn")
 };
 
 let state = { materials: [], labour: [] };
@@ -973,6 +1017,8 @@ function clearForm(confirmAsk=true){
   els.vatPct.value = 20;
   els.gpsStatus.textContent = "";
   els.saveStatus.textContent = "";
+  els.dictateNotes.value = "";
+  els.quoteOutput.value = "";
   renderMaterials();
   renderLabour();
   calc();
@@ -995,6 +1041,7 @@ async function openEstimate(id){
   });
   setCurrentId(id);
   els.saveStatus.textContent = "Loaded. Tap “Save to Cloud” to update.";
+  els.quoteOutput.value = "";
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
@@ -1016,6 +1063,7 @@ async function duplicateEstimate(id){
     labour: e.labour
   });
   setCurrentId(null);
+  els.quoteOutput.value = "";
   els.saveStatus.textContent = "Duplicated. Tap “Save to Cloud” to create a new record.";
   window.scrollTo({top:0, behavior:"smooth"});
 }
@@ -1241,6 +1289,187 @@ els.workspaceKey.addEventListener("change", ()=>{
 });
 
 /* ===========================
+   Dictation + Quote System
+   =========================== */
+let recognition;
+let listening = false;
+
+if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = "en-GB";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onresult = (event) => {
+    let finalText = "";
+    let interimText = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) finalText += transcript + " ";
+      else interimText += transcript + " ";
+    }
+
+    const base = els.dictateNotes.dataset.base || els.dictateNotes.value || "";
+    els.dictateNotes.value = (base + " " + finalText + " " + interimText).replace(/\s+/g," ").trim();
+
+    if (finalText.trim()) {
+      els.dictateNotes.dataset.base = els.dictateNotes.value;
+    }
+  };
+
+  recognition.onstart = () => {
+    listening = true;
+    els.startDictateBtn.textContent = "🎙️ Listening...";
+    els.startDictateBtn.disabled = true;
+    els.stopDictateBtn.disabled = false;
+  };
+
+  recognition.onerror = () => {
+    listening = false;
+    els.startDictateBtn.textContent = "🎙️ Start Dictation";
+    els.startDictateBtn.disabled = false;
+    els.stopDictateBtn.disabled = true;
+  };
+
+  recognition.onend = () => {
+    listening = false;
+    els.startDictateBtn.textContent = "🎙️ Start Dictation";
+    els.startDictateBtn.disabled = false;
+    els.stopDictateBtn.disabled = true;
+    els.dictateNotes.dataset.base = els.dictateNotes.value;
+  };
+} else {
+  els.startDictateBtn.disabled = true;
+  els.stopDictateBtn.disabled = true;
+  els.startDictateBtn.textContent = "Dictation not supported";
+}
+
+els.startDictateBtn.addEventListener("click", () => {
+  if (!recognition || listening) return;
+  els.dictateNotes.dataset.base = els.dictateNotes.value || "";
+  recognition.start();
+});
+
+els.stopDictateBtn.addEventListener("click", () => {
+  if (recognition && listening) recognition.stop();
+});
+
+function formatText(text){
+  return (text || "")
+    .replace(/\s+/g," ")
+    .trim()
+    .replace(/(^\w|[.!?]\s+\w)/g, s => s.toUpperCase());
+}
+
+function buildQuoteText(){
+  const agent = (els.clientName.value || "").trim();
+  const address = (els.jobAddress.value || "").trim();
+  const notes = formatText(els.dictateNotes.value || els.jobDesc.value || "");
+
+  if (!notes) return "";
+
+  return `Estimate
+
+Client: ${agent}
+Address: ${address}
+
+Scope of Works
+${notes}
+
+Labour Allowance
+This estimate includes labour only based on site assessment.
+
+Additional Notes
+All works to be carried out in a safe and tidy manner. Waste to be removed from site unless otherwise agreed.
+
+Exclusions
+Any hidden defects or additional works not visible at time of inspection will be treated separately.`;
+}
+
+els.buildQuoteBtn.addEventListener("click", () => {
+  const q = buildQuoteText();
+  if (!q) return alert("Add dictation first.");
+  els.quoteOutput.value = q;
+});
+
+els.copyQuoteBtn.addEventListener("click", async () => {
+  if (!els.quoteOutput.value.trim()) return alert("Generate the quote first.");
+  try{
+    await navigator.clipboard.writeText(els.quoteOutput.value);
+    alert("Copied");
+  }catch{
+    alert("Copy failed on this device.");
+  }
+});
+
+els.shareQuoteBtn.addEventListener("click", async () => {
+  if (!els.quoteOutput.value.trim()) return alert("Generate the quote first.");
+  if (navigator.share) {
+    try{
+      await navigator.share({
+        title:"Estimate",
+        text:els.quoteOutput.value
+      });
+    }catch{}
+  } else {
+    try{
+      await navigator.clipboard.writeText(els.quoteOutput.value);
+      alert("Copied");
+    }catch{
+      alert("Share not supported on this device.");
+    }
+  }
+});
+
+els.quotePdfBtn.addEventListener("click", () => {
+  const text = buildQuoteText();
+  if (!text) return alert("Generate quote first.");
+
+  const { jsPDF } = window.jspdf;
+  const docp = new jsPDF({unit:"pt", format:"a4"});
+  const W = docp.internal.pageSize.getWidth();
+  const H = docp.internal.pageSize.getHeight();
+  const M = 42;
+
+  docp.setFont("helvetica","bold");
+  docp.setFontSize(16);
+  docp.text("FORD PROPERTY SERVICES", M, 56);
+
+  docp.setFont("helvetica","normal");
+  docp.setFontSize(10);
+  docp.text("Quote (No Prices)", M, 74);
+  docp.text(`Date: ${els.estimateDate.value || ""}`, W - M, 56, {align:"right"});
+
+  let y = 100;
+  const sections = text.split("\n\n");
+
+  sections.forEach(section => {
+    const lines = docp.splitTextToSize(section, W - (M*2));
+    const requiredHeight = lines.length * 14 + 12;
+    if(y + requiredHeight > H - M){
+      docp.addPage();
+      y = M;
+    }
+    docp.text(lines, M, y);
+    y += requiredHeight;
+  });
+
+  docp.setFontSize(9);
+  docp.text("Prepared on site • Ford Property Services", M, H - 26);
+
+  const fname = `FPS_Quote_No_Prices_${(els.clientName.value||"Agent").replace(/[^a-z0-9]+/gi,"_")}_${(els.estimateDate.value||todayISO())}.pdf`;
+  docp.save(fname);
+});
+
+els.useQuoteAsScopeBtn.addEventListener("click", () => {
+  const notes = formatText(els.dictateNotes.value);
+  if(!notes) return alert("Add dictation first.");
+  els.jobDesc.value = notes;
+});
+
+/* ===========================
    Init
    =========================== */
 renderMaterials();
@@ -1249,9 +1478,9 @@ calc();
 setCurrentId(null);
 attachListener();
 setSync(true, "Syncing…");
+if (els.stopDictateBtn) els.stopDictateBtn.disabled = true;
 </script>
 
 </main>
 </body>
 </html>
-```0
