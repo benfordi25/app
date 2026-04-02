@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Dictate to Estimate in Seconds</title>
+  <meta name="theme-color" content="#0b1220" />
+  <style>
+    :root{
+      --bg:#08111f;
+      --panel:#0f1b31;
+      --panel2:#13213b;
+      --line:rgba(255,255,255,.10);
+      --text:#eaf2ff;
+      --muted:#9db2cf;
+      --accent:#68a4ff;
+      --accent2:#9ecbff;
+      --good:#25c06d;
+      --warn:#f4b544;
+      --danger:#ff6d6d;
+      --shadow:0 18px 45px rgba(0,0,0,.28);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:linear-gradient(180deg,#07101d,#0b1220 45%,#0e1730);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    button,input,select,textarea{font:inherit}
+    .wrap{max-width:1220px;margin:0 auto;padding:18px}
+    .topbar{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:48px;height:48px;border-radius:16px;background:linear-gradient(135deg,#1d3b66,#0d1930);display:grid;place-items:center;box-shadow:var(--shadow);font-size:24px}
+    h1{margin:0;font-size:clamp(24px,4vw,34px);line-height:1.05}
+    .sub{color:var(--muted);font-size:14px;margin-top:4px}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .card .hd{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .card .bd{padding:18px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);font-size:13px}
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 4px rgba(244,181,68,.16)}
+    .dot.live{background:var(--danger);box-shadow:0 0 0 4px rgba(255,109,109,.16)}
+    .row{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-bottom:12px}
+    .f{grid-column:span 12}
+    .c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}.c8{grid-column:span 8}.c9{grid-column:span 9}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;background:#0b1528;border:1px solid var(--line);color:var(--text);padding:13px 14px;border-radius:14px;outline:none}
+    textarea{min-height:110px;resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:rgba(104,164,255,.55);box-shadow:0 0 0 4px rgba(104,164,255,.12)}
+    .btns{display:flex;flex-wrap:wrap;gap:10px}
+    .btn{appearance:none;border:1px solid var(--line);background:#101b31;color:var(--text);padding:12px 16px;border-radius:14px;font-weight:700;cursor:pointer}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:linear-gradient(180deg,#3d7df2,#2f64c4);border-color:transparent}
+    .btn.good{background:linear-gradient(180deg,#25c06d,#159756);border-color:transparent}
+    .btn.ghost{background:rgba(255,255,255,.04)}
+    .btn.warn{background:linear-gradient(180deg,#f4b544,#cc8e18);border-color:transparent;color:#1a1202}
+    .btn.small{padding:9px 12px;font-size:13px}
+    .chips{display:flex;flex-wrap:wrap;gap:10px}
+    .chip{padding:10px 12px;border-radius:999px;border:1px solid var(--line);background:#101a2d;color:var(--text);cursor:pointer;font-size:14px}
+    .chip.active{background:rgba(104,164,255,.18);border-color:rgba(104,164,255,.55);color:#ddebff}
+    .helper{font-size:13px;color:var(--muted);margin-top:8px}
+    .output{white-space:pre-wrap;background:#091120;border:1px solid var(--line);padding:16px;border-radius:16px;min-height:420px}
+    .muted{color:var(--muted)}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .section-title{margin:0 0 10px;font-size:15px;color:#d8e8ff}
+    .footerNote{font-size:12px;color:var(--muted);margin-top:10px}
+    @media (max-width:980px){.grid{grid-template-columns:1fr}.c6,.c4,.c3,.c8,.c9{grid-column:span 12}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">🎙️</div>
+        <div>
+          <h1>Dictate to Estimate in Seconds</h1>
+          <div class="sub">Voice-first estimate writer for fire doors, refurbs, decorating, flooring and general works</div>
+        </div>
+      </div>
+      <div class="pill"><span id="micDot" class="dot"></span><span id="micState">Dictation ready</span></div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="hd">
+          <strong>Job Input</strong>
+          <div class="btns">
+            <button class="btn small" id="saveBtn">Save Draft</button>
+            <button class="btn small" id="loadBtn">Load Draft</button>
+            <button class="btn small" id="clearBtn">Clear</button>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="row">
+            <div class="f c6">
+              <label for="client">Client / Letting Agent</label>
+              <input id="client" placeholder="Example: ABC Lettings" />
+            </div>
+            <div class="f c6">
+              <label for="address">Property Address</label>
+              <input id="address" placeholder="Example: 12 High Street, Slough" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="f c4">
+              <label for="estimateNo">Estimate Number</label>
+              <input id="estimateNo" placeholder="Optional" />
+            </div>
+            <div class="f c4">
+              <label for="people">How many people</label>
+              <input id="people" type="number" min="1" step="1" value="2" />
+            </div>
+            <div class="f c4">
+              <label for="days">How many days</label>
+              <input id="days" type="number" min="0.5" step="0.5" value="1" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="f">
+              <label>Job Type Template</label>
+              <div class="chips" id="jobTypeChips"></div>
+              <div class="helper">Tap a trade type to pre-load wording. You can still dictate or edit everything afterwards.</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="f c6">
+              <label for="title">Estimate Title</label>
+              <input id="title" placeholder="Example: Fire door remedial works" />
+            </div>
+            <div class="f c6">
+              <label for="access">Access / Attendance Notes</label>
+              <input id="access" placeholder="Example: Occupied property / access by appointment" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="f">
+              <label for="dictation">Dictation / Site Notes</label>
+              <textarea id="dictation" placeholder="Dictate what is required on site, what is to be removed, installed, repaired or decorated, any making good, and anything excluded."></textarea>
+              <div class="btns" style="margin-top:10px">
+                <button class="btn primary" id="startDictationBtn">Start Dictation</button>
+                <button class="btn" id="stopDictationBtn">Stop Dictation</button>
+                <button class="btn ghost" id="appendTemplateBtn">Add Template Wording</button>
+              </div>
+              <div class="helper" id="speechHelp">Best in Chrome/Android. On iPhone/iPad support depends on browser.</div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="f c6">
+              <label for="extras">Extra Notes to Include</label>
+              <textarea id="extras" placeholder="Example: Waste to be removed from site. Final decoration colour to client choice."></textarea>
+            </div>
+            <div class="f c6">
+              <label for="exclusions">Exclusions / Subject To</label>
+              <textarea id="exclusions" placeholder="Example: No allowance for hidden defects until opened up."></textarea>
+            </div>
+          </div>
+
+          <div class="btns">
+            <button class="btn good" id="buildBtn">Build Estimate</button>
+            <button class="btn" id="copyBtn">Copy Output</button>
+            <button class="btn warn" id="shareBtn">Share</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="hd">
+          <strong>Generated Estimate</strong>
+          <span class="muted">Instant draft from your notes</span>
+        </div>
+        <div class="bd">
+          <div class="output" id="output"></div>
+          <div class="footerNote">This version is labour-only style wording. No price calculation is included.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const storageKey = 'fps_dictate_estimate_v1';
+
+  const templates = {
+    'Fire Doors': {
+      title: 'Fire door remedial works',
+      body: 'Carry out fire door remedial works to the doors identified on site. Works to include easing and adjusting door leaves where required, checking operation, replacing or installing ironmongery as needed, fitting intumescent fire and smoke seals where specified, and ensuring consistent operation on completion. Any final compliance checks or certification by others unless specifically agreed.',
+      extras: 'All arisings to be cleared from the work area on completion. Final finish to match existing as closely as reasonably possible where making good is required.',
+      exclusions: 'No allowance for replacement of full door sets unless found necessary once works commence. Certification not included unless specifically agreed.'
+    },
+    'Kitchen Refurb': {
+      title: 'Kitchen refurbishment works',
+      body: 'Carry out kitchen refurbishment works as discussed on site. Works can include removal of existing kitchen components, preparation of the area, first and second fix items as required, installation of new units and associated finishes, making good disturbed surfaces, and leaving the area ready for final handover.',
+      extras: 'Any reusable items removed carefully where agreed. Waste arising from our works to be removed from site unless otherwise instructed.',
+      exclusions: 'No allowance for hidden defects, specialist testing, or unforeseen structural issues until opened up.'
+    },
+    'Bathroom Refurb': {
+      title: 'Bathroom refurbishment works',
+      body: 'Carry out bathroom refurbishment works including strip-out of existing items where required, preparation of backgrounds, installation works, associated making good, and finishing items relevant to the agreed scope. Works to be completed in a safe and orderly manner with protection to surrounding areas where reasonably practical.',
+      extras: 'Sealant and final finishing details to be completed on installation. Waste from our works to be removed from site.',
+      exclusions: 'No allowance for hidden leaks, rotten timbers, defective pipework, or damaged substrates until exposed.'
+    },
+    'Painting & Decorating': {
+      title: 'Painting and decorating works',
+      body: 'Prepare surfaces by removing any loose or defective material, filling and making good minor surface defects where required, sanding between coats as appropriate, and applying the agreed decoration system to the specified areas. All works to be carried out to provide a clean and presentable finish on completion.',
+      extras: 'Final colour schedule to be confirmed prior to commencement if not already agreed.',
+      exclusions: 'No allowance for extensive plaster repairs, specialist coatings, or works to areas not visible during survey unless noted.'
+    },
+    'Flooring Replacement': {
+      title: 'Flooring replacement works',
+      body: 'Uplift and dispose of existing floor finishes where required, prepare subfloor as far as visible conditions allow, carry out minor making good where appropriate, and install replacement flooring to the agreed areas. Edges and trims to be completed as necessary to leave a neat finish.',
+      extras: 'Furniture moving by others unless specifically agreed. Waste from removed floor coverings to be taken away from site.',
+      exclusions: 'No allowance for hidden subfloor failure, damp-related defects, or levelling beyond minor preparation unless found necessary after uplift.'
+    },
+    'General Building': {
+      title: 'General building works',
+      body: 'Carry out the agreed building and repair works as identified during inspection and site discussions. This can include strip-out, preparation, repair, replacement, making good and finishing works as required to complete the agreed scope in a proper and workmanlike manner.',
+      extras: 'All works to be coordinated in sequence to suit the site conditions and access available.',
+      exclusions: 'Any additional works arising from hidden defects or conditions not visible at the time of inspection to be treated separately.'
+    }
+  };
+
+  const jobTypeChips = $('jobTypeChips');
+  let activeTemplate = 'General Building';
+
+  Object.keys(templates).forEach((name, idx) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (idx === Object.keys(templates).length - 1 ? ' active' : '');
+    b.textContent = name;
+    b.addEventListener('click', () => {
+      [...jobTypeChips.children].forEach(c => c.classList.remove('active'));
+      b.classList.add('active');
+      activeTemplate = name;
+      fillTemplate(name);
+    });
+    jobTypeChips.appendChild(b);
+  });
+
+  function todayUk(){
+    const d = new Date();
+    return d.toLocaleDateString('en-GB');
+  }
+
+  function fallbackEstimateNo(){
+    const d = new Date();
+    const part = String(d.getFullYear()).slice(-2) + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+    return 'EST-' + part + '-' + Math.floor(100 + Math.random()*900);
+  }
+
+  function fillTemplate(name){
+    const t = templates[name];
+    if (!$('title').value.trim()) $('title').value = t.title;
+    if (!$('dictation').value.trim()) $('dictation').value = t.body;
+    if (!$('extras').value.trim()) $('extras').value = t.extras;
+    if (!$('exclusions').value.trim()) $('exclusions').value = t.exclusions;
+  }
+
+  $('appendTemplateBtn').addEventListener('click', () => {
+    const t = templates[activeTemplate];
+    const current = $('dictation').value.trim();
+    $('dictation').value = current ? current + '\n\n' + t.body : t.body;
+    if (!$('title').value.trim()) $('title').value = t.title;
+    if (!$('extras').value.trim()) $('extras').value = t.extras;
+    if (!$('exclusions').value.trim()) $('exclusions').value = t.exclusions;
+  });
+
+  function sentenceCase(text){
+    return (text || '')
+      .replace(/\s+/g,' ')
+      .trim()
+      .replace(/(^\w|[.!?]\s+\w)/g, s => s.toUpperCase());
+  }
+
+  function buildEstimate(){
+    const client = $('client').value.trim();
+    const address = $('address').value.trim();
+    const estimateNo = $('estimateNo').value.trim() || fallbackEstimateNo();
+    const title = $('title').value.trim() || templates[activeTemplate].title;
+    const people = $('people').value || '1';
+    const days = $('days').value || '1';
+    const access = $('access').value.trim();
+    const dictation = sentenceCase($('dictation').value);
+    const extras = sentenceCase($('extras').value);
+    const exclusions = sentenceCase($('exclusions').value);
+
+    const introLine = client || address
+      ? `Please find below our estimate for the proposed works${address ? ` at ${address}` : ''}${client ? ` for ${client}` : ''}.`
+      : 'Please find below our estimate for the proposed works discussed.';
+
+    const labourLine = `Estimated labour requirement: ${people} operative${Number(people) === 1 ? '' : 's'} over approximately ${days} day${Number(days) === 1 ? '' : 's'}.`;
+
+    const accessLine = access ? `Access / attendance notes: ${sentenceCase(access)}.` : '';
+
+    const body = `${title}\n\nEstimate No: ${estimateNo}\nDate: ${todayUk()}\n\n${introLine}\n\nScope of Works\n${dictation || templates[activeTemplate].body}\n\nLabour Allowance\n${labourLine}\n\nAdditional Notes\n${extras || 'Works to be completed in a safe and tidy manner with general waste arising from our works removed from site unless otherwise agreed.'}\n${accessLine ? '\n' + accessLine : ''}\n\nExclusions / Subject To\n${exclusions || 'Any hidden defects, unforeseen damage, or additional works not visible at the time of inspection would be treated as separate items if encountered.'}\n\nThis estimate is based on the information available at the time of inspection and may be revised should additional issues become apparent once works commence.`;
+
+    $('output').textContent = body;
+    $('estimateNo').value = estimateNo;
+    saveDraft(false);
+  }
+
+  $('buildBtn').addEventListener('click', buildEstimate);
+
+  async function copyOutput(){
+    const text = $('output').textContent.trim();
+    if (!text) return alert('Build the estimate first.');
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Estimate copied.');
+    } catch {
+      alert('Copy failed on this device. You can still select and copy the text manually.');
+    }
+  }
+  $('copyBtn').addEventListener('click', copyOutput);
+
+  async function shareOutput(){
+    const text = $('output').textContent.trim();
+    if (!text) return alert('Build the estimate first.');
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Estimate Draft', text });
+      } catch {}
+    } else {
+      copyOutput();
+    }
+  }
+  $('shareBtn').addEventListener('click', shareOutput);
+
+  function readState(){
+    return {
+      client:$('client').value,
+      address:$('address').value,
+      estimateNo:$('estimateNo').value,
+      people:$('people').value,
+      days:$('days').value,
+      title:$('title').value,
+      access:$('access').value,
+      dictation:$('dictation').value,
+      extras:$('extras').value,
+      exclusions:$('exclusions').value,
+      output:$('output').textContent,
+      activeTemplate
+    };
+  }
+
+  function writeState(s){
+    if (!s) return;
+    $('client').value = s.client || '';
+    $('address').value = s.address || '';
+    $('estimateNo').value = s.estimateNo || '';
+    $('people').value = s.people || '2';
+    $('days').value = s.days || '1';
+    $('title').value = s.title || '';
+    $('access').value = s.access || '';
+    $('dictation').value = s.dictation || '';
+    $('extras').value = s.extras || '';
+    $('exclusions').value = s.exclusions || '';
+    $('output').textContent = s.output || '';
+    activeTemplate = s.activeTemplate || 'General Building';
+    [...jobTypeChips.children].forEach(c => c.classList.toggle('active', c.textContent === activeTemplate));
+  }
+
+  function saveDraft(showMsg=true){
+    localStorage.setItem(storageKey, JSON.stringify(readState()));
+    if (showMsg) alert('Draft saved.');
+  }
+
+  function loadDraft(){
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return alert('No saved draft found.');
+    try {
+      writeState(JSON.parse(raw));
+      alert('Draft loaded.');
+    } catch {
+      alert('Saved draft could not be read.');
+    }
+  }
+
+  $('saveBtn').addEventListener('click', () => saveDraft(true));
+  $('loadBtn').addEventListener('click', loadDraft);
+  $('clearBtn').addEventListener('click', () => {
+    if (!confirm('Clear the current form?')) return;
+    ['client','address','estimateNo','title','access','dictation','extras','exclusions'].forEach(id => $(id).value='');
+    $('people').value = '2';
+    $('days').value = '1';
+    $('output').textContent = '';
+  });
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let listening = false;
+
+  function setMicState(text, live=false){
+    $('micState').textContent = text;
+    $('micDot').classList.toggle('live', live);
+  }
+
+  function initSpeech(){
+    if (!SpeechRecognition) {
+      $('speechHelp').textContent = 'Speech dictation is not supported in this browser. You can still type into the notes box and build the estimate.';
+      $('startDictationBtn').disabled = true;
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-GB';
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      listening = true;
+      setMicState('Listening...', true);
+    };
+
+    recognition.onresult = (event) => {
+      let finalText = '';
+      let interimText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += transcript + ' ';
+        else interimText += transcript + ' ';
+      }
+      const area = $('dictation');
+      area.dataset.base = area.dataset.base || area.value;
+      area.value = (area.dataset.base + ' ' + finalText + ' ' + interimText).replace(/\s+/g,' ').trim();
+      if (finalText) area.dataset.base = area.value;
+    };
+
+    recognition.onerror = (e) => {
+      setMicState('Mic error: ' + e.error, false);
+      listening = false;
+    };
+
+    recognition.onend = () => {
+      listening = false;
+      const area = $('dictation');
+      area.dataset.base = area.value;
+      setMicState('Dictation ready', false);
+    };
+  }
+
+  $('startDictationBtn').addEventListener('click', () => {
+    if (!recognition) return alert('Speech dictation is not available in this browser.');
+    if (listening) return;
+    $('dictation').dataset.base = $('dictation').value;
+    recognition.start();
+  });
+
+  $('stopDictationBtn').addEventListener('click', () => {
+    if (recognition && listening) recognition.stop();
+  });
+
+  document.addEventListener('input', (e) => {
+    if (e.target.matches('input, textarea, select')) saveDraft(false);
+  });
+
+  initSpeech();
+  const existing = localStorage.getItem(storageKey);
+  if (existing) {
+    try { writeState(JSON.parse(existing)); } catch {}
+  }
+  if (!$('dictation').value.trim()) fillTemplate(activeTemplate);
+  buildEstimate();
+})();
+</script>
+</body>
+</html>
