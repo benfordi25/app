@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FPS Dictate Quote</title>
+
+<style>
+body{font-family:Arial;background:#0b1220;color:#fff;padding:15px}
+.card{background:#121c33;padding:15px;border-radius:12px;margin-bottom:15px}
+input,textarea{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
+button{padding:10px;margin:5px;border-radius:8px;border:none;font-weight:bold}
+.primary{background:#2d6cdf;color:#fff}
+.good{background:#2fa36b;color:#fff}
+</style>
+</head>
+
+<body>
+
+<h2>FPS Dictate to Quote</h2>
+
+<div class="card">
+<input id="agent" placeholder="Agent">
+<input id="address" placeholder="Address">
+<textarea id="notes" placeholder="General notes"></textarea>
+
+<button class="primary" onclick="addJob()">+ Add Work</button>
+<div id="jobs"></div>
+</div>
+
+<div class="card">
+<textarea id="output" style="height:300px"></textarea>
+<button class="good" onclick="generate()">Generate</button>
+<button onclick="share()">Share</button>
+</div>
+
+<script>
+function addJob(){
+  const div=document.createElement('div');
+  div.className='card';
+  div.innerHTML=`
+    <input placeholder="Work title" class="title">
+    <input placeholder="Days" class="days">
+    <input placeholder="People" class="people">
+    <textarea placeholder="Notes" class="jn"></textarea>
+    <button onclick="addMat(this)">+ Material</button>
+    <div class="mats"></div>
+  `;
+  jobs.appendChild(div);
+}
+
+function addMat(btn){
+  const m=document.createElement('div');
+  m.innerHTML=`
+    <input placeholder="Material">
+    <input placeholder="Qty">
+  `;
+  btn.parentElement.querySelector('.mats').appendChild(m);
+}
+
+function generate(){
+  let txt=`QUOTE\n\n`;
+  txt+=`Agent: ${agent.value}\n`;
+  txt+=`Address: ${address.value}\n\n`;
+
+  document.querySelectorAll('#jobs .card').forEach((j,i)=>{
+    txt+=`WORK ${i+1}: ${j.querySelector('.title').value}\n`;
+
+    let notes=j.querySelector('.jn').value;
+    txt+=notes.replace(/,/g,'.') + "\n";
+
+    txt+=`Duration: ${j.querySelector('.days').value} days with ${j.querySelector('.people').value} operatives\n`;
+
+    const mats=j.querySelectorAll('.mats div');
+    if(mats.length){
+      txt+="Materials:\n";
+      mats.forEach(m=>{
+        txt+=`- ${m.children[0].value} (${m.children[1].value})\n`;
+      });
+    }
+
+    txt+="\n";
+  });
+
+  output.value=txt;
+}
+
+function share(){
+  navigator.share({text:output.value});
+}
+</script>
+
+</body>
+</html>
