@@ -610,7 +610,7 @@ const els = {
 
 let state = { materials: [], labour: [] };
 let currentEstimateId = null;
-let estimatesCache = []; // list from Firestore
+let estimatesCache = [];
 let unsub = null;
 
 const LS_WS = "fps_est_ws_v1";
@@ -1019,6 +1019,7 @@ function clearForm(confirmAsk=true){
   els.saveStatus.textContent = "";
   els.dictateNotes.value = "";
   els.quoteOutput.value = "";
+  delete els.dictateNotes.dataset.base;
   renderMaterials();
   renderLabour();
   calc();
@@ -1064,18 +1065,15 @@ async function duplicateEstimate(id){
   });
   setCurrentId(null);
   els.quoteOutput.value = "";
-  els.saveStatus.textContent = "Duplicated. Tap “Save to Cloud” to create a new record.";
   window.scrollTo({top:0, behavior:"smooth"});
+  els.saveStatus.textContent = "Duplicated. Tap “Save to Cloud” to create a new record.";
 }
 
-/* ✅ AMENDED: Delete now removes from list instantly + shows real error if it fails */
 async function deleteEstimate(id){
   if(!confirm("Delete this estimate from the cloud?")) return;
 
   try{
     await deleteDoc(doc(db, "estimates", id));
-
-    // Optimistic UI update so it disappears immediately
     estimatesCache = estimatesCache.filter(x => x.id !== id);
     renderEstimatesList();
 
@@ -1168,7 +1166,6 @@ els.makePdfBtn.addEventListener("click", ()=>{
     }
   }
 
-  // Materials
   tableTitle("Materials");
   docp.setFontSize(10);
   docp.setFont("helvetica","bold");
@@ -1200,7 +1197,6 @@ els.makePdfBtn.addEventListener("click", ()=>{
   docp.setFont("helvetica","normal");
   y += 26;
 
-  // Labour
   tableTitle("Labour");
   docp.setFontSize(10);
   docp.setFont("helvetica","bold");
@@ -1232,7 +1228,6 @@ els.makePdfBtn.addEventListener("click", ()=>{
   docp.setFont("helvetica","normal");
   y += 26;
 
-  // Totals
   ensureSpace(150);
   docp.roundedRect(M, y, W-(M*2), 130, 10, 10);
   docp.setFont("helvetica","bold");
@@ -1268,7 +1263,6 @@ els.makePdfBtn.addEventListener("click", ()=>{
    Buttons / events
    =========================== */
 els.saveDraftBtn.addEventListener("click", saveToCloud);
-
 els.newEstimateBtn.addEventListener("click", ()=> clearForm(true));
 els.newEstimateBtnTop.addEventListener("click", ()=> clearForm(true));
 
@@ -1293,6 +1287,7 @@ els.workspaceKey.addEventListener("change", ()=>{
    =========================== */
 let recognition;
 let listening = false;
+let manuallyStopped = false;
 
 if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1307,15 +1302,18 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) finalText += transcript + " ";
-      else interimText += transcript + " ";
+      if (event.results[i].isFinal) {
+        finalText += transcript + " ";
+      } else {
+        interimText += transcript + " ";
+      }
     }
 
-    const base = els.dictateNotes.dataset.base || els.dictateNotes.value || "";
-    els.dictateNotes.value = (base + " " + finalText + " " + interimText).replace(/\s+/g," ").trim();
+    const base = els.dictateNotes.dataset.base || "";
+    els.dictateNotes.value = (base + " " + finalText + " " + interimText).replace(/\s+/g, " ").trim();
 
     if (finalText.trim()) {
-      els.dictateNotes.dataset.base = els.dictateNotes.value;
+      els.dictateNotes.dataset.base = (base + " " + finalText).replace(/\s+/g, " ").trim();
     }
   };
 
@@ -1328,17 +1326,30 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
 
   recognition.onerror = () => {
     listening = false;
-    els.startDictateBtn.textContent = "🎙️ Start Dictation";
-    els.startDictateBtn.disabled = false;
-    els.stopDictateBtn.disabled = true;
+    if (!manuallyStopped) {
+      setTimeout(() => {
+        try { recognition.start(); } catch {}
+      }, 300);
+    } else {
+      els.startDictateBtn.textContent = "🎙️ Start Dictation";
+      els.startDictateBtn.disabled = false;
+      els.stopDictateBtn.disabled = true;
+    }
   };
 
   recognition.onend = () => {
     listening = false;
-    els.startDictateBtn.textContent = "🎙️ Start Dictation";
-    els.startDictateBtn.disabled = false;
-    els.stopDictateBtn.disabled = true;
-    els.dictateNotes.dataset.base = els.dictateNotes.value;
+    els.dictateNotes.dataset.base = els.dictateNotes.value || "";
+
+    if (!manuallyStopped) {
+      setTimeout(() => {
+        try { recognition.start(); } catch {}
+      }, 300);
+    } else {
+      els.startDictateBtn.textContent = "🎙️ Start Dictation";
+      els.startDictateBtn.disabled = false;
+      els.stopDictateBtn.disabled = true;
+    }
   };
 } else {
   els.startDictateBtn.disabled = true;
@@ -1348,11 +1359,13 @@ if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
 
 els.startDictateBtn.addEventListener("click", () => {
   if (!recognition || listening) return;
+  manuallyStopped = false;
   els.dictateNotes.dataset.base = els.dictateNotes.value || "";
   recognition.start();
 });
 
 els.stopDictateBtn.addEventListener("click", () => {
+  manuallyStopped = true;
   if (recognition && listening) recognition.stop();
 });
 
@@ -1483,4 +1496,4 @@ if (els.stopDictateBtn) els.stopDictateBtn.disabled = true;
 
 </main>
 </body>
-</html>
+  </html>
