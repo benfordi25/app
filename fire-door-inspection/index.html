@@ -6,126 +6,31 @@
 <title>Fire Door Inspection - Ford Property Services</title>
 
 <style>
-body{
-  font-family:Arial,sans-serif;
-  margin:0;
-  background:#f4f4f4;
-  color:#111;
-}
-header{
-  background:#0b1220;
-  color:white;
-  padding:18px;
-  text-align:center;
-}
+body{font-family:Arial,sans-serif;margin:0;background:#f4f4f4;color:#111}
+header{background:#0b1220;color:white;padding:18px;text-align:center}
 header h1{margin:0;font-size:24px}
 header p{margin:5px 0 0;color:#9ecbff;font-weight:bold}
-
-.container{
-  padding:15px;
-  max-width:900px;
-  margin:auto;
-}
-.card{
-  background:white;
-  margin-bottom:15px;
-  padding:15px;
-  border-radius:12px;
-  box-shadow:0 2px 8px rgba(0,0,0,.12);
-}
-.section-title{
-  font-size:20px;
-  font-weight:bold;
-  color:#0b1220;
-  margin-bottom:10px;
-}
-label{
-  display:block;
-  font-weight:bold;
-  margin-top:10px;
-}
-input,textarea,select{
-  width:100%;
-  padding:10px;
-  margin-top:5px;
-  border:1px solid #ccc;
-  border-radius:8px;
-  font-size:16px;
-  box-sizing:border-box;
-}
-.item{
-  border-top:1px solid #ddd;
-  padding:12px 0;
-}
-.item-title{
-  font-weight:bold;
-  margin-bottom:8px;
-}
-.yn{
-  display:flex;
-  gap:10px;
-  margin-bottom:10px;
-}
-.yn label{
-  flex:1;
-  margin:0;
-  padding:10px;
-  border:1px solid #ccc;
-  border-radius:8px;
-  text-align:center;
-  background:#f8f8f8;
-}
-.yn input{
-  width:auto;
-}
-button{
-  width:100%;
-  padding:14px;
-  border:0;
-  border-radius:10px;
-  background:#0b1220;
-  color:white;
-  font-size:17px;
-  font-weight:bold;
-  margin-top:10px;
-}
-.small-btn{
-  background:#374151;
-}
-.danger{
-  background:#8b0000;
-}
-.photo-preview{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:10px;
-}
-.photo-preview img{
-  width:90px;
-  height:90px;
-  object-fit:cover;
-  border-radius:8px;
-  border:1px solid #ccc;
-}
-.result-pass{
-  color:green;
-  font-weight:bold;
-}
-.result-fail{
-  color:red;
-  font-weight:bold;
-}
-.footer{
-  font-size:12px;
-  color:#555;
-  margin-top:15px;
-  line-height:1.4;
-}
+.container{padding:15px;max-width:900px;margin:auto}
+.card{background:white;margin-bottom:15px;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.section-title{font-size:20px;font-weight:bold;color:#0b1220;margin-bottom:10px}
+label{display:block;font-weight:bold;margin-top:10px}
+input,textarea,select{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:8px;font-size:16px;box-sizing:border-box}
+.item{border-top:1px solid #ddd;padding:12px 0}
+.item-title{font-weight:bold;margin-bottom:8px}
+.yn{display:flex;gap:10px;margin-bottom:10px}
+.yn label{flex:1;margin:0;padding:10px;border:1px solid #ccc;border-radius:8px;text-align:center;background:#f8f8f8}
+.yn input{width:auto}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;color:white;font-size:17px;font-weight:bold;margin-top:10px}
+.small-btn{background:#374151}
+.danger{background:#8b0000}
+.photo-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.photo-preview img{width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #ccc}
+.status{font-weight:bold;margin-top:10px;color:#0b1220}
+.footer{font-size:12px;color:#555;margin-top:15px;line-height:1.4}
 @media print{
-  button,input[type=file]{display:none}
-  body{background:white}
-  .card{box-shadow:none;border:1px solid #ddd}
+button,input[type=file]{display:none}
+body{background:white}
+.card{box-shadow:none;border:1px solid #ddd}
 }
 </style>
 </head>
@@ -133,267 +38,300 @@ button{
 <body>
 
 <header>
-  <h1>FORD PROPERTY SERVICES</h1>
-  <p>Fire Door Inspection Checklist</p>
+<h1>FORD PROPERTY SERVICES</h1>
+<p>Fire Door Inspection Checklist</p>
 </header>
 
 <div class="container">
 
 <div class="card">
-  <div class="section-title">Inspection Details</div>
+<div class="section-title">Inspection Details</div>
 
-  <label>Inspection Reference</label>
-  <input id="ref" placeholder="FPS-FD-001">
+<label>Inspection Reference</label>
+<input id="ref" placeholder="Auto generated if left blank">
 
-  <label>Date</label>
-  <input type="date" id="date">
+<label>Date</label>
+<input type="date" id="date">
 
-  <label>Property Address</label>
-  <textarea id="address" rows="3"></textarea>
+<label>Property Address</label>
+<textarea id="address" rows="3"></textarea>
 
-  <label>Letting Agent / Client</label>
-  <input id="client">
+<label>Letting Agent / Client</label>
+<input id="client">
 
-  <label>Inspector</label>
-  <input id="inspector" value="Ford Property Services">
+<label>Inspector</label>
+<input id="inspector" value="Ford Property Services">
 
-  <label>Door Location / Reference</label>
-  <input id="doorRef" placeholder="Flat 1 entrance door / communal fire door">
+<label>Door Location / Reference</label>
+<input id="doorRef" placeholder="Flat 1 entrance door / communal fire door">
 </div>
 
 <div id="checklist"></div>
 
 <div class="card">
-  <div class="section-title">Overall Result</div>
+<div class="section-title">Overall Result</div>
 
-  <label>Inspection Result</label>
-  <select id="result" onchange="updateResultText()">
-    <option>PASS</option>
-    <option>PASS WITH RECOMMENDED REMEDIAL WORKS</option>
-    <option>FAIL – REMEDIAL WORKS REQUIRED</option>
-    <option>FAIL – URGENT ATTENTION REQUIRED</option>
-  </select>
+<label>Inspection Result</label>
+<select id="result">
+<option>PASS</option>
+<option>PASS WITH RECOMMENDED REMEDIAL WORKS</option>
+<option>FAIL – REMEDIAL WORKS REQUIRED</option>
+<option>FAIL – URGENT ATTENTION REQUIRED</option>
+</select>
 
-  <p id="resultText"></p>
+<label>Overall Comments / Recommendations</label>
+<textarea id="overallComments" rows="5"></textarea>
 
-  <label>Overall Comments / Recommendations</label>
-  <textarea id="overallComments" rows="5"></textarea>
+<label>Inspector Signature / Name</label>
+<input id="signature" value="Ford Property Services">
 
-  <label>Inspector Signature / Name</label>
-  <input id="signature" value="Ford Property Services">
+<div id="status" class="status"></div>
 
-  <button onclick="saveInspection()">Save Inspection</button>
-  <button class="small-btn" onclick="loadInspection()">Load Saved Inspection</button>
-  <button onclick="window.print()">Print / Save as PDF</button>
-  <button class="danger" onclick="clearInspection()">Clear Form</button>
+<button onclick="saveInspection()">Save to Firebase Cloud</button>
+<button class="small-btn" onclick="loadInspection()">Load From Firebase Cloud</button>
+<button onclick="window.print()">Print / Save as PDF</button>
+<button class="danger" onclick="clearForm()">Clear Form</button>
 
-  <div class="footer">
-    This inspection is a visual assessment only and does not constitute certification of the fire door assembly.
-    Any defects identified should be rectified by a competent person in accordance with current fire safety legislation,
-    British Standards and manufacturer requirements.
-  </div>
+<div class="footer">
+This inspection is a visual assessment only and does not constitute certification of the fire door assembly.
+Any defects identified should be rectified by a competent person in accordance with current fire safety legislation,
+British Standards and manufacturer requirements.
+</div>
 </div>
 
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+
+const app = initializeApp({
+apiKey:"AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
+authDomain:"fps-jobs-board.firebaseapp.com",
+projectId:"fps-jobs-board",
+storageBucket:"fps-jobs-board.firebasestorage.app"
+});
+
+const auth = getAuth(app);
+await signInAnonymously(auth);
+
+const db = getFirestore(app);
+const storage = getStorage(app);
+
 document.getElementById("date").valueAsDate = new Date();
 
 const sections = {
-"Door Identification":[
-"Door location clearly identified",
-"Fire door certification label visible where applicable",
-"Fire rating confirmed where possible",
-"Door signage present where required"
-],
-"Door Leaf":[
-"Door leaf free from significant damage",
-"No excessive warping, bowing or twisting",
-"No unapproved alterations or excessive holes",
-"Glazing intact and in good condition where fitted"
-],
-"Frame & Architrave":[
-"Frame securely fixed",
-"Frame free from damage",
-"No excessive gaps between frame and structure",
-"Architraves secure and undamaged"
-],
-"Gaps & Clearances":[
-"Gap between door and frame approximately 2mm–4mm",
-"Threshold gap acceptable",
-"Door closes without binding",
-"No excessive visible gaps"
-],
-"Intumescent & Smoke Seals":[
-"Intumescent seals present",
-"Seals continuous and undamaged",
-"Smoke seals present where required",
-"No paint or damage affecting seals"
-],
-"Hinges":[
-"Minimum 3 hinges fitted",
-"Hinges secure",
-"Hinges free from excessive wear",
-"Hinges appear suitable for fire door use"
-],
-"Self-Closing Device":[
-"Self-closer fitted where required",
-"Door closes fully from any open position",
-"Door latches correctly",
-"Closer securely fixed with no visible defects"
-],
-"Locks, Latches & Ironmongery":[
-"Latch operates correctly",
-"Handles secure",
-"Locks operate correctly",
-"Ironmongery securely fixed"
-],
-"Glazing":[
-"Fire-rated glazing present where required",
-"Glazing beads secure",
-"No cracks or damage",
-"Intumescent glazing system intact where visible"
-],
-"Hold Open Devices":[
-"Hold open device suitable where fitted",
-"Device releases correctly where applicable",
-"No unsuitable wedges or obstructions holding door open"
-],
-"Overall Operation Test":[
-"Door opens freely",
-"Door closes fully",
-"Door latches correctly",
-"Fire compartmentation appears maintained"
-]
+"Door Identification":["Door location clearly identified","Fire door certification label visible where applicable","Fire rating confirmed where possible","Door signage present where required"],
+"Door Leaf":["Door leaf free from significant damage","No excessive warping, bowing or twisting","No unapproved alterations or excessive holes","Glazing intact and in good condition where fitted"],
+"Frame & Architrave":["Frame securely fixed","Frame free from damage","No excessive gaps between frame and structure","Architraves secure and undamaged"],
+"Gaps & Clearances":["Gap between door and frame approximately 2mm–4mm","Threshold gap acceptable","Door closes without binding","No excessive visible gaps"],
+"Intumescent & Smoke Seals":["Intumescent seals present","Seals continuous and undamaged","Smoke seals present where required","No paint or damage affecting seals"],
+"Hinges":["Minimum 3 hinges fitted","Hinges secure","Hinges free from excessive wear","Hinges appear suitable for fire door use"],
+"Self-Closing Device":["Self-closer fitted where required","Door closes fully from any open position","Door latches correctly","Closer securely fixed with no visible defects"],
+"Locks, Latches & Ironmongery":["Latch operates correctly","Handles secure","Locks operate correctly","Ironmongery securely fixed"],
+"Glazing":["Fire-rated glazing present where required","Glazing beads secure","No cracks or damage","Intumescent glazing system intact where visible"],
+"Hold Open Devices":["Hold open device suitable where fitted","Device releases correctly where applicable","No unsuitable wedges or obstructions holding door open"],
+"Overall Operation Test":["Door opens freely","Door closes fully","Door latches correctly","Fire compartmentation appears maintained"]
 };
 
 const checklist = document.getElementById("checklist");
 
 Object.entries(sections).forEach(([section, items], sectionIndex) => {
-  let card = document.createElement("div");
-  card.className = "card";
+let card = document.createElement("div");
+card.className = "card";
 
-  let html = `<div class="section-title">${section}</div>`;
+let html = `<div class="section-title">${section}</div>`;
 
-  items.forEach((item, itemIndex) => {
-    let name = `s${sectionIndex}i${itemIndex}`;
-
-    html += `
-    <div class="item">
-      <div class="item-title">${item}</div>
-      <div class="yn">
-        <label><input type="radio" name="${name}" value="Yes"> Yes</label>
-        <label><input type="radio" name="${name}" value="No"> No</label>
-        <label><input type="radio" name="${name}" value="N/A"> N/A</label>
-      </div>
-    </div>`;
-  });
-
-  html += `
-    <label>Section Comments / Defects</label>
-    <textarea class="section-comment" rows="4" placeholder="Add comments, defects or remedial works for this section"></textarea>
-
-    <label>Section Photos</label>
-    <input type="file" accept="image/*" capture="environment" multiple onchange="previewPhotos(this)">
-    <div class="photo-preview"></div>
-  `;
-
-  card.innerHTML = html;
-  checklist.appendChild(card);
+items.forEach((item, itemIndex) => {
+let name = `s${sectionIndex}i${itemIndex}`;
+html += `
+<div class="item">
+<div class="item-title">${item}</div>
+<div class="yn">
+<label><input type="radio" name="${name}" value="Yes"> Yes</label>
+<label><input type="radio" name="${name}" value="No"> No</label>
+<label><input type="radio" name="${name}" value="N/A"> N/A</label>
+</div>
+</div>`;
 });
 
-function previewPhotos(input){
-  const preview = input.nextElementSibling;
-  preview.innerHTML = "";
+html += `
+<label>Section Comments / Defects</label>
+<textarea class="section-comment" rows="4" placeholder="Add comments, defects or remedial works"></textarea>
 
-  Array.from(input.files).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = document.createElement("img");
-      img.src = e.target.result;
-      preview.appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  });
+<label>Section Photos</label>
+<input class="photo-input" type="file" accept="image/*" capture="environment" multiple onchange="previewPhotos(this)">
+<div class="photo-preview"></div>
+`;
+
+card.innerHTML = html;
+checklist.appendChild(card);
+});
+
+window.previewPhotos = function(input){
+const preview = input.nextElementSibling;
+preview.innerHTML = "";
+
+Array.from(input.files).forEach(file => {
+const reader = new FileReader();
+reader.onload = e => {
+const img = document.createElement("img");
+img.src = e.target.result;
+preview.appendChild(img);
+};
+reader.readAsDataURL(file);
+});
+};
+
+function makeRef(){
+const d = new Date();
+const day = String(d.getDate()).padStart(2,"0");
+const month = String(d.getMonth()+1).padStart(2,"0");
+const year = d.getFullYear();
+const random = Math.floor(10000 + Math.random() * 90000);
+return `FPS-FD-${day}-${month}-${year}-${random}`;
 }
 
-function updateResultText(){
-  const result = document.getElementById("result").value;
-  const text = document.getElementById("resultText");
+function getFormData(){
+const existingRef = document.getElementById("ref").value.trim();
+const refNo = existingRef || makeRef();
+document.getElementById("ref").value = refNo;
 
-  if(result.includes("PASS")){
-    text.innerHTML = `<span class="result-pass">${result}</span>`;
-  } else {
-    text.innerHTML = `<span class="result-fail">${result}</span>`;
-  }
-}
-updateResultText();
+const data = {
+ref: refNo,
+date: document.getElementById("date").value,
+address: document.getElementById("address").value,
+client: document.getElementById("client").value,
+inspector: document.getElementById("inspector").value,
+doorRef: document.getElementById("doorRef").value,
+result: document.getElementById("result").value,
+overallComments: document.getElementById("overallComments").value,
+signature: document.getElementById("signature").value,
+radios: {},
+comments: [],
+photos: [],
+updatedAt: serverTimestamp()
+};
 
-function saveInspection(){
-  const data = {
-    ref:document.getElementById("ref").value,
-    date:document.getElementById("date").value,
-    address:document.getElementById("address").value,
-    client:document.getElementById("client").value,
-    inspector:document.getElementById("inspector").value,
-    doorRef:document.getElementById("doorRef").value,
-    result:document.getElementById("result").value,
-    overallComments:document.getElementById("overallComments").value,
-    signature:document.getElementById("signature").value,
-    radios:{},
-    comments:[]
-  };
+document.querySelectorAll("input[type=radio]:checked").forEach(r => {
+data.radios[r.name] = r.value;
+});
 
-  document.querySelectorAll("input[type=radio]:checked").forEach(r => {
-    data.radios[r.name] = r.value;
-  });
+document.querySelectorAll(".section-comment").forEach(c => {
+data.comments.push(c.value);
+});
 
-  document.querySelectorAll(".section-comment").forEach(c => {
-    data.comments.push(c.value);
-  });
-
-  localStorage.setItem("fps_fire_door_inspection", JSON.stringify(data));
-  alert("Inspection saved on this device.");
+return data;
 }
 
-function loadInspection(){
-  const saved = localStorage.getItem("fps_fire_door_inspection");
-  if(!saved){
-    alert("No saved inspection found.");
-    return;
-  }
+window.saveInspection = async function(){
+const status = document.getElementById("status");
+status.innerText = "Saving to Firebase cloud...";
 
-  const data = JSON.parse(saved);
+try{
+const data = getFormData();
+const photoInputs = document.querySelectorAll(".photo-input");
 
-  document.getElementById("ref").value = data.ref || "";
-  document.getElementById("date").value = data.date || "";
-  document.getElementById("address").value = data.address || "";
-  document.getElementById("client").value = data.client || "";
-  document.getElementById("inspector").value = data.inspector || "";
-  document.getElementById("doorRef").value = data.doorRef || "";
-  document.getElementById("result").value = data.result || "PASS";
-  document.getElementById("overallComments").value = data.overallComments || "";
-  document.getElementById("signature").value = data.signature || "";
-
-  Object.entries(data.radios || {}).forEach(([name,value]) => {
-    const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
-    if(radio) radio.checked = true;
-  });
-
-  document.querySelectorAll(".section-comment").forEach((c,i) => {
-    c.value = data.comments?.[i] || "";
-  });
-
-  updateResultText();
-  alert("Saved inspection loaded.");
+const existingSnap = await getDoc(doc(db, "fireDoorInspections", data.ref));
+if(existingSnap.exists() && existingSnap.data().photos){
+data.photos = existingSnap.data().photos;
 }
 
-function clearInspection(){
-  if(confirm("Clear this inspection form?")){
-    localStorage.removeItem("fps_fire_door_inspection");
-    location.reload();
-  }
+for(let i = 0; i < photoInputs.length; i++){
+const files = photoInputs[i].files;
+
+for(let f = 0; f < files.length; f++){
+const file = files[f];
+const cleanName = file.name.replaceAll(" ","-");
+const filePath = `fireDoorInspections/${data.ref}/section-${i}-${Date.now()}-${cleanName}`;
+const storageRef = ref(storage, filePath);
+
+await uploadBytes(storageRef, file);
+const url = await getDownloadURL(storageRef);
+
+data.photos.push({
+section: i,
+name: file.name,
+url: url
+});
 }
+}
+
+await setDoc(doc(db, "fireDoorInspections", data.ref), data);
+
+status.innerText = "Saved to Firebase cloud.";
+alert("Inspection saved to Firebase cloud. Reference: " + data.ref);
+}catch(error){
+console.error(error);
+status.innerText = "Save failed.";
+alert("Save failed. Check Firebase rules and internet connection.");
+}
+};
+
+window.loadInspection = async function(){
+const refNo = prompt("Enter inspection reference to load:");
+if(!refNo) return;
+
+const status = document.getElementById("status");
+status.innerText = "Loading from Firebase cloud...";
+
+try{
+const snap = await getDoc(doc(db, "fireDoorInspections", refNo));
+
+if(!snap.exists()){
+alert("No inspection found with that reference.");
+status.innerText = "";
+return;
+}
+
+const data = snap.data();
+
+document.getElementById("ref").value = data.ref || "";
+document.getElementById("date").value = data.date || "";
+document.getElementById("address").value = data.address || "";
+document.getElementById("client").value = data.client || "";
+document.getElementById("inspector").value = data.inspector || "";
+document.getElementById("doorRef").value = data.doorRef || "";
+document.getElementById("result").value = data.result || "PASS";
+document.getElementById("overallComments").value = data.overallComments || "";
+document.getElementById("signature").value = data.signature || "";
+
+Object.entries(data.radios || {}).forEach(([name,value]) => {
+const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+if(radio) radio.checked = true;
+});
+
+document.querySelectorAll(".section-comment").forEach((c,i) => {
+c.value = data.comments?.[i] || "";
+});
+
+document.querySelectorAll(".photo-preview").forEach(p => p.innerHTML = "");
+
+(data.photos || []).forEach(photo => {
+const previews = document.querySelectorAll(".photo-preview");
+if(previews[photo.section]){
+const img = document.createElement("img");
+img.src = photo.url;
+previews[photo.section].appendChild(img);
+}
+});
+
+status.innerText = "Loaded from Firebase cloud.";
+alert("Inspection loaded.");
+}catch(error){
+console.error(error);
+status.innerText = "Load failed.";
+alert("Load failed. Check the reference and internet connection.");
+}
+};
+
+window.clearForm = function(){
+if(confirm("Clear this form?")){
+location.reload();
+}
+};
 </script>
 
 </body>
