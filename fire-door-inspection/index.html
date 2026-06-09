@@ -53,8 +53,13 @@ body{background:white}
 <label>Date</label>
 <input type="date" id="date">
 
+<label>Door / Flat Number</label>
+<input id="doorNumber" placeholder="Flat 1 / Door 3 / Communal Entrance">
+
 <label>Property Address</label>
-<textarea id="address" rows="3"></textarea>
+<textarea id="address" rows="3" placeholder="Use GPS location or type manually"></textarea>
+
+<button type="button" class="small-btn" onclick="getGPSAddress()">Use GPS Location</button>
 
 <label>Letting Agent / Client</label>
 <input id="client">
@@ -185,6 +190,43 @@ reader.readAsDataURL(file);
 });
 };
 
+window.getGPSAddress = function(){
+const status = document.getElementById("status");
+
+if(!navigator.geolocation){
+alert("GPS is not supported on this device.");
+return;
+}
+
+status.innerText = "Getting GPS location...";
+
+navigator.geolocation.getCurrentPosition(async position => {
+const lat = position.coords.latitude;
+const lon = position.coords.longitude;
+
+try{
+const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+const locationData = await response.json();
+
+if(locationData && locationData.display_name){
+document.getElementById("address").value = locationData.display_name;
+status.innerText = "GPS address added.";
+} else {
+status.innerText = "Address not found. Please enter manually.";
+alert("Address not found. Please enter manually.");
+}
+}catch(error){
+console.error(error);
+status.innerText = "GPS lookup failed. Please enter manually.";
+alert("GPS lookup failed. Please enter address manually.");
+}
+
+}, error => {
+status.innerText = "GPS permission denied or unavailable.";
+alert("GPS permission denied or unavailable. Please enter address manually.");
+});
+};
+
 function makeRef(){
 const d = new Date();
 const day = String(d.getDate()).padStart(2,"0");
@@ -202,6 +244,7 @@ document.getElementById("ref").value = refNo;
 const data = {
 ref: refNo,
 date: document.getElementById("date").value,
+doorNumber: document.getElementById("doorNumber").value,
 address: document.getElementById("address").value,
 client: document.getElementById("client").value,
 inspector: document.getElementById("inspector").value,
@@ -290,6 +333,7 @@ const data = snap.data();
 
 document.getElementById("ref").value = data.ref || "";
 document.getElementById("date").value = data.date || "";
+document.getElementById("doorNumber").value = data.doorNumber || "";
 document.getElementById("address").value = data.address || "";
 document.getElementById("client").value = data.client || "";
 document.getElementById("inspector").value = data.inspector || "";
