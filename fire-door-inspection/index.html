@@ -48,16 +48,16 @@ button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;co
 <input id="jobSearch" placeholder="Search address, agent, estimate number or status">
 <label>Select Address from Jobs Board</label>
 <select id="jobDropdown"><option value="">Loading jobs...</option></select>
-<button type="button" class="small-btn" onclick="loadJobs()">Refresh Jobs List</button>
+<button type="button" class="small-btn" id="refreshJobsBtn">Refresh Jobs List</button>
 </div>
 
 <div class="card">
 <div class="section-title">Inspection Details</div>
-<label>Inspection Reference</label><input id="ref" placeholder="Auto generated if left blank">
-<label>Date</label><input type="date" id="date">
+<label>Inspection Reference</label><input id="inspectionRef" placeholder="Auto generated if left blank">
+<label>Date</label><input type="date" id="inspectionDate">
 <label>Door / Flat Number</label><input id="doorNumber" placeholder="Flat 1 / Door 3 / Communal Entrance">
 <label>Property Address</label><textarea id="address" rows="3"></textarea>
-<button type="button" class="small-btn" onclick="getGPSAddress()">Use GPS Location</button>
+<button type="button" class="small-btn" id="gpsBtn">Use GPS Location</button>
 <label>Letting Agent / Client</label><input id="client">
 <label>Inspector</label><input id="inspector" value="Ford Property Services">
 <label>Door Location / Reference</label><input id="doorRef" placeholder="Flat 1 entrance door / communal fire door">
@@ -79,11 +79,11 @@ button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;co
 <label>Inspector Signature / Name</label>
 <input id="signature" value="Ford Property Services">
 
-<div id="status" class="status"></div>
+<div id="statusBox" class="status"></div>
 
-<button onclick="createPdf()">Create Professional PDF</button>
-<button class="whatsapp" onclick="saveCreateAndSharePDF()">Save to Job Documents & Share WhatsApp</button>
-<button class="danger" onclick="clearForm()">Clear Form</button>
+<button type="button" id="createPdfBtn">Create Professional PDF</button>
+<button type="button" class="whatsapp" id="saveShareBtn">Save to Job Documents & Share WhatsApp</button>
+<button type="button" class="danger" id="clearBtn">Clear Form</button>
 
 <div class="footer">
 This inspection is a visual assessment only and does not constitute certification of the fire door assembly.
@@ -116,6 +116,29 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const jobsDocRef = doc(db,"jobsBoard","shared");
 
+const el = id => document.getElementById(id);
+
+const companyLogo = el("companyLogo");
+const jobSearch = el("jobSearch");
+const jobDropdown = el("jobDropdown");
+const refreshJobsBtn = el("refreshJobsBtn");
+const inspectionRef = el("inspectionRef");
+const inspectionDate = el("inspectionDate");
+const doorNumber = el("doorNumber");
+const address = el("address");
+const gpsBtn = el("gpsBtn");
+const client = el("client");
+const inspector = el("inspector");
+const doorRef = el("doorRef");
+const checklist = el("checklist");
+const result = el("result");
+const overallComments = el("overallComments");
+const signature = el("signature");
+const statusBox = el("statusBox");
+const createPdfBtn = el("createPdfBtn");
+const saveShareBtn = el("saveShareBtn");
+const clearBtn = el("clearBtn");
+
 let allJobs = [];
 
 const logoData = localStorage.getItem("fps_logo_v1");
@@ -124,7 +147,7 @@ companyLogo.src = logoData;
 companyLogo.style.display = "inline-block";
 }
 
-date.valueAsDate = new Date();
+inspectionDate.valueAsDate = new Date();
 
 const sections = {
 "Door Identification":["Door location clearly identified","Fire door certification label visible where applicable","Fire rating confirmed where possible","Door signage present where required"],
@@ -160,10 +183,14 @@ html+=`
 <label>Section Comments / Defects</label>
 <textarea class="section-comment" rows="4" placeholder="Add comments, defects or remedial works"></textarea>
 <label>Section Photos</label>
-<input class="photo-input" type="file" accept="image/*" capture="environment" multiple onchange="previewPhotos(this)">
+<input class="photo-input" type="file" accept="image/*" capture="environment" multiple>
 <div class="photo-preview"></div>`;
 card.innerHTML=html;
 checklist.appendChild(card);
+});
+
+document.querySelectorAll(".photo-input").forEach(input=>{
+input.addEventListener("change",()=>previewPhotos(input));
 });
 
 function statusLabel(key){
@@ -182,19 +209,20 @@ invoice_paid:"Invoice Paid"
 return map[key]||key||"";
 }
 
-window.loadJobs=async function(){
+async function loadJobs(){
 jobDropdown.innerHTML=`<option value="">Loading jobs...</option>`;
 try{
 const snap=await getDoc(jobsDocRef);
 const data=snap.exists()?snap.data():{};
 allJobs=Array.isArray(data.jobs)?data.jobs:[];
 renderJobDropdown();
+statusBox.innerText=`Jobs loaded: ${allJobs.length}`;
 }catch(e){
 console.error(e);
 jobDropdown.innerHTML=`<option value="">Could not load jobs</option>`;
-status.innerText="Could not load jobs from Jobs Board.";
+statusBox.innerText="Could not load jobs from Jobs Board.";
 }
-};
+}
 
 function renderJobDropdown(){
 const search=jobSearch.value.toLowerCase().trim();
@@ -209,20 +237,23 @@ option.value=job.id||"";
 option.textContent=`${job.address||"No address"} | ${job.agent||"No agent"} | ${job.estNo||"No estimate no"} | ${statusLabel(job.status)||"No status"}`;
 jobDropdown.appendChild(option);
 });
-if(filtered.length===0) jobDropdown.innerHTML=`<option value="">No matching jobs found</option>`;
+if(filtered.length===0){
+jobDropdown.innerHTML=`<option value="">No matching jobs found</option>`;
+}
 }
 
 jobSearch.addEventListener("input",renderJobDropdown);
+refreshJobsBtn.addEventListener("click",loadJobs);
 
 jobDropdown.addEventListener("change",function(){
 const selected=allJobs.find(j=>j.id===this.value);
 if(!selected)return;
 if(selected.address) address.value=selected.address;
 if(selected.agent) client.value=selected.agent;
-status.innerText="Job address selected.";
+statusBox.innerText="Job address selected.";
 });
 
-window.previewPhotos=function(input){
+function previewPhotos(input){
 const preview=input.nextElementSibling;
 preview.innerHTML="";
 Array.from(input.files).forEach(file=>{
@@ -234,14 +265,14 @@ preview.appendChild(img);
 };
 reader.readAsDataURL(file);
 });
-};
+}
 
-window.getGPSAddress=function(){
+gpsBtn.addEventListener("click",()=>{
 if(!navigator.geolocation){
 alert("GPS is not supported on this device.");
 return;
 }
-status.innerText="Getting GPS location...";
+statusBox.innerText="Getting GPS location...";
 navigator.geolocation.getCurrentPosition(async position=>{
 try{
 const lat=position.coords.latitude;
@@ -250,17 +281,17 @@ const response=await fetch(`https://nominatim.openstreetmap.org/reverse?format=j
 const locationData=await response.json();
 if(locationData?.display_name){
 address.value=locationData.display_name;
-status.innerText="GPS address added.";
+statusBox.innerText="GPS address added.";
 }else{
-status.innerText="Address not found. Please enter manually.";
+statusBox.innerText="Address not found. Please enter manually.";
 }
 }catch(e){
-status.innerText="GPS lookup failed.";
+statusBox.innerText="GPS lookup failed.";
 }
 },()=>{
-status.innerText="GPS permission denied or unavailable.";
+statusBox.innerText="GPS permission denied or unavailable.";
 });
-};
+});
 
 function makeRef(){
 const d=new Date();
@@ -272,14 +303,14 @@ return `FPS-FD-${day}-${month}-${year}-${random}`;
 }
 
 function getFormData(){
-const existingRef=ref.value.trim();
+const existingRef=inspectionRef.value.trim();
 const refNo=existingRef||makeRef();
-ref.value=refNo;
+inspectionRef.value=refNo;
 const selectedJobId=jobDropdown.value;
 const selectedJob=allJobs.find(j=>j.id===selectedJobId);
 const data={
 ref:refNo,
-date:date.value,
+date:inspectionDate.value,
 selectedJobId:selectedJobId||"",
 selectedJobAddress:selectedJob?.address||"",
 doorNumber:doorNumber.value,
@@ -353,23 +384,10 @@ let y=38;
 const photos=await getPdfPhotos();
 const logo=localStorage.getItem("fps_logo_v1")||"";
 
-function newPage(){
-addFooter(pdf);
-pdf.addPage();
-y=38;
-}
-
-function checkPage(extra=40){
-if(y+extra>H-80)newPage();
-}
-
-function tick(value,expected){
-return value===expected?"X":"";
-}
-
-function resultColour(r){
-return r==="PASS"?[34,139,34]:[200,0,0];
-}
+function newPage(){addFooter(pdf);pdf.addPage();y=38;}
+function checkPage(extra=40){if(y+extra>H-80)newPage();}
+function tick(value,expected){return value===expected?"X":"";}
+function resultColour(r){return r==="PASS"?[34,139,34]:[200,0,0];}
 
 if(logo){try{pdf.addImage(logo,"JPEG",m,y,65,45)}catch(e){}}
 
@@ -491,7 +509,6 @@ pdf.setFont("helvetica","bold");
 pdf.setFontSize(9);
 pdf.text("Section Photos:",m,y);
 y+=14;
-
 let x=m;
 const imgW=115,imgH=90,gap=10;
 sectionPhotos.forEach(photo=>{
@@ -503,7 +520,6 @@ x+=imgW+gap;
 });
 if(x!==m)y+=imgH+14;
 }
-
 addFooter(pdf);
 });
 
@@ -582,26 +598,30 @@ updatedAtMs:Date.now()
 return true;
 }
 
-window.createPdf=async function(){
+createPdfBtn.addEventListener("click",async()=>{
 const data=getFormData();
 const pdf=await buildPdf(data);
 pdf.save(`${safeFileName(data.ref)}.pdf`);
-};
+});
 
-window.saveCreateAndSharePDF=async function(){
-status.innerText="Creating PDF...";
+saveShareBtn.addEventListener("click",async()=>{
+statusBox.innerText="Button pressed. Creating PDF...";
+saveShareBtn.disabled=true;
+
 try{
 const data=getFormData();
 const pdf=await buildPdf(data);
 
-status.innerText="Saving PDF to selected job documents...";
+statusBox.innerText="Saving PDF to selected job documents...";
 const saved=await savePdfToSelectedJob(data,pdf);
 if(!saved){
-status.innerText="PDF not saved to job.";
+statusBox.innerText="PDF not saved to job.";
+saveShareBtn.disabled=false;
 return;
 }
 
-status.innerText="Opening share menu...";
+statusBox.innerText="Saved to job documents. Opening share menu...";
+
 const blob=pdf.output("blob");
 const file=new File([blob],`${safeFileName(data.ref)}.pdf`,{type:"application/pdf"});
 
@@ -611,23 +631,26 @@ title:"Ford Property Services Fire Door Inspection",
 text:`Fire Door Inspection ${data.ref}`,
 files:[file]
 });
-status.innerText="Saved to job documents and shared.";
+statusBox.innerText="Saved to job documents and shared.";
+saveShareBtn.disabled=false;
 return;
 }
 
 pdf.save(`${safeFileName(data.ref)}.pdf`);
-status.innerText="Saved to job documents. PDF downloaded.";
+statusBox.innerText="Saved to job documents. PDF downloaded.";
 alert("Saved to job documents. Open the PDF from downloads and send by WhatsApp.");
 }catch(e){
 console.error(e);
-status.innerText="Save/share failed.";
+statusBox.innerText="Save/share failed: "+(e.message||e);
 alert("Save/share failed. Check Firebase Storage rules and internet connection.");
 }
-};
 
-window.clearForm=function(){
+saveShareBtn.disabled=false;
+});
+
+clearBtn.addEventListener("click",()=>{
 if(confirm("Clear this form?"))location.reload();
-};
+});
 
 loadJobs();
 </script>
