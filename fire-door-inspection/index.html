@@ -1,41 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Fire Door Inspection - Ford Property Services</title>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
 <style>
 body{font-family:Arial,sans-serif;margin:0;background:#f4f4f4;color:#111}
 header{background:#0b1220;color:white;padding:18px;text-align:center}
 header h1{margin:0;font-size:24px}
 header p{margin:5px 0 0;color:#9ecbff;font-weight:bold}
 .logo-wrap img{max-height:80px;max-width:240px;object-fit:contain;margin-bottom:8px}
-.container{padding:15px;max-width:900px;margin:auto}
+.container{padding:15px;max-width:950px;margin:auto}
 .card{background:white;margin-bottom:15px;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .section-title{font-size:20px;font-weight:bold;color:#0b1220;margin-bottom:10px}
 label{display:block;font-weight:bold;margin-top:10px}
 input,textarea,select{width:100%;padding:10px;margin-top:5px;border:1px solid #ccc;border-radius:8px;font-size:16px;box-sizing:border-box}
-.item{border-top:1px solid #ddd;padding:12px 0}
-.item-title{font-weight:bold;margin-bottom:8px}
-.yn{display:flex;gap:10px;margin-bottom:10px}
-.yn label{flex:1;margin:0;padding:10px;border:1px solid #ccc;border-radius:8px;text-align:center;background:#f8f8f8}
-.yn input{width:auto}
+textarea{resize:vertical}
 button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;color:white;font-size:17px;font-weight:bold;margin-top:10px}
+button:disabled{opacity:.55}
+.row{display:flex;gap:10px}
+.row button{flex:1}
 .small-btn{background:#374151}
 .whatsapp{background:#075e54}
 .danger{background:#8b0000}
+.ok{background:#166534}
+.job-box{background:#eef6ff;border:1px solid #c7ddff}
+.door-box{background:#f8fafc;border:1px solid #dbe3ef}
+.door-indicator{text-align:center;font-weight:bold;font-size:18px;color:#0b1220;margin:10px 0}
+.item{border-top:1px solid #ddd;padding:12px 0}
+.item-title{font-weight:bold;margin-bottom:8px}
+.yn{display:flex;gap:10px;margin-bottom:5px}
+.yn label{flex:1;margin:0;padding:10px;border:1px solid #ccc;border-radius:8px;text-align:center;background:#f8f8f8}
+.yn input{width:auto}
 .photo-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .photo-preview img{width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #ccc}
-.status{font-weight:bold;margin-top:10px;color:#0b1220}
+.status{font-weight:bold;margin-top:10px;color:#0b1220;white-space:pre-wrap}
 .footer{font-size:12px;color:#555;margin-top:15px;line-height:1.4}
-.job-box{background:#eef6ff;border:1px solid #c7ddff}
+@media print{
+button,input[type=file],.job-box,.door-box{display:none!important}
+body{background:white}
+.card{box-shadow:none;border:1px solid #ddd}
+.inspection-section{break-before:page;page-break-before:always}
+.card{break-inside:avoid;page-break-inside:avoid}
+}
 </style>
 </head>
+
 <body>
 
 <header>
-<div class="logo-wrap"><img id="companyLogo" style="display:none"></div>
+<div class="logo-wrap">
+<img id="companyLogo" alt="Ford Property Services Logo" style="display:none">
+</div>
 <h1>FORD PROPERTY SERVICES</h1>
 <p>Fire Door Inspection Checklist</p>
 </header>
@@ -44,34 +62,77 @@ button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;co
 
 <div class="card job-box">
 <div class="section-title">Select Job Address</div>
+
 <label>Search Job</label>
 <input id="jobSearch" placeholder="Search address, agent, estimate number or status">
+
 <label>Select Address from Jobs Board</label>
-<select id="jobDropdown"><option value="">Loading jobs...</option></select>
+<select id="jobDropdown">
+<option value="">Loading jobs...</option>
+</select>
+
 <button type="button" class="small-btn" id="refreshJobsBtn">Refresh Jobs List</button>
 </div>
 
 <div class="card">
 <div class="section-title">Inspection Details</div>
-<label>Inspection Reference</label><input id="inspectionRef" placeholder="Auto generated if left blank">
-<label>Date</label><input type="date" id="inspectionDate">
-<label>Door / Flat Number</label><input id="doorNumber" placeholder="Flat 1 / Door 3 / Communal Entrance">
-<label>Property Address</label><textarea id="address" rows="3"></textarea>
+
+<label>Inspection Reference</label>
+<input id="inspectionRef" placeholder="Auto generated if left blank">
+
+<label>Date</label>
+<input type="date" id="inspectionDate">
+
+<label>Property Address</label>
+<textarea id="propertyAddress" rows="3" placeholder="Use dropdown, GPS location or type manually"></textarea>
+
 <button type="button" class="small-btn" id="gpsBtn">Use GPS Location</button>
-<label>Letting Agent / Client</label><input id="client">
-<label>Inspector</label><input id="inspector" value="Ford Property Services">
-<label>Door Location / Reference</label><input id="doorRef" placeholder="Flat 1 entrance door / communal fire door">
+
+<label>Letting Agent / Client</label>
+<input id="client">
+
+<label>Inspector</label>
+<input id="inspector" value="Ford Property Services">
+</div>
+
+<div class="card door-box">
+<div class="section-title">Multiple Doors</div>
+
+<label>How many doors?</label>
+<input type="number" id="doorCount" min="1" max="100" value="1">
+
+<button type="button" class="small-btn" id="setDoorCountBtn">Set Door Count</button>
+
+<div class="door-indicator" id="doorIndicator">Door 1 of 1</div>
+
+<div class="row">
+<button type="button" class="small-btn" id="prevDoorBtn">Previous Door</button>
+<button type="button" class="small-btn" id="nextDoorBtn">Next Door</button>
+</div>
+
+<button type="button" class="ok" id="saveDoorBtn">Save Current Door</button>
+</div>
+
+<div class="card">
+<div class="section-title" id="doorTitle">Door 1 Details</div>
+
+<label>Door / Flat Number</label>
+<input id="doorNumber" placeholder="Flat 1 / Door 3 / Communal Entrance">
+
+<label>Door Location / Reference</label>
+<input id="doorRef" placeholder="Flat 1 entrance door / communal fire door">
+
+<label>Door Result</label>
+<select id="doorResult">
+<option>PASS</option>
+<option>FAIL</option>
+</select>
 </div>
 
 <div id="checklist"></div>
 
 <div class="card">
-<div class="section-title">Overall Result</div>
-<label>Inspection Result</label>
-<select id="result">
-<option>PASS</option>
-<option>FAIL</option>
-</select>
+<div class="section-title">Overall Report</div>
 
 <label>Overall Comments / Recommendations</label>
 <textarea id="overallComments" rows="5"></textarea>
@@ -81,7 +142,7 @@ button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;co
 
 <div id="statusBox" class="status"></div>
 
-<button type="button" id="createPdfBtn">Create Professional PDF</button>
+<button type="button" id="createPdfBtn">Create Combined Professional PDF</button>
 <button type="button" class="whatsapp" id="saveShareBtn">Save to Job Documents & Share WhatsApp</button>
 <button type="button" class="danger" id="clearBtn">Clear Form</button>
 
@@ -100,15 +161,16 @@ import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/1
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
-const app = initializeApp({
+const firebaseConfig = {
 apiKey:"AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
 authDomain:"fps-jobs-board.firebaseapp.com",
 projectId:"fps-jobs-board",
 storageBucket:"fps-jobs-board.firebasestorage.app",
 messagingSenderId:"386598717430",
 appId:"1:386598717430:web:06a2b508f1d7fcc92069d7"
-});
+};
 
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 await signInAnonymously(auth);
 
@@ -118,28 +180,37 @@ const jobsDocRef = doc(db,"jobsBoard","shared");
 
 const el = id => document.getElementById(id);
 
+let allJobs = [];
+let doors = [];
+let currentDoorIndex = 0;
+
 const companyLogo = el("companyLogo");
 const jobSearch = el("jobSearch");
 const jobDropdown = el("jobDropdown");
 const refreshJobsBtn = el("refreshJobsBtn");
 const inspectionRef = el("inspectionRef");
 const inspectionDate = el("inspectionDate");
-const doorNumber = el("doorNumber");
-const address = el("address");
+const propertyAddress = el("propertyAddress");
 const gpsBtn = el("gpsBtn");
 const client = el("client");
 const inspector = el("inspector");
+const doorCount = el("doorCount");
+const setDoorCountBtn = el("setDoorCountBtn");
+const doorIndicator = el("doorIndicator");
+const prevDoorBtn = el("prevDoorBtn");
+const nextDoorBtn = el("nextDoorBtn");
+const saveDoorBtn = el("saveDoorBtn");
+const doorTitle = el("doorTitle");
+const doorNumber = el("doorNumber");
 const doorRef = el("doorRef");
+const doorResult = el("doorResult");
 const checklist = el("checklist");
-const result = el("result");
 const overallComments = el("overallComments");
 const signature = el("signature");
 const statusBox = el("statusBox");
 const createPdfBtn = el("createPdfBtn");
 const saveShareBtn = el("saveShareBtn");
 const clearBtn = el("clearBtn");
-
-let allJobs = [];
 
 const logoData = localStorage.getItem("fps_logo_v1");
 if(logoData){
@@ -163,13 +234,117 @@ const sections = {
 "Overall Operation Test":["Door opens freely","Door closes fully","Door latches correctly","Fire compartmentation appears maintained"]
 };
 
-Object.entries(sections).forEach(([section,items],sectionIndex)=>{
-let card=document.createElement("div");
-card.className="card inspection-section";
-let html=`<div class="section-title">${section}</div>`;
-items.forEach((item,itemIndex)=>{
-let name=`s${sectionIndex}i${itemIndex}`;
-html+=`
+function blankDoor(){
+return {
+doorNumber:"",
+doorRef:"",
+result:"PASS",
+radios:{},
+comments:Object.keys(sections).map(()=> ""),
+photos:[]
+};
+}
+
+function setupDoors(count){
+const n = Math.max(1, Math.min(100, Number(count || 1)));
+
+while(doors.length < n){
+doors.push(blankDoor());
+}
+
+if(doors.length > n){
+doors = doors.slice(0,n);
+}
+
+if(currentDoorIndex >= doors.length){
+currentDoorIndex = doors.length - 1;
+}
+
+doorCount.value = doors.length;
+loadDoorToForm();
+updateDoorStatus();
+}
+
+function updateDoorStatus(){
+doorIndicator.innerText = `Door ${currentDoorIndex + 1} of ${doors.length}`;
+doorTitle.innerText = `Door ${currentDoorIndex + 1} Details`;
+}
+
+function saveCurrentDoor(){
+const door = doors[currentDoorIndex] || blankDoor();
+
+door.doorNumber = doorNumber.value;
+door.doorRef = doorRef.value;
+door.result = doorResult.value;
+door.radios = {};
+
+document.querySelectorAll("input[type=radio]:checked").forEach(r => {
+door.radios[r.name] = r.value;
+});
+
+door.comments = [];
+document.querySelectorAll(".section-comment").forEach(c => {
+door.comments.push(c.value);
+});
+
+doors[currentDoorIndex] = door;
+statusBox.innerText = `Door ${currentDoorIndex + 1} saved.`;
+}
+
+function loadDoorToForm(){
+const door = doors[currentDoorIndex] || blankDoor();
+
+doorNumber.value = door.doorNumber || "";
+doorRef.value = door.doorRef || "";
+doorResult.value = door.result || "PASS";
+
+document.querySelectorAll("input[type=radio]").forEach(r => {
+r.checked = false;
+});
+
+Object.entries(door.radios || {}).forEach(([name,value]) => {
+const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+if(radio) radio.checked = true;
+});
+
+document.querySelectorAll(".section-comment").forEach((c,i) => {
+c.value = door.comments?.[i] || "";
+});
+
+document.querySelectorAll(".photo-input").forEach(input => {
+input.value = "";
+});
+
+renderDoorPhotos();
+updateDoorStatus();
+}
+
+function renderDoorPhotos(){
+const door = doors[currentDoorIndex] || blankDoor();
+
+document.querySelectorAll(".photo-preview").forEach((preview,sectionIndex) => {
+preview.innerHTML = "";
+
+(door.photos || [])
+.filter(p => p.section === sectionIndex)
+.forEach(photo => {
+const img = document.createElement("img");
+img.src = photo.src;
+preview.appendChild(img);
+});
+});
+}
+
+Object.entries(sections).forEach(([section,items],sectionIndex) => {
+const card = document.createElement("div");
+card.className = "card inspection-section";
+
+let html = `<div class="section-title">${section}</div>`;
+
+items.forEach((item,itemIndex) => {
+const name = `s${sectionIndex}i${itemIndex}`;
+
+html += `
 <div class="item">
 <div class="item-title">${item}</div>
 <div class="yn">
@@ -179,22 +354,70 @@ html+=`
 </div>
 </div>`;
 });
-html+=`
+
+html += `
 <label>Section Comments / Defects</label>
 <textarea class="section-comment" rows="4" placeholder="Add comments, defects or remedial works"></textarea>
+
 <label>Section Photos</label>
 <input class="photo-input" type="file" accept="image/*" capture="environment" multiple>
-<div class="photo-preview"></div>`;
-card.innerHTML=html;
+<div class="photo-preview"></div>
+`;
+
+card.innerHTML = html;
 checklist.appendChild(card);
 });
 
-document.querySelectorAll(".photo-input").forEach(input=>{
-input.addEventListener("change",()=>previewPhotos(input));
+document.querySelectorAll(".photo-input").forEach((input,sectionIndex) => {
+input.addEventListener("change", async () => {
+const door = doors[currentDoorIndex];
+
+door.photos = (door.photos || []).filter(p => p.section !== sectionIndex);
+
+for(const file of Array.from(input.files || [])){
+try{
+const src = await imageFileToBase64(file);
+door.photos.push({
+section:sectionIndex,
+name:file.name,
+src:src
+});
+}catch(e){
+console.warn("Could not read photo", e);
+}
+}
+
+renderDoorPhotos();
+});
+});
+
+saveDoorBtn.addEventListener("click", saveCurrentDoor);
+
+setDoorCountBtn.addEventListener("click", () => {
+saveCurrentDoor();
+setupDoors(doorCount.value);
+});
+
+nextDoorBtn.addEventListener("click", () => {
+saveCurrentDoor();
+
+if(currentDoorIndex < doors.length - 1){
+currentDoorIndex++;
+loadDoorToForm();
+}
+});
+
+prevDoorBtn.addEventListener("click", () => {
+saveCurrentDoor();
+
+if(currentDoorIndex > 0){
+currentDoorIndex--;
+loadDoorToForm();
+}
 });
 
 function statusLabel(key){
-const map={
+const map = {
 req_est:"Requires Estimate",
 est_visit_booked:"Estimate Visit Booked In",
 attended_est_required:"Attended – Estimate Required",
@@ -206,377 +429,502 @@ works_done_invoice_required:"Works Completed – Invoice Required",
 invoice_sent_complete:"Invoice Sent & Complete",
 invoice_paid:"Invoice Paid"
 };
-return map[key]||key||"";
+
+return map[key] || key || "";
 }
 
 async function loadJobs(){
-jobDropdown.innerHTML=`<option value="">Loading jobs...</option>`;
+jobDropdown.innerHTML = `<option value="">Loading jobs...</option>`;
+
 try{
-const snap=await getDoc(jobsDocRef);
-const data=snap.exists()?snap.data():{};
-allJobs=Array.isArray(data.jobs)?data.jobs:[];
+const snap = await getDoc(jobsDocRef);
+const data = snap.exists() ? snap.data() : {};
+allJobs = Array.isArray(data.jobs) ? data.jobs : [];
+
 renderJobDropdown();
-statusBox.innerText=`Jobs loaded: ${allJobs.length}`;
+statusBox.innerText = `Jobs loaded: ${allJobs.length}`;
 }catch(e){
 console.error(e);
-jobDropdown.innerHTML=`<option value="">Could not load jobs</option>`;
-statusBox.innerText="Could not load jobs from Jobs Board.";
+jobDropdown.innerHTML = `<option value="">Could not load jobs</option>`;
+statusBox.innerText = "Could not load jobs from Jobs Board.";
 }
 }
 
 function renderJobDropdown(){
-const search=jobSearch.value.toLowerCase().trim();
-jobDropdown.innerHTML=`<option value="">Select job address</option>`;
-const filtered=allJobs.filter(job=>{
-const text=`${job.id||""} ${job.address||""} ${job.agent||""} ${job.ref||""} ${job.estNo||""} ${statusLabel(job.status)||""}`.toLowerCase();
+const search = jobSearch.value.toLowerCase().trim();
+
+jobDropdown.innerHTML = `<option value="">Select job address</option>`;
+
+const filtered = allJobs.filter(job => {
+const text = `${job.id || ""} ${job.address || ""} ${job.agent || ""} ${job.ref || ""} ${job.estNo || ""} ${statusLabel(job.status) || ""}`.toLowerCase();
 return text.includes(search);
 });
-filtered.slice(0,200).forEach(job=>{
-const option=document.createElement("option");
-option.value=job.id||"";
-option.textContent=`${job.address||"No address"} | ${job.agent||"No agent"} | ${job.estNo||"No estimate no"} | ${statusLabel(job.status)||"No status"}`;
+
+filtered.slice(0,200).forEach(job => {
+const option = document.createElement("option");
+option.value = job.id || "";
+option.textContent = `${job.address || "No address"} | ${job.agent || "No agent"} | ${job.estNo || "No estimate no"} | ${statusLabel(job.status) || "No status"}`;
 jobDropdown.appendChild(option);
 });
-if(filtered.length===0){
-jobDropdown.innerHTML=`<option value="">No matching jobs found</option>`;
+
+if(filtered.length === 0){
+jobDropdown.innerHTML = `<option value="">No matching jobs found</option>`;
 }
 }
 
-jobSearch.addEventListener("input",renderJobDropdown);
-refreshJobsBtn.addEventListener("click",loadJobs);
+jobSearch.addEventListener("input", renderJobDropdown);
+refreshJobsBtn.addEventListener("click", loadJobs);
 
-jobDropdown.addEventListener("change",function(){
-const selected=allJobs.find(j=>j.id===this.value);
-if(!selected)return;
-if(selected.address) address.value=selected.address;
-if(selected.agent) client.value=selected.agent;
-statusBox.innerText="Job address selected.";
+jobDropdown.addEventListener("change", function(){
+const selected = allJobs.find(j => j.id === this.value);
+
+if(!selected) return;
+
+if(selected.address) propertyAddress.value = selected.address;
+if(selected.agent) client.value = selected.agent;
+
+statusBox.innerText = "Job address selected.";
 });
 
-function previewPhotos(input){
-const preview=input.nextElementSibling;
-preview.innerHTML="";
-Array.from(input.files).forEach(file=>{
-const reader=new FileReader();
-reader.onload=e=>{
-const img=document.createElement("img");
-img.src=e.target.result;
-preview.appendChild(img);
-};
-reader.readAsDataURL(file);
-});
-}
-
-gpsBtn.addEventListener("click",()=>{
+gpsBtn.addEventListener("click", () => {
 if(!navigator.geolocation){
 alert("GPS is not supported on this device.");
 return;
 }
-statusBox.innerText="Getting GPS location...";
-navigator.geolocation.getCurrentPosition(async position=>{
+
+statusBox.innerText = "Getting GPS location...";
+
+navigator.geolocation.getCurrentPosition(async position => {
 try{
-const lat=position.coords.latitude;
-const lon=position.coords.longitude;
-const response=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-const locationData=await response.json();
-if(locationData?.display_name){
-address.value=locationData.display_name;
-statusBox.innerText="GPS address added.";
+const lat = position.coords.latitude;
+const lon = position.coords.longitude;
+
+const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
+const locationData = await response.json();
+
+if(locationData && locationData.display_name){
+propertyAddress.value = locationData.display_name;
+statusBox.innerText = "GPS address added.";
 }else{
-statusBox.innerText="Address not found. Please enter manually.";
+statusBox.innerText = "Address not found. Please enter manually.";
 }
 }catch(e){
-statusBox.innerText="GPS lookup failed.";
+console.error(e);
+statusBox.innerText = "GPS lookup failed.";
 }
-},()=>{
-statusBox.innerText="GPS permission denied or unavailable.";
+}, () => {
+statusBox.innerText = "GPS permission denied or unavailable.";
 });
 });
 
 function makeRef(){
-const d=new Date();
-const day=String(d.getDate()).padStart(2,"0");
-const month=String(d.getMonth()+1).padStart(2,"0");
-const year=d.getFullYear();
-const random=Math.floor(10000+Math.random()*90000);
-return `FPS-FD-${day}-${month}-${year}-${random}`;
+const d = new Date();
+const dd = String(d.getDate()).padStart(2,"0");
+const mm = String(d.getMonth()+1).padStart(2,"0");
+const yyyy = d.getFullYear();
+const random = Math.floor(10000 + Math.random() * 90000);
+return `FPS-FD-${dd}-${mm}-${yyyy}-${random}`;
 }
 
-function getFormData(){
-const existingRef=inspectionRef.value.trim();
-const refNo=existingRef||makeRef();
-inspectionRef.value=refNo;
-const selectedJobId=jobDropdown.value;
-const selectedJob=allJobs.find(j=>j.id===selectedJobId);
-const data={
-ref:refNo,
+function formatDateDDMMYY(value){
+if(!value) return "";
+
+const d = new Date(value);
+
+if(!Number.isFinite(d.getTime())) return value;
+
+const dd = String(d.getDate()).padStart(2,"0");
+const mm = String(d.getMonth()+1).padStart(2,"0");
+const yy = String(d.getFullYear()).slice(-2);
+
+return `${dd}/${mm}/${yy}`;
+}
+
+function getReportData(){
+saveCurrentDoor();
+
+let ref = inspectionRef.value.trim();
+
+if(!ref){
+ref = makeRef();
+inspectionRef.value = ref;
+}
+
+return {
+ref:ref,
 date:inspectionDate.value,
-selectedJobId:selectedJobId||"",
-selectedJobAddress:selectedJob?.address||"",
-doorNumber:doorNumber.value,
-address:address.value,
+address:propertyAddress.value,
 client:client.value,
 inspector:inspector.value,
-doorRef:doorRef.value,
-result:result.value,
 overallComments:overallComments.value,
 signature:signature.value,
-radios:{},
-comments:[]
+selectedJobId:jobDropdown.value,
+doors:JSON.parse(JSON.stringify(doors))
 };
-document.querySelectorAll("input[type=radio]:checked").forEach(r=>data.radios[r.name]=r.value);
-document.querySelectorAll(".section-comment").forEach(c=>data.comments.push(c.value));
-return data;
 }
 
 function safeFileName(s){
-return String(s||"Fire Door Inspection").replace(/[^\w\- ]+/g,"").trim().slice(0,50)||"Fire Door Inspection";
-}
-
-function getAnswerText(data,sectionIndex,itemIndex){
-return data.radios[`s${sectionIndex}i${itemIndex}`]||"";
+return String(s || "Fire Door Inspection")
+.replace(/[^\w\- ]+/g,"")
+.trim()
+.slice(0,60) || "Fire Door Inspection";
 }
 
 async function imageFileToBase64(file){
-return new Promise((resolve,reject)=>{
-const reader=new FileReader();
-reader.onload=e=>resolve(e.target.result);
-reader.onerror=reject;
+return new Promise((resolve,reject) => {
+const reader = new FileReader();
+reader.onload = e => resolve(e.target.result);
+reader.onerror = reject;
 reader.readAsDataURL(file);
 });
 }
 
-async function getPdfPhotos(){
-const photoData=[];
-const inputs=document.querySelectorAll(".photo-input");
-for(let i=0;i<inputs.length;i++){
-const files=Array.from(inputs[i].files||[]);
-for(const file of files){
-try{
-const base64=await imageFileToBase64(file);
-photoData.push({section:i,name:file.name,src:base64});
-}catch(e){}
-}
-}
-return photoData;
-}
-
 function addFooter(pdf){
-const W=pdf.internal.pageSize.getWidth();
-const H=pdf.internal.pageSize.getHeight();
-const m=36;
+const W = pdf.internal.pageSize.getWidth();
+const H = pdf.internal.pageSize.getHeight();
+const m = 36;
+
 pdf.setFont("helvetica","normal");
 pdf.setFontSize(8);
 pdf.setTextColor(90);
-const text="This inspection is a visual assessment only and does not constitute certification of the fire door assembly. Any defects identified should be rectified by a competent person in accordance with current fire safety legislation, British Standards and manufacturer requirements.";
-const lines=pdf.splitTextToSize(text,W-m*2);
-pdf.text(lines,m,H-42);
+
+const text = "This inspection is a visual assessment only and does not constitute certification of the fire door assembly. Any defects identified should be rectified by a competent person in accordance with current fire safety legislation, British Standards and manufacturer requirements.";
+const lines = pdf.splitTextToSize(text,W - m * 2);
+
+pdf.text(lines,m,H - 42);
 pdf.setTextColor(0);
 }
 
+function resultColour(result){
+return result === "PASS" ? [21,128,61] : [185,28,28];
+}
+
+function tick(value, expected){
+return value === expected ? "X" : "";
+}
+
+function answerFor(door, sectionIndex, itemIndex){
+return door.radios?.[`s${sectionIndex}i${itemIndex}`] || "";
+}
+
 async function buildPdf(data){
-const JsPDF=window.jspdf.jsPDF;
-const pdf=new JsPDF({unit:"pt",format:"a4"});
-const W=pdf.internal.pageSize.getWidth();
-const H=pdf.internal.pageSize.getHeight();
-const m=36;
-let y=38;
-const photos=await getPdfPhotos();
-const logo=localStorage.getItem("fps_logo_v1")||"";
+const JsPDF = window.jspdf.jsPDF;
+const pdf = new JsPDF({unit:"pt",format:"a4"});
 
-function newPage(){addFooter(pdf);pdf.addPage();y=38;}
-function checkPage(extra=40){if(y+extra>H-80)newPage();}
-function tick(value,expected){return value===expected?"X":"";}
-function resultColour(r){return r==="PASS"?[34,139,34]:[200,0,0];}
+const W = pdf.internal.pageSize.getWidth();
+const H = pdf.internal.pageSize.getHeight();
+const m = 36;
 
-if(logo){try{pdf.addImage(logo,"JPEG",m,y,65,45)}catch(e){}}
+let y = 38;
 
-pdf.setFont("helvetica","bold");
-pdf.setFontSize(18);
-pdf.text("Ford Property Services",logo?m+78:m,y+16);
-pdf.setFontSize(13);
-pdf.text("Fire Door Inspection Checklist",logo?m+78:m,y+36);
-y+=75;
+const logo = localStorage.getItem("fps_logo_v1") || "";
 
-pdf.setDrawColor(180);
-pdf.setFillColor(245,247,250);
-pdf.rect(m,y,W-m*2,28,"F");
-pdf.setFont("helvetica","bold");
-pdf.setFontSize(12);
-pdf.text("Inspection Details",m+8,y+18);
-y+=40;
+function newPage(){
+addFooter(pdf);
+pdf.addPage();
+y = 38;
+}
 
-function detailRow(label,value,isResult=false){
-checkPage(24);
+function checkPage(extra = 40){
+if(y + extra > H - 80){
+newPage();
+}
+}
+
+function detailRow(label,value,isResult = false){
+checkPage(28);
+
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(9);
 pdf.setTextColor(0);
 pdf.text(label,m,y);
-pdf.setFont("helvetica",isResult?"bold":"normal");
-pdf.setFontSize(isResult?12:9);
+
+pdf.setFont("helvetica",isResult ? "bold" : "normal");
+pdf.setFontSize(isResult ? 12 : 9);
+
 if(isResult){
-const c=resultColour(value);
+const c = resultColour(value);
 pdf.setTextColor(c[0],c[1],c[2]);
 }else{
 pdf.setTextColor(0);
 }
-const lines=pdf.splitTextToSize(String(value||"-"),W-m*2-155);
-pdf.text(lines,m+155,y);
+
+const lines = pdf.splitTextToSize(String(value || "-"),W - m * 2 - 155);
+pdf.text(lines,m + 155,y);
 pdf.setTextColor(0);
-y+=Math.max(18,lines.length*12+6);
+
+y += Math.max(18,lines.length * 12 + 6);
 }
 
+if(logo){
+try{
+pdf.addImage(logo,"JPEG",m,y,65,45);
+}catch(e){}
+}
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(18);
+pdf.text("Ford Property Services",logo ? m + 78 : m,y + 16);
+
+pdf.setFontSize(13);
+pdf.text("Fire Door Inspection Report",logo ? m + 78 : m,y + 36);
+
+y += 75;
+
+pdf.setDrawColor(180);
+pdf.setFillColor(245,247,250);
+pdf.rect(m,y,W - m * 2,28,"F");
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(12);
+pdf.text("Property Summary",m + 8,y + 18);
+
+y += 40;
+
 detailRow("Reference:",data.ref);
-detailRow("Date:",data.date);
+detailRow("Date:",formatDateDDMMYY(data.date));
 detailRow("Property Address:",data.address);
-detailRow("Door / Flat Number:",data.doorNumber);
 detailRow("Letting Agent / Client:",data.client);
 detailRow("Inspector:",data.inspector);
-detailRow("Door Location / Ref:",data.doorRef);
-detailRow("Inspection Result:",data.result,true);
-addFooter(pdf);
+detailRow("Number of Doors:",String(data.doors.length));
 
-Object.entries(sections).forEach(([section,items],sectionIndex)=>{
-pdf.addPage();
-y=38;
+y += 15;
 
 pdf.setFillColor(11,18,32);
-pdf.rect(m,y,W-m*2,26,"F");
+pdf.rect(m,y,W - m * 2,26,"F");
+
 pdf.setTextColor(255);
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(12);
-pdf.text(section,m+8,y+17);
+pdf.text("Door Summary",m + 8,y + 17);
 pdf.setTextColor(0);
-y+=26;
 
-const tableX=m;
-const itemW=W-m*2-126;
-const colW=42;
-const rowH=24;
+y += 34;
 
-pdf.setFillColor(235,238,243);
-pdf.rect(tableX,y,W-m*2,rowH,"F");
-pdf.setDrawColor(180);
-pdf.rect(tableX,y,W-m*2,rowH);
+data.doors.forEach((door,i) => {
+checkPage(26);
 
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(9);
-pdf.text("Check Item",tableX+6,y+15);
-pdf.text("Yes",tableX+itemW+12,y+15);
-pdf.text("No",tableX+itemW+colW+14,y+15);
-pdf.text("N/A",tableX+itemW+colW*2+10,y+15);
-y+=rowH;
+pdf.text(`Door ${i + 1}:`,m,y);
 
-items.forEach((item,itemIndex)=>{
-checkPage(rowH+10);
-const answer=getAnswerText(data,sectionIndex,itemIndex);
+pdf.setFont("helvetica","normal");
+pdf.text(`${door.doorNumber || "-"} | ${door.doorRef || "-"}`,m + 60,y);
+
+const c = resultColour(door.result);
+pdf.setTextColor(c[0],c[1],c[2]);
+pdf.setFont("helvetica","bold");
+pdf.text(door.result || "-",W - 90,y);
+pdf.setTextColor(0);
+
+y += 18;
+});
+
+addFooter(pdf);
+
+data.doors.forEach((door,doorIndex) => {
+pdf.addPage();
+y = 38;
+
+const c = resultColour(door.result);
+
+pdf.setFillColor(11,18,32);
+pdf.rect(m,y,W - m * 2,28,"F");
+
+pdf.setTextColor(255);
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(12);
+pdf.text(`Door ${doorIndex + 1} - ${door.doorNumber || "Door"} - ${door.doorRef || ""}`,m + 8,y + 18);
+
+pdf.setTextColor(c[0],c[1],c[2]);
+pdf.text(door.result || "-",W - 75,y + 18);
+pdf.setTextColor(0);
+
+y += 42;
+
+Object.entries(sections).forEach(([section,items],sectionIndex) => {
+checkPage(150);
+
+pdf.setFillColor(235,238,243);
+pdf.rect(m,y,W - m * 2,24,"F");
+
+pdf.setTextColor(0);
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(10);
+pdf.text(section,m + 8,y + 16);
+
+y += 24;
+
+const tableX = m;
+const itemW = W - m * 2 - 126;
+const colW = 42;
+const rowH = 24;
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(9);
+pdf.rect(tableX,y,W - m * 2,rowH);
+pdf.text("Check Item",tableX + 6,y + 15);
+pdf.text("Yes",tableX + itemW + 12,y + 15);
+pdf.text("No",tableX + itemW + colW + 14,y + 15);
+pdf.text("N/A",tableX + itemW + colW * 2 + 10,y + 15);
+
+y += rowH;
+
+items.forEach((item,itemIndex) => {
+checkPage(rowH + 10);
+
+const answer = answerFor(door,sectionIndex,itemIndex);
 
 pdf.setDrawColor(200);
 pdf.rect(tableX,y,itemW,rowH);
-pdf.rect(tableX+itemW,y,colW,rowH);
-pdf.rect(tableX+itemW+colW,y,colW,rowH);
-pdf.rect(tableX+itemW+colW*2,y,colW,rowH);
+pdf.rect(tableX + itemW,y,colW,rowH);
+pdf.rect(tableX + itemW + colW,y,colW,rowH);
+pdf.rect(tableX + itemW + colW * 2,y,colW,rowH);
 
 pdf.setFont("helvetica","normal");
 pdf.setFontSize(8.5);
-pdf.text(pdf.splitTextToSize(item,itemW-10),tableX+6,y+15);
+pdf.text(pdf.splitTextToSize(item,itemW - 10),tableX + 6,y + 15);
 
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(13);
-pdf.text(tick(answer,"Yes"),tableX+itemW+16,y+16);
-pdf.text(tick(answer,"No"),tableX+itemW+colW+16,y+16);
-pdf.text(tick(answer,"N/A"),tableX+itemW+colW*2+16,y+16);
-y+=rowH;
+pdf.text(tick(answer,"Yes"),tableX + itemW + 16,y + 16);
+pdf.text(tick(answer,"No"),tableX + itemW + colW + 16,y + 16);
+pdf.text(tick(answer,"N/A"),tableX + itemW + colW * 2 + 16,y + 16);
+
+y += rowH;
 });
 
-const comment=data.comments[sectionIndex]||"";
-y+=10;
+const comment = door.comments?.[sectionIndex] || "";
+
+y += 8;
+
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(9);
 pdf.text("Comments / Defects / Remedial Works:",m,y);
-y+=14;
+
+y += 14;
+
 pdf.setFont("helvetica","normal");
 pdf.setFontSize(9);
-const commentLines=pdf.splitTextToSize(comment||"No comments added.",W-m*2);
-checkPage(commentLines.length*12+20);
-pdf.text(commentLines,m,y);
-y+=commentLines.length*12+12;
 
-const sectionPhotos=photos.filter(p=>p.section===sectionIndex);
-if(sectionPhotos.length){
+const commentLines = pdf.splitTextToSize(comment || "No comments added.",W - m * 2);
+checkPage(commentLines.length * 12 + 20);
+
+pdf.text(commentLines,m,y);
+
+y += commentLines.length * 12 + 12;
+
+const photos = (door.photos || []).filter(p => p.section === sectionIndex);
+
+if(photos.length){
 checkPage(130);
+
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(9);
 pdf.text("Section Photos:",m,y);
-y+=14;
-let x=m;
-const imgW=115,imgH=90,gap=10;
-sectionPhotos.forEach(photo=>{
-if(x+imgW>W-m){x=m;y+=imgH+14}
-checkPage(imgH+25);
-try{pdf.addImage(photo.src,"JPEG",x,y,imgW,imgH)}
-catch(e){try{pdf.addImage(photo.src,"PNG",x,y,imgW,imgH)}catch(err){}}
-x+=imgW+gap;
-});
-if(x!==m)y+=imgH+14;
+
+y += 14;
+
+let x = m;
+const imgW = 115;
+const imgH = 90;
+const gap = 10;
+
+photos.forEach(photo => {
+if(x + imgW > W - m){
+x = m;
+y += imgH + 14;
 }
+
+checkPage(imgH + 25);
+
+try{
+pdf.addImage(photo.src,"JPEG",x,y,imgW,imgH);
+}catch(e){
+try{
+pdf.addImage(photo.src,"PNG",x,y,imgW,imgH);
+}catch(err){}
+}
+
+x += imgW + gap;
+});
+
+if(x !== m){
+y += imgH + 14;
+}
+}
+
+y += 8;
+});
+
 addFooter(pdf);
 });
 
 pdf.addPage();
-y=38;
+y = 38;
+
 pdf.setFillColor(11,18,32);
-pdf.rect(m,y,W-m*2,26,"F");
+pdf.rect(m,y,W - m * 2,26,"F");
+
 pdf.setTextColor(255);
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(12);
-pdf.text("Overall Comments / Recommendations",m+8,y+17);
+pdf.text("Overall Comments / Recommendations",m + 8,y + 17);
+
 pdf.setTextColor(0);
-y+=42;
+
+y += 42;
 
 pdf.setFont("helvetica","normal");
 pdf.setFontSize(10);
-const overall=pdf.splitTextToSize(data.overallComments||"No comments added.",W-m*2);
+
+const overall = pdf.splitTextToSize(data.overallComments || "No comments added.",W - m * 2);
 pdf.text(overall,m,y);
-y+=overall.length*13+25;
+
+y += overall.length * 13 + 25;
+
 detailRow("Inspector Signature / Name:",data.signature);
+
 addFooter(pdf);
 
 return pdf;
 }
 
 async function savePdfToSelectedJob(data,pdf){
-const jobId=jobDropdown.value;
+const jobId = data.selectedJobId;
+
 if(!jobId){
 alert("Please select a job first.");
 return false;
 }
 
-const snap=await getDoc(jobsDocRef);
+const snap = await getDoc(jobsDocRef);
+
 if(!snap.exists()){
 alert("Jobs Board file not found.");
 return false;
 }
 
-const boardData=snap.data()||{};
-const jobs=Array.isArray(boardData.jobs)?boardData.jobs:[];
-const job=jobs.find(j=>j.id===jobId);
+const boardData = snap.data() || {};
+const jobs = Array.isArray(boardData.jobs) ? boardData.jobs : [];
+const job = jobs.find(j => j.id === jobId);
 
 if(!job){
 alert("Selected job not found.");
 return false;
 }
 
-const blob=pdf.output("blob");
-const filename=`${safeFileName(data.ref)}.pdf`;
-const docId="doc_"+Math.random().toString(16).slice(2)+"_"+Date.now().toString(16);
-const path=`jobsBoard/shared/jobs/${job.id}/${docId}_${filename}`;
+const blob = pdf.output("blob");
+const filename = `${safeFileName(data.ref)}.pdf`;
+const docId = "doc_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+const path = `jobsBoard/shared/jobs/${job.id}/${docId}_${filename}`;
 
-const storageRef=sRef(storage,path);
+const storageRef = sRef(storage,path);
 await uploadBytes(storageRef,blob,{contentType:"application/pdf"});
-const url=await getDownloadURL(storageRef);
+const url = await getDownloadURL(storageRef);
 
-job.docs=Array.isArray(job.docs)?job.docs:[];
+job.docs = Array.isArray(job.docs) ? job.docs : [];
+
 job.docs.push({
 id:docId,
 name:filename,
@@ -587,7 +935,7 @@ storagePath:path,
 createdAtMs:Date.now()
 });
 
-job.updatedAt=new Date().toISOString();
+job.updatedAt = new Date().toISOString();
 
 await setDoc(jobsDocRef,{
 ...boardData,
@@ -598,61 +946,64 @@ updatedAtMs:Date.now()
 return true;
 }
 
-createPdfBtn.addEventListener("click",async()=>{
-const data=getFormData();
-const pdf=await buildPdf(data);
+createPdfBtn.addEventListener("click",async () => {
+const data = getReportData();
+const pdf = await buildPdf(data);
 pdf.save(`${safeFileName(data.ref)}.pdf`);
 });
 
-saveShareBtn.addEventListener("click",async()=>{
-statusBox.innerText="Button pressed. Creating PDF...";
-saveShareBtn.disabled=true;
+saveShareBtn.addEventListener("click",async () => {
+statusBox.innerText = "Creating combined PDF...";
+saveShareBtn.disabled = true;
 
 try{
-const data=getFormData();
-const pdf=await buildPdf(data);
+const data = getReportData();
+const pdf = await buildPdf(data);
 
-statusBox.innerText="Saving PDF to selected job documents...";
-const saved=await savePdfToSelectedJob(data,pdf);
+statusBox.innerText = "Saving PDF to selected job documents...";
+const saved = await savePdfToSelectedJob(data,pdf);
+
 if(!saved){
-statusBox.innerText="PDF not saved to job.";
-saveShareBtn.disabled=false;
+saveShareBtn.disabled = false;
 return;
 }
 
-statusBox.innerText="Saved to job documents. Opening share menu...";
+const blob = pdf.output("blob");
+const file = new File([blob],`${safeFileName(data.ref)}.pdf`,{type:"application/pdf"});
 
-const blob=pdf.output("blob");
-const file=new File([blob],`${safeFileName(data.ref)}.pdf`,{type:"application/pdf"});
+statusBox.innerText = "Saved to job. Opening share menu...";
 
-if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
 await navigator.share({
 title:"Ford Property Services Fire Door Inspection",
 text:`Fire Door Inspection ${data.ref}`,
 files:[file]
 });
-statusBox.innerText="Saved to job documents and shared.";
-saveShareBtn.disabled=false;
-return;
-}
 
+statusBox.innerText = "Saved to job documents and shared.";
+}else{
 pdf.save(`${safeFileName(data.ref)}.pdf`);
-statusBox.innerText="Saved to job documents. PDF downloaded.";
-alert("Saved to job documents. Open the PDF from downloads and send by WhatsApp.");
+alert("Saved to job documents. PDF downloaded. Open it and send by WhatsApp.");
+statusBox.innerText = "Saved to job documents. PDF downloaded.";
+}
 }catch(e){
 console.error(e);
-statusBox.innerText="Save/share failed: "+(e.message||e);
+statusBox.innerText = "Save/share failed: " + (e.message || e);
 alert("Save/share failed. Check Firebase Storage rules and internet connection.");
 }
 
-saveShareBtn.disabled=false;
+saveShareBtn.disabled = false;
 });
 
-clearBtn.addEventListener("click",()=>{
-if(confirm("Clear this form?"))location.reload();
+clearBtn.addEventListener("click",() => {
+if(confirm("Clear this form?")){
+location.reload();
+}
 });
 
+setupDoors(1);
 loadJobs();
 </script>
+
 </body>
 </html>
