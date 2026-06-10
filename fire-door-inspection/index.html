@@ -103,9 +103,7 @@ body{background:white}
 <label>Inspection Result</label>
 <select id="result">
 <option>PASS</option>
-<option>PASS WITH RECOMMENDED REMEDIAL WORKS</option>
-<option>FAIL – REMEDIAL WORKS REQUIRED</option>
-<option>FAIL – URGENT ATTENTION REQUIRED</option>
+<option>FAIL</option>
 </select>
 
 <label>Overall Comments / Recommendations</label>
@@ -116,10 +114,8 @@ body{background:white}
 
 <div id="status" class="status"></div>
 
-<button onclick="saveInspection()">Save Inspection</button>
 <button onclick="createPdf()">Create Professional PDF</button>
-<button class="whatsapp" onclick="saveCreateAndSharePDF()">Save, Create PDF & Share</button>
-<button class="small-btn" onclick="loadInspection()">Load Saved Inspection</button>
+<button class="whatsapp" onclick="saveCreateAndSharePDF()">Save to Job Documents & Share WhatsApp</button>
 <button onclick="window.print()">Print Page</button>
 <button class="danger" onclick="clearForm()">Clear Form</button>
 
@@ -135,8 +131,8 @@ British Standards and manufacturer requirements.
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
 const firebaseConfig = {
 apiKey:"AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
@@ -153,6 +149,7 @@ await signInAnonymously(auth);
 
 const db = getFirestore(app);
 const storage = getStorage(app);
+const jobsDocRef = doc(db,"jobsBoard","shared");
 
 let allJobs = [];
 
@@ -234,7 +231,7 @@ const dropdown = document.getElementById("jobDropdown");
 dropdown.innerHTML = `<option value="">Loading jobs...</option>`;
 
 try{
-const snap = await getDoc(doc(db, "jobsBoard", "shared"));
+const snap = await getDoc(jobsDocRef);
 const data = snap.exists() ? snap.data() : {};
 allJobs = Array.isArray(data.jobs) ? data.jobs : [];
 renderJobDropdown();
@@ -359,9 +356,7 @@ result:document.getElementById("result").value,
 overallComments:document.getElementById("overallComments").value,
 signature:document.getElementById("signature").value,
 radios:{},
-comments:[],
-photos:[],
-updatedAt:serverTimestamp()
+comments:[]
 };
 
 document.querySelectorAll("input[type=radio]:checked").forEach(r=>{
@@ -374,68 +369,6 @@ data.comments.push(c.value);
 
 return data;
 }
-
-async function uploadPhotos(data){
-const photoInputs = document.querySelectorAll(".photo-input");
-
-try{
-const existingSnap = await getDoc(doc(db,"fireDoorInspections",data.ref));
-if(existingSnap.exists() && existingSnap.data().photos){
-data.photos = existingSnap.data().photos;
-}
-}catch(e){}
-
-for(let i=0;i<photoInputs.length;i++){
-const files = photoInputs[i].files;
-
-for(let f=0;f<files.length;f++){
-try{
-const file = files[f];
-const cleanName = file.name.replaceAll(" ","-");
-const filePath = `fireDoorInspections/${data.ref}/section-${i}-${Date.now()}-${cleanName}`;
-const storageRef = ref(storage,filePath);
-
-await uploadBytes(storageRef,file);
-const url = await getDownloadURL(storageRef);
-
-data.photos.push({
-section:i,
-name:file.name,
-url:url
-});
-}catch(photoError){
-console.warn("Photo upload skipped:", photoError);
-}
-}
-}
-
-return data;
-}
-
-window.saveInspection = async function(){
-const status = document.getElementById("status");
-status.innerText = "Saving inspection...";
-
-try{
-let data = getFormData();
-data = await uploadPhotos(data);
-
-await setDoc(doc(db,"fireDoorInspections",data.ref),data,{merge:true});
-
-status.innerText = "Inspection saved.";
-alert("Inspection saved. Reference: " + data.ref);
-return data;
-
-}catch(error){
-console.error(error);
-status.innerText = "Cloud save failed. Saved locally instead.";
-
-const data = getFormData();
-localStorage.setItem("fireDoorInspection_" + data.ref, JSON.stringify(data));
-alert("Cloud save failed, but inspection was saved on this device. Reference: " + data.ref);
-return data;
-}
-};
 
 function safeFileName(s){
 return String(s||"Fire Door Inspection").replace(/[^\w\- ]+/g,"").trim().slice(0,50) || "Fire Door Inspection";
@@ -464,15 +397,10 @@ const files = Array.from(inputs[i].files || []);
 for(const file of files){
 try{
 const base64 = await imageFileToBase64(file);
-photoData.push({
-section:i,
-name:file.name,
-src:base64
-});
+photoData.push({section:i,name:file.name,src:base64});
 }catch(e){}
 }
 }
-
 return photoData;
 }
 
@@ -488,7 +416,6 @@ pdf.setTextColor(90);
 const text = "This inspection is a visual assessment only and does not constitute certification of the fire door assembly. Any defects identified should be rectified by a competent person in accordance with current fire safety legislation, British Standards and manufacturer requirements.";
 const lines = pdf.splitTextToSize(text, W - m*2);
 pdf.text(lines, m, H - 42);
-
 pdf.setTextColor(0);
 }
 
@@ -511,13 +438,15 @@ y = 38;
 }
 
 function checkPage(extra=40){
-if(y + extra > H - 80){
-newPage();
-}
+if(y + extra > H - 80)newPage();
 }
 
 function tick(value, expected){
-return value === expected ? "✓" : "";
+return value === expected ? "X" : "";
+}
+
+function resultColour(result){
+return result === "PASS" ? [34,139,34] : [200,0,0];
 }
 
 if(logo){
@@ -541,15 +470,26 @@ pdf.setFontSize(12);
 pdf.text("Inspection Details",m+8,y+18);
 y += 40;
 
-function detailRow(label,value){
+function detailRow(label,value,isResult=false){
 checkPage(24);
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(9);
+pdf.setTextColor(0);
 pdf.text(label,m,y);
 
-pdf.setFont("helvetica","normal");
+pdf.setFont("helvetica",isResult ? "bold" : "normal");
+pdf.setFontSize(isResult ? 12 : 9);
+
+if(isResult){
+const c = resultColour(value);
+pdf.setTextColor(c[0],c[1],c[2]);
+}else{
+pdf.setTextColor(0);
+}
+
 const lines = pdf.splitTextToSize(String(value || "-"), W - m*2 - 155);
 pdf.text(lines,m+155,y);
+pdf.setTextColor(0);
 y += Math.max(18, lines.length * 12 + 6);
 }
 
@@ -560,7 +500,7 @@ detailRow("Door / Flat Number:",data.doorNumber);
 detailRow("Letting Agent / Client:",data.client);
 detailRow("Inspector:",data.inspector);
 detailRow("Door Location / Ref:",data.doorRef);
-detailRow("Inspection Result:",data.result);
+detailRow("Inspection Result:",data.result,true);
 
 y += 10;
 
@@ -693,8 +633,60 @@ y += overall.length * 13 + 25;
 detailRow("Inspector Signature / Name:",data.signature);
 
 addFooter(pdf);
-
 return pdf;
+}
+
+async function savePdfToSelectedJob(data,pdf){
+const jobId = document.getElementById("jobDropdown").value;
+if(!jobId){
+alert("Please select a job first.");
+return false;
+}
+
+const snap = await getDoc(jobsDocRef);
+if(!snap.exists()){
+alert("Jobs Board file not found.");
+return false;
+}
+
+const boardData = snap.data() || {};
+const jobs = Array.isArray(boardData.jobs) ? boardData.jobs : [];
+const job = jobs.find(j=>j.id === jobId);
+
+if(!job){
+alert("Selected job not found.");
+return false;
+}
+
+const blob = pdf.output("blob");
+const filename = `${safeFileName(data.ref)}.pdf`;
+const docId = "doc_" + Math.random().toString(16).slice(2) + "_" + Date.now().toString(16);
+const path = `jobsBoard/shared/jobs/${job.id}/${docId}_${filename}`;
+
+const storageRef = sRef(storage,path);
+await uploadBytes(storageRef,blob,{contentType:"application/pdf"});
+const url = await getDownloadURL(storageRef);
+
+job.docs = Array.isArray(job.docs) ? job.docs : [];
+job.docs.push({
+id:docId,
+name:filename,
+mime:"application/pdf",
+size:blob.size,
+url:url,
+storagePath:path,
+createdAtMs:Date.now()
+});
+
+job.updatedAt = new Date().toISOString();
+
+await setDoc(jobsDocRef,{
+...boardData,
+jobs:jobs,
+updatedAtMs:Date.now()
+},{merge:true});
+
+return true;
 }
 
 window.createPdf = async function(){
@@ -704,11 +696,23 @@ pdf.save(`${safeFileName(data.ref)}.pdf`);
 };
 
 window.saveCreateAndSharePDF = async function(){
-const data = await window.saveInspection();
-if(!data) return;
+const status = document.getElementById("status");
+status.innerText = "Creating PDF...";
 
 try{
+const data = getFormData();
 const pdf = await buildPdf(data);
+
+status.innerText = "Saving PDF to selected job documents...";
+const savedToJob = await savePdfToSelectedJob(data,pdf);
+
+if(!savedToJob){
+status.innerText = "PDF not saved to job.";
+return;
+}
+
+status.innerText = "Opening share menu...";
+
 const blob = pdf.output("blob");
 const file = new File([blob], `${safeFileName(data.ref)}.pdf`, {type:"application/pdf"});
 
@@ -718,84 +722,18 @@ title:"Ford Property Services Fire Door Inspection",
 text:`Fire Door Inspection ${data.ref}`,
 files:[file]
 });
+status.innerText = "Saved to job documents and shared.";
 return;
 }
 
 pdf.save(`${safeFileName(data.ref)}.pdf`);
-alert("PDF created. Open it from downloads and send by WhatsApp.");
+status.innerText = "Saved to job documents. PDF downloaded.";
+alert("Saved to job documents. Your device did not open WhatsApp sharing, so the PDF has been downloaded.");
 
 }catch(error){
 console.error(error);
-alert("PDF share failed. Try Create PDF instead.");
-}
-};
-
-window.loadInspection = async function(){
-const refNo = prompt("Enter inspection reference to load:");
-if(!refNo) return;
-
-const status = document.getElementById("status");
-status.innerText = "Loading inspection...";
-
-try{
-let data = null;
-
-const snap = await getDoc(doc(db,"fireDoorInspections",refNo));
-if(snap.exists()){
-data = snap.data();
-}else{
-const local = localStorage.getItem("fireDoorInspection_" + refNo);
-if(local) data = JSON.parse(local);
-}
-
-if(!data){
-alert("No inspection found with that reference.");
-status.innerText = "";
-return;
-}
-
-document.getElementById("ref").value = data.ref || "";
-document.getElementById("date").value = data.date || "";
-document.getElementById("doorNumber").value = data.doorNumber || "";
-document.getElementById("address").value = data.address || "";
-document.getElementById("client").value = data.client || "";
-document.getElementById("inspector").value = data.inspector || "";
-document.getElementById("doorRef").value = data.doorRef || "";
-document.getElementById("result").value = data.result || "PASS";
-document.getElementById("overallComments").value = data.overallComments || "";
-document.getElementById("signature").value = data.signature || "";
-
-if(data.selectedJobId){
-document.getElementById("jobDropdown").value = data.selectedJobId;
-}
-
-Object.entries(data.radios || {}).forEach(([name,value])=>{
-const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
-if(radio) radio.checked = true;
-});
-
-document.querySelectorAll(".section-comment").forEach((c,i)=>{
-c.value = data.comments?.[i] || "";
-});
-
-document.querySelectorAll(".photo-preview").forEach(p=>p.innerHTML="");
-
-(data.photos || []).forEach(photo=>{
-const previews = document.querySelectorAll(".photo-preview");
-if(previews[photo.section]){
-const img = document.createElement("img");
-img.src = photo.url;
-previews[photo.section].appendChild(img);
-}
-});
-
-status.innerText = "Inspection loaded.";
-alert("Inspection loaded.");
-
-}catch(error){
-console.error(error);
-status.innerText = "Load failed.";
-alert("Load failed.");
+status.innerText = "Save/share failed.";
+alert("Save/share failed. Check Firebase Storage rules and internet connection.");
 }
 };
 
