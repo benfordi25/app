@@ -117,7 +117,7 @@ body{background:white}
 <div id="status" class="status"></div>
 
 <button onclick="saveInspection()">Save Inspection</button>
-<button onclick="createPdf()">Create PDF</button>
+<button onclick="createPdf()">Create Professional PDF</button>
 <button class="whatsapp" onclick="saveCreateAndSharePDF()">Save, Create PDF & Share</button>
 <button class="small-btn" onclick="loadInspection()">Load Saved Inspection</button>
 <button onclick="window.print()">Print Page</button>
@@ -237,9 +237,7 @@ try{
 const snap = await getDoc(doc(db, "jobsBoard", "shared"));
 const data = snap.exists() ? snap.data() : {};
 allJobs = Array.isArray(data.jobs) ? data.jobs : [];
-
 renderJobDropdown();
-
 }catch(error){
 console.error(error);
 dropdown.innerHTML = `<option value="">Could not load jobs</option>`;
@@ -445,113 +443,263 @@ return String(s||"Fire Door Inspection").replace(/[^\w\- ]+/g,"").trim().slice(0
 
 function getAnswerText(data, sectionIndex, itemIndex){
 const name = `s${sectionIndex}i${itemIndex}`;
-return data.radios[name] || "-";
+return data.radios[name] || "";
 }
 
-function buildPdf(data){
-const JsPDF = window.jspdf.jsPDF;
-const pdf = new JsPDF({unit:"pt",format:"a4"});
+async function imageFileToBase64(file){
+return new Promise((resolve,reject)=>{
+const reader = new FileReader();
+reader.onload = e => resolve(e.target.result);
+reader.onerror = reject;
+reader.readAsDataURL(file);
+});
+}
+
+async function getPdfPhotos(){
+const photoData = [];
+const inputs = document.querySelectorAll(".photo-input");
+
+for(let i=0;i<inputs.length;i++){
+const files = Array.from(inputs[i].files || []);
+for(const file of files){
+try{
+const base64 = await imageFileToBase64(file);
+photoData.push({
+section:i,
+name:file.name,
+src:base64
+});
+}catch(e){}
+}
+}
+
+return photoData;
+}
+
+function addFooter(pdf){
 const W = pdf.internal.pageSize.getWidth();
 const H = pdf.internal.pageSize.getHeight();
-const m = 40;
-let y = 40;
+const m = 36;
 
+pdf.setFont("helvetica","normal");
+pdf.setFontSize(8);
+pdf.setTextColor(90);
+
+const text = "This inspection is a visual assessment only and does not constitute certification of the fire door assembly. Any defects identified should be rectified by a competent person in accordance with current fire safety legislation, British Standards and manufacturer requirements.";
+const lines = pdf.splitTextToSize(text, W - m*2);
+pdf.text(lines, m, H - 42);
+
+pdf.setTextColor(0);
+}
+
+async function buildPdf(data){
+const JsPDF = window.jspdf.jsPDF;
+const pdf = new JsPDF({unit:"pt",format:"a4"});
+
+const W = pdf.internal.pageSize.getWidth();
+const H = pdf.internal.pageSize.getHeight();
+const m = 36;
+let y = 38;
+
+const photos = await getPdfPhotos();
 const logo = localStorage.getItem("fps_logo_v1") || "";
 
+function newPage(){
+addFooter(pdf);
+pdf.addPage();
+y = 38;
+}
+
+function checkPage(extra=40){
+if(y + extra > H - 80){
+newPage();
+}
+}
+
+function tick(value, expected){
+return value === expected ? "✓" : "";
+}
+
 if(logo){
-try{ pdf.addImage(logo,"JPEG",m,y,70,50); }catch(e){}
+try{ pdf.addImage(logo,"JPEG",m,y,65,45); }catch(e){}
 }
 
 pdf.setFont("helvetica","bold");
 pdf.setFontSize(18);
-pdf.text("Ford Property Services", logo ? m+85 : m, y+20);
+pdf.text("Ford Property Services", logo ? m+78 : m, y+16);
 
-pdf.setFontSize(14);
-pdf.text("Fire Door Inspection Checklist", logo ? m+85 : m, y+42);
+pdf.setFontSize(13);
+pdf.text("Fire Door Inspection Checklist", logo ? m+78 : m, y+36);
 
-pdf.setFont("helvetica","normal");
-pdf.setFontSize(10);
-pdf.text(`Reference: ${data.ref}`, m, y+80);
-pdf.text(`Date: ${data.date}`, m, y+96);
+y += 75;
 
-y = 155;
-
-function line(label,value){
+pdf.setDrawColor(180);
+pdf.setFillColor(245,247,250);
+pdf.rect(m,y,W-m*2,28,"F");
 pdf.setFont("helvetica","bold");
-pdf.setFontSize(10);
+pdf.setFontSize(12);
+pdf.text("Inspection Details",m+8,y+18);
+y += 40;
+
+function detailRow(label,value){
+checkPage(24);
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(9);
 pdf.text(label,m,y);
+
 pdf.setFont("helvetica","normal");
-const lines = pdf.splitTextToSize(String(value || "-"), W - m*2 - 145);
-pdf.text(lines,m+145,y);
-y += 15 * lines.length + 5;
-if(y > H-70){ pdf.addPage(); y = 50; }
+const lines = pdf.splitTextToSize(String(value || "-"), W - m*2 - 155);
+pdf.text(lines,m+155,y);
+y += Math.max(18, lines.length * 12 + 6);
 }
 
-line("Property Address:",data.address);
-line("Door / Flat Number:",data.doorNumber);
-line("Letting Agent / Client:",data.client);
-line("Inspector:",data.inspector);
-line("Door Location / Ref:",data.doorRef);
-line("Inspection Result:",data.result);
+detailRow("Reference:",data.ref);
+detailRow("Date:",data.date);
+detailRow("Property Address:",data.address);
+detailRow("Door / Flat Number:",data.doorNumber);
+detailRow("Letting Agent / Client:",data.client);
+detailRow("Inspector:",data.inspector);
+detailRow("Door Location / Ref:",data.doorRef);
+detailRow("Inspection Result:",data.result);
+
+y += 10;
 
 Object.entries(sections).forEach(([section, items], sectionIndex)=>{
-pdf.addPage();
-y = 50;
+
+checkPage(130);
+
+pdf.setFillColor(11,18,32);
+pdf.rect(m,y,W-m*2,26,"F");
+pdf.setTextColor(255);
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(12);
+pdf.text(section,m+8,y+17);
+pdf.setTextColor(0);
+y += 26;
+
+const tableX = m;
+const itemW = W - m*2 - 126;
+const colW = 42;
+const rowH = 24;
+
+pdf.setFillColor(235,238,243);
+pdf.rect(tableX,y,W-m*2,rowH,"F");
+pdf.setDrawColor(180);
+pdf.rect(tableX,y,W-m*2,rowH);
 
 pdf.setFont("helvetica","bold");
-pdf.setFontSize(15);
-pdf.text(section,m,y);
-y += 28;
+pdf.setFontSize(9);
+pdf.text("Check Item",tableX+6,y+15);
+pdf.text("Yes",tableX+itemW+12,y+15);
+pdf.text("No",tableX+itemW+colW+14,y+15);
+pdf.text("N/A",tableX+itemW+colW*2+10,y+15);
+
+y += rowH;
 
 items.forEach((item,itemIndex)=>{
-pdf.setFont("helvetica","normal");
-pdf.setFontSize(10);
+checkPage(rowH+10);
+
 const answer = getAnswerText(data,sectionIndex,itemIndex);
-const itemLines = pdf.splitTextToSize(`${item}: ${answer}`, W - m*2);
-pdf.text(itemLines,m,y);
-y += 15 * itemLines.length + 6;
+
+pdf.setDrawColor(200);
+pdf.rect(tableX,y,itemW,rowH);
+pdf.rect(tableX+itemW,y,colW,rowH);
+pdf.rect(tableX+itemW+colW,y,colW,rowH);
+pdf.rect(tableX+itemW+colW*2,y,colW,rowH);
+
+pdf.setFont("helvetica","normal");
+pdf.setFontSize(8.5);
+pdf.text(pdf.splitTextToSize(item,itemW-10),tableX+6,y+15);
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(13);
+pdf.text(tick(answer,"Yes"),tableX+itemW+16,y+16);
+pdf.text(tick(answer,"No"),tableX+itemW+colW+16,y+16);
+pdf.text(tick(answer,"N/A"),tableX+itemW+colW*2+16,y+16);
+
+y += rowH;
 });
 
 const comment = data.comments[sectionIndex] || "";
-if(comment){
 y += 10;
+
 pdf.setFont("helvetica","bold");
-pdf.text("Comments / Defects:",m,y);
-y += 16;
+pdf.setFontSize(9);
+pdf.text("Comments / Defects / Remedial Works:",m,y);
+y += 14;
+
 pdf.setFont("helvetica","normal");
-const commentLines = pdf.splitTextToSize(comment, W - m*2);
+pdf.setFontSize(9);
+const commentLines = pdf.splitTextToSize(comment || "No comments added.", W - m*2);
+checkPage(commentLines.length * 12 + 20);
 pdf.text(commentLines,m,y);
-y += 15 * commentLines.length;
+y += commentLines.length * 12 + 12;
+
+const sectionPhotos = photos.filter(p=>p.section === sectionIndex);
+
+if(sectionPhotos.length){
+checkPage(130);
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(9);
+pdf.text("Section Photos:",m,y);
+y += 14;
+
+let x = m;
+const imgW = 115;
+const imgH = 90;
+const gap = 10;
+
+sectionPhotos.forEach(photo=>{
+if(x + imgW > W - m){
+x = m;
+y += imgH + 14;
 }
+
+checkPage(imgH + 25);
+
+try{
+pdf.addImage(photo.src,"JPEG",x,y,imgW,imgH);
+}catch(e){
+try{ pdf.addImage(photo.src,"PNG",x,y,imgW,imgH); }catch(err){}
+}
+
+x += imgW + gap;
 });
 
-pdf.addPage();
-y = 50;
+if(x !== m) y += imgH + 14;
+}
+
+y += 16;
+});
+
+checkPage(120);
+
+pdf.setFillColor(11,18,32);
+pdf.rect(m,y,W-m*2,26,"F");
+pdf.setTextColor(255);
 pdf.setFont("helvetica","bold");
-pdf.setFontSize(15);
-pdf.text("Overall Comments / Recommendations",m,y);
-y += 25;
+pdf.setFontSize(12);
+pdf.text("Overall Comments / Recommendations",m+8,y+17);
+pdf.setTextColor(0);
+y += 42;
 
 pdf.setFont("helvetica","normal");
 pdf.setFontSize(10);
 const overall = pdf.splitTextToSize(data.overallComments || "No comments added.", W - m*2);
 pdf.text(overall,m,y);
-y += 15 * overall.length + 25;
+y += overall.length * 13 + 25;
 
-line("Inspector Signature / Name:",data.signature);
+detailRow("Inspector Signature / Name:",data.signature);
 
-pdf.setFontSize(8);
-pdf.setTextColor(80);
-const disclaimer = "This inspection is a visual assessment only and does not constitute certification of the fire door assembly. Any defects identified should be rectified by a competent person in accordance with current fire safety legislation, British Standards and manufacturer requirements.";
-const dLines = pdf.splitTextToSize(disclaimer, W - m*2);
-pdf.text(dLines,m,H-70);
+addFooter(pdf);
 
 return pdf;
 }
 
-window.createPdf = function(){
+window.createPdf = async function(){
 const data = getFormData();
-const pdf = buildPdf(data);
+const pdf = await buildPdf(data);
 pdf.save(`${safeFileName(data.ref)}.pdf`);
 };
 
@@ -560,7 +708,7 @@ const data = await window.saveInspection();
 if(!data) return;
 
 try{
-const pdf = buildPdf(data);
+const pdf = await buildPdf(data);
 const blob = pdf.output("blob");
 const file = new File([blob], `${safeFileName(data.ref)}.pdf`, {type:"application/pdf"});
 
@@ -574,7 +722,7 @@ return;
 }
 
 pdf.save(`${safeFileName(data.ref)}.pdf`);
-alert("PDF created. Your device did not allow direct WhatsApp sharing from this browser, so the PDF has been downloaded.");
+alert("PDF created. Open it from downloads and send by WhatsApp.");
 
 }catch(error){
 console.error(error);
