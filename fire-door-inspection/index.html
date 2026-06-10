@@ -1,3 +1,6 @@
+<!-- FULL CODE START -->
+<!-- Paste this over your existing fire door file -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,6 +13,7 @@ body{font-family:Arial,sans-serif;margin:0;background:#f4f4f4;color:#111}
 header{background:#0b1220;color:white;padding:18px;text-align:center}
 header h1{margin:0;font-size:24px}
 header p{margin:5px 0 0;color:#9ecbff;font-weight:bold}
+.logo-wrap img{max-height:80px;max-width:240px;object-fit:contain;margin-bottom:8px}
 .container{padding:15px;max-width:900px;margin:auto}
 .card{background:white;margin-bottom:15px;padding:15px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .section-title{font-size:20px;font-weight:bold;color:#0b1220;margin-bottom:10px}
@@ -22,15 +26,26 @@ input,textarea,select{width:100%;padding:10px;margin-top:5px;border:1px solid #c
 .yn input{width:auto}
 button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;color:white;font-size:17px;font-weight:bold;margin-top:10px}
 .small-btn{background:#374151}
+.whatsapp{background:#075e54}
 .danger{background:#8b0000}
 .photo-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .photo-preview img{width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid #ccc}
 .status{font-weight:bold;margin-top:10px;color:#0b1220}
 .footer{font-size:12px;color:#555;margin-top:15px;line-height:1.4}
+.job-box{background:#eef6ff;border:1px solid #c7ddff}
+
 @media print{
-button,input[type=file]{display:none}
+button,input[type=file],.job-box{display:none!important}
 body{background:white}
 .card{box-shadow:none;border:1px solid #ddd}
+.inspection-section{
+break-before:page;
+page-break-before:always;
+}
+.card{
+break-inside:avoid;
+page-break-inside:avoid;
+}
 }
 </style>
 </head>
@@ -38,11 +53,28 @@ body{background:white}
 <body>
 
 <header>
+<div class="logo-wrap">
+<img id="companyLogo" alt="Ford Property Services Logo" style="display:none">
+</div>
 <h1>FORD PROPERTY SERVICES</h1>
 <p>Fire Door Inspection Checklist</p>
 </header>
 
 <div class="container">
+
+<div class="card job-box">
+<div class="section-title">Select Job Address</div>
+
+<label>Search Job</label>
+<input id="jobSearch" placeholder="Search address, agent, estimate number or status">
+
+<label>Select Address from Jobs Board</label>
+<select id="jobDropdown">
+<option value="">Loading jobs...</option>
+</select>
+
+<button type="button" class="small-btn" onclick="loadJobs()">Refresh Jobs List</button>
+</div>
 
 <div class="card">
 <div class="section-title">Inspection Details</div>
@@ -57,7 +89,7 @@ body{background:white}
 <input id="doorNumber" placeholder="Flat 1 / Door 3 / Communal Entrance">
 
 <label>Property Address</label>
-<textarea id="address" rows="3" placeholder="Use GPS location or type manually"></textarea>
+<textarea id="address" rows="3" placeholder="Use dropdown, GPS location or type manually"></textarea>
 
 <button type="button" class="small-btn" onclick="getGPSAddress()">Use GPS Location</button>
 
@@ -92,8 +124,9 @@ body{background:white}
 
 <div id="status" class="status"></div>
 
-<button onclick="saveInspection()">Save to Firebase Cloud</button>
-<button class="small-btn" onclick="loadInspection()">Load From Firebase Cloud</button>
+<button onclick="saveInspection()">Save Inspection</button>
+<button class="whatsapp" onclick="saveAndShareWhatsApp()">Save & Share via WhatsApp</button>
+<button class="small-btn" onclick="loadInspection()">Load Saved Inspection</button>
 <button onclick="window.print()">Print / Save as PDF</button>
 <button class="danger" onclick="clearForm()">Clear Form</button>
 
@@ -109,7 +142,7 @@ British Standards and manufacturer requirements.
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
 const app = initializeApp({
@@ -124,6 +157,17 @@ await signInAnonymously(auth);
 
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+const JOBS_COLLECTION = "jobs";
+
+let allJobs = [];
+
+const logoData = localStorage.getItem("fps_logo_v1");
+if(logoData){
+const logo = document.getElementById("companyLogo");
+logo.src = logoData;
+logo.style.display = "inline-block";
+}
 
 document.getElementById("date").valueAsDate = new Date();
 
@@ -145,7 +189,7 @@ const checklist = document.getElementById("checklist");
 
 Object.entries(sections).forEach(([section, items], sectionIndex) => {
 let card = document.createElement("div");
-card.className = "card";
+card.className = "card inspection-section";
 
 let html = `<div class="section-title">${section}</div>`;
 
@@ -175,13 +219,82 @@ card.innerHTML = html;
 checklist.appendChild(card);
 });
 
+function field(job,names){
+for(const n of names){
+if(job[n]) return job[n];
+}
+return "";
+}
+
+function jobDisplay(job){
+return {
+address:field(job,["propertyAddress","address","jobAddress","siteAddress"]),
+agent:field(job,["lettingAgent","agent","client","letting_agent"]),
+estimate:field(job,["estimateNo","estimateRef","estimateNumber","ref"]),
+status:field(job,["status","jobStatus"])
+};
+}
+
+window.loadJobs = async function(){
+const dropdown = document.getElementById("jobDropdown");
+dropdown.innerHTML = `<option value="">Loading jobs...</option>`;
+
+try{
+const snap = await getDocs(collection(db, JOBS_COLLECTION));
+allJobs = [];
+
+snap.forEach(docSnap=>{
+allJobs.push({id:docSnap.id,...docSnap.data()});
+});
+
+renderJobDropdown();
+
+}catch(error){
+console.error(error);
+dropdown.innerHTML = `<option value="">Could not load jobs</option>`;
+}
+};
+
+function renderJobDropdown(){
+const dropdown = document.getElementById("jobDropdown");
+const search = document.getElementById("jobSearch").value.toLowerCase().trim();
+
+dropdown.innerHTML = `<option value="">Select job address</option>`;
+
+allJobs.filter(job=>{
+const d = jobDisplay(job);
+const text = `${job.id} ${d.address} ${d.agent} ${d.estimate} ${d.status}`.toLowerCase();
+return text.includes(search);
+}).slice(0,150).forEach(job=>{
+const d = jobDisplay(job);
+const option = document.createElement("option");
+option.value = job.id;
+option.textContent = `${d.address || "No address"} | ${d.agent || "No agent"} | ${d.status || "No status"}`;
+dropdown.appendChild(option);
+});
+}
+
+document.getElementById("jobSearch").addEventListener("input", renderJobDropdown);
+
+document.getElementById("jobDropdown").addEventListener("change", function(){
+const selected = allJobs.find(j=>j.id === this.value);
+if(!selected) return;
+
+const d = jobDisplay(selected);
+
+if(d.address) document.getElementById("address").value = d.address;
+if(d.agent) document.getElementById("client").value = d.agent;
+
+document.getElementById("status").innerText = "Job address selected.";
+});
+
 window.previewPhotos = function(input){
 const preview = input.nextElementSibling;
 preview.innerHTML = "";
 
-Array.from(input.files).forEach(file => {
+Array.from(input.files).forEach(file=>{
 const reader = new FileReader();
-reader.onload = e => {
+reader.onload = e=>{
 const img = document.createElement("img");
 img.src = e.target.result;
 preview.appendChild(img);
@@ -200,7 +313,7 @@ return;
 
 status.innerText = "Getting GPS location...";
 
-navigator.geolocation.getCurrentPosition(async position => {
+navigator.geolocation.getCurrentPosition(async position=>{
 const lat = position.coords.latitude;
 const lon = position.coords.longitude;
 
@@ -211,19 +324,15 @@ const locationData = await response.json();
 if(locationData && locationData.display_name){
 document.getElementById("address").value = locationData.display_name;
 status.innerText = "GPS address added.";
-} else {
+}else{
 status.innerText = "Address not found. Please enter manually.";
-alert("Address not found. Please enter manually.");
 }
 }catch(error){
 console.error(error);
-status.innerText = "GPS lookup failed. Please enter manually.";
-alert("GPS lookup failed. Please enter address manually.");
+status.innerText = "GPS lookup failed.";
 }
-
-}, error => {
+},()=>{
 status.innerText = "GPS permission denied or unavailable.";
-alert("GPS permission denied or unavailable. Please enter address manually.");
 });
 };
 
@@ -242,70 +351,79 @@ const refNo = existingRef || makeRef();
 document.getElementById("ref").value = refNo;
 
 const data = {
-ref: refNo,
-date: document.getElementById("date").value,
-doorNumber: document.getElementById("doorNumber").value,
-address: document.getElementById("address").value,
-client: document.getElementById("client").value,
-inspector: document.getElementById("inspector").value,
-doorRef: document.getElementById("doorRef").value,
-result: document.getElementById("result").value,
-overallComments: document.getElementById("overallComments").value,
-signature: document.getElementById("signature").value,
-radios: {},
-comments: [],
-photos: [],
-updatedAt: serverTimestamp()
+ref:refNo,
+date:document.getElementById("date").value,
+selectedJobId:document.getElementById("jobDropdown").value,
+doorNumber:document.getElementById("doorNumber").value,
+address:document.getElementById("address").value,
+client:document.getElementById("client").value,
+inspector:document.getElementById("inspector").value,
+doorRef:document.getElementById("doorRef").value,
+result:document.getElementById("result").value,
+overallComments:document.getElementById("overallComments").value,
+signature:document.getElementById("signature").value,
+radios:{},
+comments:[],
+photos:[],
+updatedAt:serverTimestamp()
 };
 
-document.querySelectorAll("input[type=radio]:checked").forEach(r => {
-data.radios[r.name] = r.value;
+document.querySelectorAll("input[type=radio]:checked").forEach(r=>{
+data.radios[r.name]=r.value;
 });
 
-document.querySelectorAll(".section-comment").forEach(c => {
+document.querySelectorAll(".section-comment").forEach(c=>{
 data.comments.push(c.value);
 });
 
 return data;
 }
 
-window.saveInspection = async function(){
-const status = document.getElementById("status");
-status.innerText = "Saving to Firebase cloud...";
-
-try{
-const data = getFormData();
+async function uploadPhotos(data){
 const photoInputs = document.querySelectorAll(".photo-input");
 
-const existingSnap = await getDoc(doc(db, "fireDoorInspections", data.ref));
+const existingSnap = await getDoc(doc(db,"fireDoorInspections",data.ref));
 if(existingSnap.exists() && existingSnap.data().photos){
 data.photos = existingSnap.data().photos;
 }
 
-for(let i = 0; i < photoInputs.length; i++){
+for(let i=0;i<photoInputs.length;i++){
 const files = photoInputs[i].files;
 
-for(let f = 0; f < files.length; f++){
+for(let f=0;f<files.length;f++){
 const file = files[f];
 const cleanName = file.name.replaceAll(" ","-");
 const filePath = `fireDoorInspections/${data.ref}/section-${i}-${Date.now()}-${cleanName}`;
-const storageRef = ref(storage, filePath);
+const storageRef = ref(storage,filePath);
 
-await uploadBytes(storageRef, file);
+await uploadBytes(storageRef,file);
 const url = await getDownloadURL(storageRef);
 
 data.photos.push({
-section: i,
-name: file.name,
-url: url
+section:i,
+name:file.name,
+url:url
 });
 }
 }
 
-await setDoc(doc(db, "fireDoorInspections", data.ref), data);
+return data;
+}
 
-status.innerText = "Saved to Firebase cloud.";
-alert("Inspection saved to Firebase cloud. Reference: " + data.ref);
+window.saveInspection = async function(){
+const status = document.getElementById("status");
+status.innerText = "Saving inspection...";
+
+try{
+let data = getFormData();
+data = await uploadPhotos(data);
+
+await setDoc(doc(db,"fireDoorInspections",data.ref),data);
+
+status.innerText = "Inspection saved.";
+alert("Inspection saved. Reference: " + data.ref);
+return data;
+
 }catch(error){
 console.error(error);
 status.innerText = "Save failed.";
@@ -313,15 +431,32 @@ alert("Save failed. Check Firebase rules and internet connection.");
 }
 };
 
+window.saveAndShareWhatsApp = async function(){
+const data = await window.saveInspection();
+if(!data) return;
+
+const message =
+`Ford Property Services - Fire Door Inspection%0A%0A` +
+`Reference: ${encodeURIComponent(data.ref)}%0A` +
+`Date: ${encodeURIComponent(data.date)}%0A` +
+`Address: ${encodeURIComponent(data.address)}%0A` +
+`Door / Flat: ${encodeURIComponent(data.doorNumber)}%0A` +
+`Door Ref: ${encodeURIComponent(data.doorRef)}%0A` +
+`Result: ${encodeURIComponent(data.result)}%0A%0A` +
+`Comments: ${encodeURIComponent(data.overallComments || "No comments added")}`;
+
+window.open(`https://wa.me/?text=${message}`,"_blank");
+};
+
 window.loadInspection = async function(){
 const refNo = prompt("Enter inspection reference to load:");
 if(!refNo) return;
 
 const status = document.getElementById("status");
-status.innerText = "Loading from Firebase cloud...";
+status.innerText = "Loading inspection...";
 
 try{
-const snap = await getDoc(doc(db, "fireDoorInspections", refNo));
+const snap = await getDoc(doc(db,"fireDoorInspections",refNo));
 
 if(!snap.exists()){
 alert("No inspection found with that reference.");
@@ -342,18 +477,18 @@ document.getElementById("result").value = data.result || "PASS";
 document.getElementById("overallComments").value = data.overallComments || "";
 document.getElementById("signature").value = data.signature || "";
 
-Object.entries(data.radios || {}).forEach(([name,value]) => {
+Object.entries(data.radios || {}).forEach(([name,value])=>{
 const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
 if(radio) radio.checked = true;
 });
 
-document.querySelectorAll(".section-comment").forEach((c,i) => {
+document.querySelectorAll(".section-comment").forEach((c,i)=>{
 c.value = data.comments?.[i] || "";
 });
 
-document.querySelectorAll(".photo-preview").forEach(p => p.innerHTML = "");
+document.querySelectorAll(".photo-preview").forEach(p=>p.innerHTML="");
 
-(data.photos || []).forEach(photo => {
+(data.photos || []).forEach(photo=>{
 const previews = document.querySelectorAll(".photo-preview");
 if(previews[photo.section]){
 const img = document.createElement("img");
@@ -362,12 +497,13 @@ previews[photo.section].appendChild(img);
 }
 });
 
-status.innerText = "Loaded from Firebase cloud.";
+status.innerText = "Inspection loaded.";
 alert("Inspection loaded.");
+
 }catch(error){
 console.error(error);
 status.innerText = "Load failed.";
-alert("Load failed. Check the reference and internet connection.");
+alert("Load failed.");
 }
 };
 
@@ -376,7 +512,10 @@ if(confirm("Clear this form?")){
 location.reload();
 }
 };
+
+loadJobs();
 </script>
 
 </body>
 </html>
+<!-- FULL CODE END -->
