@@ -1,12 +1,11 @@
-<!-- FULL CODE START -->
-<!-- Paste this over your existing fire door file -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fire Door Inspection - Ford Property Services</title>
+
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
 <style>
 body{font-family:Arial,sans-serif;margin:0;background:#f4f4f4;color:#111}
@@ -33,19 +32,12 @@ button{width:100%;padding:14px;border:0;border-radius:10px;background:#0b1220;co
 .status{font-weight:bold;margin-top:10px;color:#0b1220}
 .footer{font-size:12px;color:#555;margin-top:15px;line-height:1.4}
 .job-box{background:#eef6ff;border:1px solid #c7ddff}
-
 @media print{
 button,input[type=file],.job-box{display:none!important}
 body{background:white}
 .card{box-shadow:none;border:1px solid #ddd}
-.inspection-section{
-break-before:page;
-page-break-before:always;
-}
-.card{
-break-inside:avoid;
-page-break-inside:avoid;
-}
+.inspection-section{break-before:page;page-break-before:always}
+.card{break-inside:avoid;page-break-inside:avoid}
 }
 </style>
 </head>
@@ -125,9 +117,10 @@ page-break-inside:avoid;
 <div id="status" class="status"></div>
 
 <button onclick="saveInspection()">Save Inspection</button>
-<button class="whatsapp" onclick="saveAndShareWhatsApp()">Save & Share via WhatsApp</button>
+<button onclick="createPdf()">Create PDF</button>
+<button class="whatsapp" onclick="saveCreateAndSharePDF()">Save, Create PDF & Share</button>
 <button class="small-btn" onclick="loadInspection()">Load Saved Inspection</button>
-<button onclick="window.print()">Print / Save as PDF</button>
+<button onclick="window.print()">Print Page</button>
 <button class="danger" onclick="clearForm()">Clear Form</button>
 
 <div class="footer">
@@ -142,23 +135,24 @@ British Standards and manufacturer requirements.
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
-const app = initializeApp({
+const firebaseConfig = {
 apiKey:"AIzaSyCJPVdTvzHFRiyLTzR08hMTBp71gPEPLU8",
 authDomain:"fps-jobs-board.firebaseapp.com",
 projectId:"fps-jobs-board",
-storageBucket:"fps-jobs-board.firebasestorage.app"
-});
+storageBucket:"fps-jobs-board.firebasestorage.app",
+messagingSenderId:"386598717430",
+appId:"1:386598717430:web:06a2b508f1d7fcc92069d7"
+};
 
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 await signInAnonymously(auth);
 
 const db = getFirestore(app);
 const storage = getStorage(app);
-
-const JOBS_COLLECTION = "jobs";
 
 let allJobs = [];
 
@@ -219,20 +213,20 @@ card.innerHTML = html;
 checklist.appendChild(card);
 });
 
-function field(job,names){
-for(const n of names){
-if(job[n]) return job[n];
-}
-return "";
-}
-
-function jobDisplay(job){
-return {
-address:field(job,["propertyAddress","address","jobAddress","siteAddress"]),
-agent:field(job,["lettingAgent","agent","client","letting_agent"]),
-estimate:field(job,["estimateNo","estimateRef","estimateNumber","ref"]),
-status:field(job,["status","jobStatus"])
+function statusLabel(key){
+const map = {
+req_est:"Requires Estimate",
+est_visit_booked:"Estimate Visit Booked In",
+attended_est_required:"Attended – Estimate Required",
+est_complete:"Estimate Complete",
+est_accepted:"Estimate Accepted",
+est_not_accepted:"Estimate Not Accepted",
+works_booked:"Works Booked In",
+works_done_invoice_required:"Works Completed – Invoice Required",
+invoice_sent_complete:"Invoice Sent & Complete",
+invoice_paid:"Invoice Paid"
 };
+return map[key] || key || "";
 }
 
 window.loadJobs = async function(){
@@ -240,18 +234,16 @@ const dropdown = document.getElementById("jobDropdown");
 dropdown.innerHTML = `<option value="">Loading jobs...</option>`;
 
 try{
-const snap = await getDocs(collection(db, JOBS_COLLECTION));
-allJobs = [];
-
-snap.forEach(docSnap=>{
-allJobs.push({id:docSnap.id,...docSnap.data()});
-});
+const snap = await getDoc(doc(db, "jobsBoard", "shared"));
+const data = snap.exists() ? snap.data() : {};
+allJobs = Array.isArray(data.jobs) ? data.jobs : [];
 
 renderJobDropdown();
 
 }catch(error){
 console.error(error);
 dropdown.innerHTML = `<option value="">Could not load jobs</option>`;
+document.getElementById("status").innerText = "Could not load jobs from Jobs Board.";
 }
 };
 
@@ -261,29 +253,31 @@ const search = document.getElementById("jobSearch").value.toLowerCase().trim();
 
 dropdown.innerHTML = `<option value="">Select job address</option>`;
 
-allJobs.filter(job=>{
-const d = jobDisplay(job);
-const text = `${job.id} ${d.address} ${d.agent} ${d.estimate} ${d.status}`.toLowerCase();
+const filtered = allJobs.filter(job=>{
+const text = `${job.id||""} ${job.address||""} ${job.agent||""} ${job.ref||""} ${job.estNo||""} ${statusLabel(job.status)||""}`.toLowerCase();
 return text.includes(search);
-}).slice(0,150).forEach(job=>{
-const d = jobDisplay(job);
+});
+
+filtered.slice(0,200).forEach(job=>{
 const option = document.createElement("option");
-option.value = job.id;
-option.textContent = `${d.address || "No address"} | ${d.agent || "No agent"} | ${d.status || "No status"}`;
+option.value = job.id || "";
+option.textContent = `${job.address || "No address"} | ${job.agent || "No agent"} | ${job.estNo || "No estimate no"} | ${statusLabel(job.status) || "No status"}`;
 dropdown.appendChild(option);
 });
+
+if(filtered.length === 0){
+dropdown.innerHTML = `<option value="">No matching jobs found</option>`;
+}
 }
 
 document.getElementById("jobSearch").addEventListener("input", renderJobDropdown);
 
 document.getElementById("jobDropdown").addEventListener("change", function(){
-const selected = allJobs.find(j=>j.id === this.value);
+const selected = allJobs.find(j => j.id === this.value);
 if(!selected) return;
 
-const d = jobDisplay(selected);
-
-if(d.address) document.getElementById("address").value = d.address;
-if(d.agent) document.getElementById("client").value = d.agent;
+if(selected.address) document.getElementById("address").value = selected.address;
+if(selected.agent) document.getElementById("client").value = selected.agent;
 
 document.getElementById("status").innerText = "Job address selected.";
 });
@@ -350,10 +344,14 @@ const existingRef = document.getElementById("ref").value.trim();
 const refNo = existingRef || makeRef();
 document.getElementById("ref").value = refNo;
 
+const selectedJobId = document.getElementById("jobDropdown").value;
+const selectedJob = allJobs.find(j => j.id === selectedJobId);
+
 const data = {
 ref:refNo,
 date:document.getElementById("date").value,
-selectedJobId:document.getElementById("jobDropdown").value,
+selectedJobId:selectedJobId || "",
+selectedJobAddress:selectedJob?.address || "",
 doorNumber:document.getElementById("doorNumber").value,
 address:document.getElementById("address").value,
 client:document.getElementById("client").value,
@@ -382,15 +380,18 @@ return data;
 async function uploadPhotos(data){
 const photoInputs = document.querySelectorAll(".photo-input");
 
+try{
 const existingSnap = await getDoc(doc(db,"fireDoorInspections",data.ref));
 if(existingSnap.exists() && existingSnap.data().photos){
 data.photos = existingSnap.data().photos;
 }
+}catch(e){}
 
 for(let i=0;i<photoInputs.length;i++){
 const files = photoInputs[i].files;
 
 for(let f=0;f<files.length;f++){
+try{
 const file = files[f];
 const cleanName = file.name.replaceAll(" ","-");
 const filePath = `fireDoorInspections/${data.ref}/section-${i}-${Date.now()}-${cleanName}`;
@@ -404,6 +405,9 @@ section:i,
 name:file.name,
 url:url
 });
+}catch(photoError){
+console.warn("Photo upload skipped:", photoError);
+}
 }
 }
 
@@ -418,7 +422,7 @@ try{
 let data = getFormData();
 data = await uploadPhotos(data);
 
-await setDoc(doc(db,"fireDoorInspections",data.ref),data);
+await setDoc(doc(db,"fireDoorInspections",data.ref),data,{merge:true});
 
 status.innerText = "Inspection saved.";
 alert("Inspection saved. Reference: " + data.ref);
@@ -426,26 +430,156 @@ return data;
 
 }catch(error){
 console.error(error);
-status.innerText = "Save failed.";
-alert("Save failed. Check Firebase rules and internet connection.");
+status.innerText = "Cloud save failed. Saved locally instead.";
+
+const data = getFormData();
+localStorage.setItem("fireDoorInspection_" + data.ref, JSON.stringify(data));
+alert("Cloud save failed, but inspection was saved on this device. Reference: " + data.ref);
+return data;
 }
 };
 
-window.saveAndShareWhatsApp = async function(){
+function safeFileName(s){
+return String(s||"Fire Door Inspection").replace(/[^\w\- ]+/g,"").trim().slice(0,50) || "Fire Door Inspection";
+}
+
+function getAnswerText(data, sectionIndex, itemIndex){
+const name = `s${sectionIndex}i${itemIndex}`;
+return data.radios[name] || "-";
+}
+
+function buildPdf(data){
+const JsPDF = window.jspdf.jsPDF;
+const pdf = new JsPDF({unit:"pt",format:"a4"});
+const W = pdf.internal.pageSize.getWidth();
+const H = pdf.internal.pageSize.getHeight();
+const m = 40;
+let y = 40;
+
+const logo = localStorage.getItem("fps_logo_v1") || "";
+
+if(logo){
+try{ pdf.addImage(logo,"JPEG",m,y,70,50); }catch(e){}
+}
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(18);
+pdf.text("Ford Property Services", logo ? m+85 : m, y+20);
+
+pdf.setFontSize(14);
+pdf.text("Fire Door Inspection Checklist", logo ? m+85 : m, y+42);
+
+pdf.setFont("helvetica","normal");
+pdf.setFontSize(10);
+pdf.text(`Reference: ${data.ref}`, m, y+80);
+pdf.text(`Date: ${data.date}`, m, y+96);
+
+y = 155;
+
+function line(label,value){
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(10);
+pdf.text(label,m,y);
+pdf.setFont("helvetica","normal");
+const lines = pdf.splitTextToSize(String(value || "-"), W - m*2 - 145);
+pdf.text(lines,m+145,y);
+y += 15 * lines.length + 5;
+if(y > H-70){ pdf.addPage(); y = 50; }
+}
+
+line("Property Address:",data.address);
+line("Door / Flat Number:",data.doorNumber);
+line("Letting Agent / Client:",data.client);
+line("Inspector:",data.inspector);
+line("Door Location / Ref:",data.doorRef);
+line("Inspection Result:",data.result);
+
+Object.entries(sections).forEach(([section, items], sectionIndex)=>{
+pdf.addPage();
+y = 50;
+
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(15);
+pdf.text(section,m,y);
+y += 28;
+
+items.forEach((item,itemIndex)=>{
+pdf.setFont("helvetica","normal");
+pdf.setFontSize(10);
+const answer = getAnswerText(data,sectionIndex,itemIndex);
+const itemLines = pdf.splitTextToSize(`${item}: ${answer}`, W - m*2);
+pdf.text(itemLines,m,y);
+y += 15 * itemLines.length + 6;
+});
+
+const comment = data.comments[sectionIndex] || "";
+if(comment){
+y += 10;
+pdf.setFont("helvetica","bold");
+pdf.text("Comments / Defects:",m,y);
+y += 16;
+pdf.setFont("helvetica","normal");
+const commentLines = pdf.splitTextToSize(comment, W - m*2);
+pdf.text(commentLines,m,y);
+y += 15 * commentLines.length;
+}
+});
+
+pdf.addPage();
+y = 50;
+pdf.setFont("helvetica","bold");
+pdf.setFontSize(15);
+pdf.text("Overall Comments / Recommendations",m,y);
+y += 25;
+
+pdf.setFont("helvetica","normal");
+pdf.setFontSize(10);
+const overall = pdf.splitTextToSize(data.overallComments || "No comments added.", W - m*2);
+pdf.text(overall,m,y);
+y += 15 * overall.length + 25;
+
+line("Inspector Signature / Name:",data.signature);
+
+pdf.setFontSize(8);
+pdf.setTextColor(80);
+const disclaimer = "This inspection is a visual assessment only and does not constitute certification of the fire door assembly. Any defects identified should be rectified by a competent person in accordance with current fire safety legislation, British Standards and manufacturer requirements.";
+const dLines = pdf.splitTextToSize(disclaimer, W - m*2);
+pdf.text(dLines,m,H-70);
+
+return pdf;
+}
+
+window.createPdf = function(){
+const data = getFormData();
+const pdf = buildPdf(data);
+pdf.save(`${safeFileName(data.ref)}.pdf`);
+};
+
+window.saveCreateAndSharePDF = async function(){
 const data = await window.saveInspection();
 if(!data) return;
 
-const message =
-`Ford Property Services - Fire Door Inspection%0A%0A` +
-`Reference: ${encodeURIComponent(data.ref)}%0A` +
-`Date: ${encodeURIComponent(data.date)}%0A` +
-`Address: ${encodeURIComponent(data.address)}%0A` +
-`Door / Flat: ${encodeURIComponent(data.doorNumber)}%0A` +
-`Door Ref: ${encodeURIComponent(data.doorRef)}%0A` +
-`Result: ${encodeURIComponent(data.result)}%0A%0A` +
-`Comments: ${encodeURIComponent(data.overallComments || "No comments added")}`;
+try{
+const pdf = buildPdf(data);
+const blob = pdf.output("blob");
+const file = new File([blob], `${safeFileName(data.ref)}.pdf`, {type:"application/pdf"});
 
-window.open(`https://wa.me/?text=${message}`,"_blank");
+if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
+await navigator.share({
+title:"Ford Property Services Fire Door Inspection",
+text:`Fire Door Inspection ${data.ref}`,
+files:[file]
+});
+return;
+}
+
+pdf.save(`${safeFileName(data.ref)}.pdf`);
+alert("PDF created. Your device did not allow direct WhatsApp sharing from this browser, so the PDF has been downloaded.");
+
+}catch(error){
+console.error(error);
+alert("PDF share failed. Try Create PDF instead.");
+}
 };
 
 window.loadInspection = async function(){
@@ -456,15 +590,21 @@ const status = document.getElementById("status");
 status.innerText = "Loading inspection...";
 
 try{
-const snap = await getDoc(doc(db,"fireDoorInspections",refNo));
+let data = null;
 
-if(!snap.exists()){
+const snap = await getDoc(doc(db,"fireDoorInspections",refNo));
+if(snap.exists()){
+data = snap.data();
+}else{
+const local = localStorage.getItem("fireDoorInspection_" + refNo);
+if(local) data = JSON.parse(local);
+}
+
+if(!data){
 alert("No inspection found with that reference.");
 status.innerText = "";
 return;
 }
-
-const data = snap.data();
 
 document.getElementById("ref").value = data.ref || "";
 document.getElementById("date").value = data.date || "";
@@ -476,6 +616,10 @@ document.getElementById("doorRef").value = data.doorRef || "";
 document.getElementById("result").value = data.result || "PASS";
 document.getElementById("overallComments").value = data.overallComments || "";
 document.getElementById("signature").value = data.signature || "";
+
+if(data.selectedJobId){
+document.getElementById("jobDropdown").value = data.selectedJobId;
+}
 
 Object.entries(data.radios || {}).forEach(([name,value])=>{
 const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
@@ -518,4 +662,3 @@ loadJobs();
 
 </body>
 </html>
-<!-- FULL CODE END -->
